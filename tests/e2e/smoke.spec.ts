@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 
 test("navigates the Crown Isle merchandising workflow", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Merchandising Dashboard" })).toBeVisible();
-  await page.getByRole("link", { name: "Floorplan" }).click();
+  await page.getByRole("link", { name: "Displays" }).click();
   await expect(page.getByLabel("Crown Isle merchandising floorplan")).toBeVisible();
   await page.getByRole("button", { name: /Endcap A/ }).click();
   await expect(page.getByRole("heading", { name: "Endcap A" })).toBeVisible();
@@ -45,3 +45,22 @@ for (const route of directRoutes) {
     await expect(page).toHaveURL(new RegExp(`${route.path.replaceAll("/", "\\/")}$`));
   });
 }
+
+test("keeps the application shell responsive without page overflow", async ({ page }, testInfo) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`shell-${viewport.width}.png`), fullPage: true });
+  }
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("shell-tablet.png"), fullPage: true });
+});

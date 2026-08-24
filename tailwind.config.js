@@ -7,16 +7,26 @@ export default {
       colors: {
         "page-canvas": "var(--color-page-canvas)",
         surface: "var(--color-surface)",
+        sidebar: "var(--color-sidebar)",
+        "sidebar-hover": "var(--color-sidebar-hover)",
         "primary-hover": "var(--color-primary-hover)",
+        "primary-subtle": "var(--color-primary-subtle)",
         "text-primary": "var(--color-text-primary)",
         "text-secondary": "var(--color-text-secondary)",
         "text-muted": "var(--color-text-muted)",
         subtle: "var(--color-subtle)",
         success: "var(--color-success)",
+        "success-subtle": "var(--color-success-subtle)",
         warning: "var(--color-warning)",
+        "warning-subtle": "var(--color-warning-subtle)",
         error: "var(--color-error)",
+        "error-hover": "var(--color-error-hover)",
+        "error-subtle": "var(--color-error-subtle)",
         info: "var(--color-info)",
+        "info-subtle": "var(--color-info-subtle)",
         locked: "var(--color-locked)",
+        focus: "var(--color-focus)",
+        overlay: "var(--color-overlay)",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -28,6 +38,7 @@ export default {
           foreground: "hsl(var(--muted-foreground))",
         },
         border: "hsl(var(--border))",
+        "border-strong": "var(--color-border-strong)",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         primary: {
@@ -46,6 +57,7 @@ export default {
         xl: "var(--radius-xl)",
       },
       boxShadow: {
+        card: "var(--shadow-card)",
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         overlay: "var(--shadow-overlay)",
@@ -54,4 +66,3 @@ export default {
   },
   plugins: [require("tailwindcss-animate")],
 };
-
