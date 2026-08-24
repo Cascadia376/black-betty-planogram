@@ -2,18 +2,19 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  timeout: 30_000,
+  timeout: 60_000,
   expect: {
     timeout: 5_000,
   },
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: "http://localhost:5173",
     trace: "on-first-retry",
+    launchOptions: { args: ["--no-proxy-server"] },
   },
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1",
+    command: "npm run dev -- --host ::",
     reuseExistingServer: !process.env.CI,
-    url: "http://127.0.0.1:5173",
+    url: "http://localhost:5173",
   },
   projects: [
     {
@@ -22,4 +23,3 @@ export default defineConfig({
     },
   ],
 });
-

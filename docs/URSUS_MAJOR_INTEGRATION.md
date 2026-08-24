@@ -19,17 +19,11 @@ Avoid storing unnecessary employee personal information in merchandising records
 
 ## 3. Supabase Integration Points
 
-Future Supabase-backed repositories should implement the interfaces in `src/domain/repositories`:
-
-- `CampaignRepository`
-- `StoreRepository`
-- `DisplayAreaRepository`
-- `ExecutionRepository`
-- `ComplianceRepository`
-- `PerformanceRepository`
-- `RecommendationRepository`
+Future Supabase-backed data access should implement `MerchandisingRepository` in `src/domain/repositories.ts`. Its methods cover snapshot loading and the campaign, assignment, execution, compliance, and recommendation mutations needed by the UI.
 
 UI components must continue to depend on repository interfaces through the service container rather than direct Supabase calls.
+
+The initial Supabase adapter is deliberately non-operational. Enabling it requires approved schema migrations, explicit Data API grants, RLS policies, and contract tests against a non-production project.
 
 ## 4. Required Shared IDs
 
@@ -101,4 +95,3 @@ Candidates:
 - Do not use production Supabase without explicit approval.
 - Keep recommendations explainable and rule-based until an approved AI strategy exists.
 - Keep persistent display areas as first-class records independent of campaign assignments.
-

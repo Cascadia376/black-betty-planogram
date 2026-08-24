@@ -27,7 +27,7 @@ Routes included:
 
 ## Architecture
 
-UI components do not call Supabase directly. They read and mutate data through domain-facing repository interfaces exposed by `src/services.ts`.
+UI components do not call Supabase directly. They read and mutate data through the domain-facing `MerchandisingRepository` exposed by `src/services/PlatformProvider.tsx`.
 
 Primary boundaries:
 
@@ -37,6 +37,8 @@ Primary boundaries:
 - `src/features`: screen-level components grouped by merchandising domain.
 - `src/components`: reusable application shell and UI primitives.
 - `docs`: architecture and Ursus Major integration notes.
+
+The table-level schema contract is documented in `docs/DATA_MODEL.md`. No production database migration is included or applied in the mock-first MVP.
 
 ## Development
 
@@ -65,4 +67,3 @@ VITE_URSUS_MAJOR_BASE_URL=
 ```
 
 Never put service-role Supabase keys in browser-accessible environment variables.
-
