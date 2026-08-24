@@ -1,8 +1,9 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, MapPin, X } from "lucide-react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { clsx } from "clsx";
 import { Badge, Card, DataState, EmptyState, PageHeader, formatDate, humanize } from "../../components/ui";
 import { usePlatform } from "../../services/PlatformProvider";
+import { displayAreaStateLabels, FloorplanCanvas, type DisplayAreaState } from "./FloorplanCanvas";
 
 export function StoreOverviewPage() {
   const { storeId } = useParams();
@@ -18,35 +19,165 @@ export function StoreFloorplanPage() {
   const fixtures = data?.fixtures.filter((item) => item.storeId === storeId) ?? [];
   const areas = data?.displayAreas.filter((item) => item.storeId === storeId) ?? [];
   const selected = areas.find((item) => item.id === params.get("area"));
+  const operationalStateFor = (areaId: string): DisplayAreaState => {
+    const assignment = data?.assignments.find((item) => {
+      const campaign = data.campaigns.find((candidate) => candidate.id === item.campaignId);
+      return item.displayAreaId === areaId && (campaign?.status === "active" || campaign?.status === "scheduled");
+    });
+    if (!assignment) return "available";
+    const execution = data?.executions.find((item) => item.assignmentId === assignment.id);
+    if (execution?.status === "issue") return "requires_attention";
+    const campaign = data?.campaigns.find((item) => item.id === assignment.campaignId);
+    return campaign?.status === "active" ? "active_campaign" : "upcoming_campaign";
+  };
+  const stateFor = (areaId: string): DisplayAreaState => selected?.id === areaId ? "selected" : operationalStateFor(areaId);
+
   const details = selected ? (() => {
     const assignments = data?.assignments.filter((item) => item.displayAreaId === selected.id) ?? [];
-    const current = assignments.find((item) => data?.campaigns.find((campaign) => campaign.id === item.campaignId)?.status === "active");
-    const upcoming = assignments.find((item) => data?.campaigns.find((campaign) => campaign.id === item.campaignId)?.status === "scheduled");
-    const assignment = current ?? upcoming;
+    const assignment = assignments.find((item) => data?.campaigns.find((campaign) => campaign.id === item.campaignId)?.status === "active")
+      ?? assignments.find((item) => data?.campaigns.find((campaign) => campaign.id === item.campaignId)?.status === "scheduled");
     const campaign = data?.campaigns.find((item) => item.id === assignment?.campaignId);
     const execution = data?.executions.find((item) => item.assignmentId === assignment?.id);
     const review = data?.complianceReviews.find((item) => item.executionId === execution?.id);
-    const performance = data?.performance.filter((item) => item.displayAreaId === selected.id).sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))[0];
-    return { campaign, execution, review, performance };
+    const performance = [...(data?.performance.filter((item) => item.displayAreaId === selected.id) ?? [])]
+      .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd))[0];
+    return {
+      zone: zones.find((item) => item.id === selected.zoneId),
+      fixture: fixtures.find((item) => item.id === selected.fixtureId),
+      campaign,
+      execution,
+      review,
+      performance,
+      state: operationalStateFor(selected.id),
+    };
   })() : undefined;
-  const stateFor = (areaId: string) => {
-    if (selected?.id === areaId) return "selected";
-    const assignment = data?.assignments.find((item) => item.displayAreaId === areaId && data.campaigns.find((campaign) => campaign.id === item.campaignId)?.status !== "completed");
-    if (!assignment) return "available";
-    const campaign = data?.campaigns.find((item) => item.id === assignment.campaignId);
-    const execution = data?.executions.find((item) => item.assignmentId === assignment.id);
-    if (execution?.status === "issue") return "requires_attention";
-    return campaign?.status === "active" ? "active_campaign" : "upcoming_campaign";
+
+  const selectArea = (areaId: string) => {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("area", areaId);
+      return next;
+    });
   };
-  const stateClass = { available: "border-text-muted bg-surface", active_campaign: "border-success bg-success", upcoming_campaign: "border-info bg-info", requires_attention: "border-error bg-error", selected: "border-primary bg-primary ring-4 ring-primary/25" };
-  return <DataState loading={loading} error={error}>{!store ? <EmptyState title="Store not found" message="The requested store is not available." /> : <><PageHeader eyebrow="Locate" title={`${store.name} floorplan`} description="A spatial index of persistent merchandising assets. Geometry is normalized and responsive; ordinary shelf positions are intentionally excluded." actions={<Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold" to={`/stores/${store.id}/workspace`}>Store workspace</Link>} />
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]"><Card className="overflow-hidden"><div className="mb-3 flex flex-wrap gap-4 text-xs">{[{ key: "available", label: "Available" }, { key: "active_campaign", label: "Active" }, { key: "upcoming_campaign", label: "Upcoming" }, { key: "requires_attention", label: "Attention" }].map((item) => <span key={item.key} className="flex items-center gap-1.5"><i className={clsx("h-3 w-3 border-2", stateClass[item.key as keyof typeof stateClass])} />{item.label}</span>)}</div><div className="relative mx-auto aspect-[4/3] w-full max-w-5xl overflow-hidden border-8 border-locked bg-surface" aria-label={`${store.name} merchandising floorplan`}>
-      <div className="absolute left-[2%] top-[45%] flex h-[15%] w-[12%] items-center justify-center border border-dashed border-text-muted bg-subtle text-xs font-medium">Checkout</div><div className="absolute bottom-[3%] left-[38%] text-xs font-semibold text-text-muted">ENTRANCE</div>
-      {zones.map((zone) => <div key={zone.id} className="absolute border border-dashed border-border bg-subtle/35 p-2 text-[10px] font-semibold uppercase text-text-muted" style={{ left: `${zone.geometry.x * 100}%`, top: `${zone.geometry.y * 100}%`, width: `${zone.geometry.width * 100}%`, height: `${zone.geometry.height * 100}%` }}>{zone.name}</div>)}
-      {fixtures.map((fixture) => <div key={fixture.id} className="absolute border border-locked/40 bg-locked/15" title={fixture.name} style={{ left: `${fixture.geometry.x * 100}%`, top: `${fixture.geometry.y * 100}%`, width: `${fixture.geometry.width * 100}%`, height: `${fixture.geometry.height * 100}%` }} />)}
-      {areas.map((area) => { const state = stateFor(area.id); return <button key={area.id} aria-label={`${area.name}, ${humanize(state)}`} title={area.name} onClick={() => setParams({ area: area.id })} className={clsx("absolute z-10 border-2 shadow-sm transition hover:scale-110", stateClass[state])} style={{ left: `${area.geometry.x * 100}%`, top: `${area.geometry.y * 100}%`, width: `${Math.max(area.geometry.width * 100, 2.8)}%`, height: `${Math.max(area.geometry.height * 100, 4)}%` }} />; })}
-    </div></Card><aside>{selected && details ? <Card><div className="flex items-start justify-between"><div><p className="text-xs font-semibold uppercase text-text-muted">Persistent display area</p><h2 className="mt-1 text-lg font-semibold">{selected.name}</h2></div><MapPin className="h-5 w-5 text-primary" /></div><dl className="mt-4 space-y-3 text-sm"><div><dt className="text-text-muted">Type</dt><dd className="font-medium">{humanize(selected.type)}</dd></div><div><dt className="text-text-muted">Current program</dt><dd className="font-medium">{details.campaign?.name ?? "Available"}</dd></div><div><dt className="text-text-muted">Execution</dt><dd>{details.execution ? <Badge tone={details.execution.status === "issue" ? "error" : details.execution.status === "completed" ? "success" : "warning"}>{humanize(details.execution.status)}</Badge> : "No task"}</dd></div><div><dt className="text-text-muted">Compliance</dt><dd className="font-medium">{details.review ? `${details.review.score}% · ${humanize(details.review.decision)}` : "Not reviewed"}</dd></div><div><dt className="text-text-muted">Recent performance</dt><dd className="font-medium">{details.performance ? `${details.performance.salesLiftPercent > 0 ? "+" : ""}${details.performance.salesLiftPercent}% mock sales lift` : "Limited data"}</dd></div></dl><Link className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-primary" to={`/display-areas/${selected.id}`}>Open area profile <ArrowRight className="h-4 w-4" /></Link></Card> : <Card><div className="grid min-h-56 place-items-center text-center"><div><MapPin className="mx-auto h-6 w-6 text-text-muted" /><p className="mt-3 font-medium">Select a display area</p><p className="mt-1 text-sm text-text-muted">Choose a highlighted asset to inspect its current campaign and history.</p></div></div></Card>}</aside></div>
-  </>}</DataState>;
+  const clearSelection = () => {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("area");
+      return next;
+    });
+  };
+  const legendStyles: Record<DisplayAreaState, string> = {
+    available: "border-border-strong bg-surface",
+    active_campaign: "border-success bg-success",
+    upcoming_campaign: "border-info bg-info",
+    requires_attention: "border-error bg-error",
+    selected: "border-primary bg-primary ring-2 ring-focus",
+  };
+  const badgeTone = (state: DisplayAreaState) => state === "active_campaign" ? "success" : state === "upcoming_campaign" ? "info" : state === "requires_attention" ? "error" : "neutral";
+
+  return (
+    <DataState loading={loading} error={error}>
+      {!store ? <EmptyState title="Store not found" message="The requested store is not available." /> : (
+        <>
+          <PageHeader
+            eyebrow="Persistent display areas"
+            title={`${store.name} floorplan`}
+            description="A simplified spatial index of zones, fixtures, and reusable merchandising assets."
+            actions={
+              <Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>
+                Store workspace <ArrowRight className="h-4 w-4" />
+              </Link>
+            }
+          />
+
+          <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <Card className="min-w-0 overflow-hidden p-0">
+              <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold">Store layout</h2>
+                  <p className="mt-1 text-xs text-text-muted">{areas.length} persistent display areas · simplified context</p>
+                </div>
+                <div aria-label="Display area state legend" className="flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-text-secondary">
+                  {(Object.keys(displayAreaStateLabels) as DisplayAreaState[]).map((state) => (
+                    <span key={state} className="flex items-center gap-1.5">
+                      <i aria-hidden="true" className={clsx("h-3 w-3 rounded-sm border-2", legendStyles[state])} />
+                      {displayAreaStateLabels[state]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 sm:p-5">
+                <FloorplanCanvas
+                  storeName={store.name}
+                  zones={zones}
+                  fixtures={fixtures}
+                  areas={areas}
+                  selectedAreaId={selected?.id}
+                  stateFor={stateFor}
+                  onSelect={selectArea}
+                />
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[11px] leading-4 text-text-muted">Numbered markers are persistent display areas. Structural labels provide simplified visual context only.</p>
+                  {selected && <button type="button" onClick={clearSelection} className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-xs font-semibold hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"><X className="h-3.5 w-3.5" />Clear selection</button>}
+                </div>
+              </div>
+            </Card>
+
+            <aside className="min-w-0">
+              {selected && details ? (
+                <Card className="overflow-hidden p-0 xl:sticky xl:top-24">
+                  <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase text-text-muted">Persistent display area</p>
+                      <h2 className="mt-1 truncate text-lg font-semibold">{selected.name}</h2>
+                    </div>
+                    <Badge tone={badgeTone(details.state)}>{displayAreaStateLabels[details.state]}</Badge>
+                  </div>
+                  <div className="divide-y divide-border">
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 px-5 py-4 text-xs">
+                      <div><dt className="text-text-muted">Type</dt><dd className="mt-1 font-semibold">{humanize(selected.type)}</dd></div>
+                      <div><dt className="text-text-muted">Capacity</dt><dd className="mt-1 font-semibold">{selected.capacity}</dd></div>
+                      <div><dt className="text-text-muted">Zone</dt><dd className="mt-1 font-semibold">{details.zone?.name ?? "Not mapped"}</dd></div>
+                      <div><dt className="text-text-muted">Fixture</dt><dd className="mt-1 font-semibold">{details.fixture?.name ?? "Not mapped"}</dd></div>
+                    </dl>
+                    <div className="px-5 py-4">
+                      <p className="text-[11px] font-semibold uppercase text-text-muted">Current or upcoming campaign</p>
+                      {details.campaign ? (
+                        <div className="mt-2">
+                          <Link className="text-sm font-semibold text-primary hover:text-primary-hover" to={`/campaigns/${details.campaign.id}`}>{details.campaign.name}</Link>
+                          <p className="mt-1 text-xs text-text-muted">{formatDate(details.campaign.startDate)} - {formatDate(details.campaign.endDate)}</p>
+                        </div>
+                      ) : <p className="mt-2 text-sm font-semibold">Available</p>}
+                    </div>
+                    <dl className="space-y-3 px-5 py-4 text-xs">
+                      <div className="flex items-center justify-between gap-3"><dt className="text-text-muted">Execution status</dt><dd>{details.execution ? <Badge tone={details.execution.status === "issue" ? "error" : details.execution.status === "completed" ? "success" : "warning"}>{humanize(details.execution.status)}</Badge> : <span className="font-semibold">No open task</span>}</dd></div>
+                      <div className="flex items-center justify-between gap-3"><dt className="text-text-muted">Compliance</dt><dd className="text-right font-semibold">{details.review ? `${details.review.score}% · ${humanize(details.review.decision)}` : "Not reviewed"}</dd></div>
+                      <div className="flex items-center justify-between gap-3"><dt className="text-text-muted">Most recent performance</dt><dd className="text-right font-semibold">{details.performance ? `${details.performance.salesLiftPercent > 0 ? "+" : ""}${details.performance.salesLiftPercent}% mock sales lift` : "Limited data"}</dd></div>
+                    </dl>
+                  </div>
+                  <div className="border-t border-border bg-subtle/50 p-4">
+                    <Link className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover" to={`/display-areas/${selected.id}`}>
+                      Persistent Display Area Profile <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="xl:sticky xl:top-24">
+                  <div className="grid min-h-64 place-items-center text-center">
+                    <div>
+                      <span className="mx-auto grid h-10 w-10 place-items-center rounded-md bg-primary-subtle text-primary"><MapPin className="h-5 w-5" /></span>
+                      <h2 className="mt-3 text-sm font-semibold">Select a display area</h2>
+                      <p className="mx-auto mt-1 max-w-56 text-xs leading-5 text-text-muted">Use a numbered marker to inspect its physical details, campaign, execution, and performance.</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </aside>
+          </div>
+        </>
+      )}
+    </DataState>
+  );
 }
 
 export function StoreWorkspacePage() {
