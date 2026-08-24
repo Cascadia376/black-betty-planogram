@@ -55,6 +55,23 @@ npm run build
 npm run test:e2e
 ```
 
+## Vercel Deployment
+
+This repository is a Vite single-page application using `BrowserRouter`. The root-level `vercel.json` rewrites direct route requests to `index.html`, allowing React Router to resolve deep links and browser refreshes.
+
+Use these Vercel project settings:
+
+- Framework Preset: `Vite`
+- Root Directory: `.` (repository root)
+- Install Command: `npm install` (Vercel default)
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Node.js Version: `22.x`
+
+No environment variables are required for the prototype. Leave `VITE_DATA_ADAPTER` unset so the application continues to use its mock repository and browser `localStorage`.
+
+After deployment, verify at least one parameterized route by opening it directly in a new browser tab and refreshing it. The rewrite should return the application shell while preserving the requested URL.
+
 ## Environment
 
 The MVP defaults to mock data. Supabase configuration is optional until the adapter is implemented.
