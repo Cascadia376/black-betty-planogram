@@ -30,6 +30,39 @@ test("presents the merchandising dashboard priorities and actions", async ({ pag
 
 const crownIsleFloorplan = "/stores/10000000-0000-4000-8000-000000000001/floorplan";
 const endcapAId = "40000000-0000-4000-8000-000000000001";
+const ondProgram = "/programs/c0000000-0000-4000-8000-000000000001";
+
+test("loads the OND program workspace with store and reset actions", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(ondProgram);
+
+  await expect(page.getByRole("heading", { name: "OND 2026" })).toBeVisible();
+  await expect(page.getByText("Program timeline", { exact: true })).toBeVisible();
+  await expect(page.getByText("Nov 12 reset", { exact: true })).toBeVisible();
+  await expect(page.getByText("Upcoming resets", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Display 1 · Endcap A/)).toBeVisible();
+  await expect(page.getByText(/Display 3 · Cooler Doors 1-4/)).toBeVisible();
+
+  await expect(page.getByRole("link", { name: /Open store/ }).first()).toHaveAttribute("href", "/stores/10000000-0000-4000-8000-000000000001/workspace");
+  await expect(page.getByRole("link", { name: "Review display assignments" })).toHaveAttribute("href", crownIsleFloorplan);
+  await expect(page.getByRole("link", { name: "Review orders" })).toHaveAttribute("href", "#ordering-exceptions");
+});
+
+test("opens Crown Isle from the OND program workspace", async ({ page }) => {
+  await page.goto(ondProgram);
+  await page.getByRole("link", { name: /Open store/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Crown Isle merchandising workspace" })).toBeVisible();
+});
+
+test("keeps the OND program workspace within responsive viewports", async ({ page }, testInfo) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(ondProgram);
+    await expect(page.getByRole("heading", { name: "OND 2026" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`program-${viewport.width}.png`), fullPage: true });
+  }
+});
 
 test("loads the Crown Isle floorplan and selects a persistent display area", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -110,6 +143,7 @@ test("navigates the Crown Isle merchandising workflow", async ({ page }) => {
 
 const directRoutes = [
   { path: "/campaigns", heading: "Campaigns" },
+  { path: ondProgram, heading: "OND 2026" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/floorplan", heading: "Crown Isle floorplan" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/workspace", heading: "Crown Isle merchandising workspace" },
   { path: "/executions/70000000-0000-4000-8000-000000000001", heading: "September Beer Feature" },
