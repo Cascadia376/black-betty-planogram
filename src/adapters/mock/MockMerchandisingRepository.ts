@@ -39,7 +39,11 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     inboundOrders: snapshot.inboundOrders ?? defaults.inboundOrders,
     orderRecommendations: snapshot.orderRecommendations ?? defaults.orderRecommendations,
     historicalDemand: snapshot.historicalDemand ?? defaults.historicalDemand,
-    bridgeStrategies: snapshot.bridgeStrategies ?? defaults.bridgeStrategies,
+    bridgeStrategies: (snapshot.bridgeStrategies ?? defaults.bridgeStrategies).map((strategy) => {
+      const seeded = defaults.bridgeStrategies.find((item) => item.productId === strategy.productId);
+      return { ...strategy, strategy: strategy.strategy ?? seeded?.strategy ?? "NORMAL_CARRY" };
+    }),
+    residualDemandInputs: snapshot.residualDemandInputs ?? defaults.residualDemandInputs,
   };
 }
 

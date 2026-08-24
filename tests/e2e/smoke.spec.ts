@@ -44,6 +44,14 @@ test("shows order-today, bridge, and exit guidance for the store manager", async
   await expect(orderToday.getByText("6 cases", { exact: true }).last()).toBeVisible();
   await expect(page.getByText("Buying strategy: intentional bridge", { exact: true })).toBeVisible();
   await expect(page.getByText("Exit strategy: minimize post-program stock", { exact: true })).toBeVisible();
+  const bridge = page.getByRole("region", { name: "Intentional bridge inventory" });
+  await expect(bridge.getByText("Projected Jan 1 inventory", { exact: true })).toBeVisible();
+  await expect(bridge.getByText("Bridge inventory", { exact: true })).toBeVisible();
+  await expect(bridge.getByText("24 cases", { exact: true })).toBeVisible();
+  await expect(bridge.getByText("$288.00", { exact: true })).toBeVisible();
+  const residual = page.getByRole("region", { name: "Potential unwanted residual" });
+  await expect(residual.getByText("Unwanted residual", { exact: true })).toBeVisible();
+  await expect(residual.getByText("Unwanted residual", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText("5 cases");
   await expect(orderToday.getByRole("link", { name: "Locate display" })).toHaveAttribute("href", new RegExp(`program=${ondProgramId}.*area=`));
   await expect(orderToday.getByRole("link", { name: "Open assignment" })).toHaveAttribute("href", ondAllocations);
 });

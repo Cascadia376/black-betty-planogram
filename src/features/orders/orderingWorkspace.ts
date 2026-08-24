@@ -1,5 +1,6 @@
 import { selectSupplierForRequiredDate } from "../../domain/ordering";
 import type { OrderRecommendation, PlatformSnapshot } from "../../domain/types";
+import { calculateResidualInventory, type ResidualInventoryProjection } from "../../services/orders/ResidualInventoryService";
 
 export type OrderWorkspaceGroup = "order_today" | "at_risk" | "covered" | "arriving_soon" | "potential_residual" | "intentional_bridge";
 
@@ -13,6 +14,7 @@ export interface OrderWorkspaceItem {
   reservedCases: number;
   onOrderCases: number;
   supplierName: string;
+  residualProjection?: ResidualInventoryProjection;
 }
 
 function groupFor(recommendation: OrderRecommendation, supplierAvailable: boolean, onOrderCases: number): OrderWorkspaceGroup {
@@ -35,6 +37,9 @@ export function buildOrderWorkspaceItems(data: PlatformSnapshot, storeId: string
     const onOrderCases = inbound.reduce((total, order) => total + order.cases, 0);
     const selection = selectSupplierForRequiredDate(recommendation.productId, data.supplierProductOptions, recommendation.recommendationDate, recommendation.requiredByDate);
     const supplier = data.suppliers.find((item) => item.id === recommendation.supplierId);
-    return [{ recommendation, assignment, assignmentProduct, area, onHandCases: inventory?.onHandCases ?? 0, reservedCases: inventory?.reservedCases ?? 0, onOrderCases, supplierName: selection?.option.supplierName ?? supplier?.name ?? "Supplier review required", group: groupFor(recommendation, Boolean(selection), onOrderCases) }];
+    const strategy = data.bridgeStrategies.find((item) => item.productId === recommendation.productId);
+    const residualInput = data.residualDemandInputs.find((item) => item.storeId === storeId && item.productId === recommendation.productId);
+    const residualProjection = strategy && residualInput ? calculateResidualInventory(strategy, residualInput) : undefined;
+    return [{ recommendation, assignment, assignmentProduct, area, onHandCases: inventory?.onHandCases ?? 0, reservedCases: inventory?.reservedCases ?? 0, onOrderCases, supplierName: selection?.option.supplierName ?? supplier?.name ?? "Supplier review required", residualProjection, group: groupFor(recommendation, Boolean(selection), onOrderCases) }];
   });
 }

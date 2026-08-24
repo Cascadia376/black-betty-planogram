@@ -16,11 +16,11 @@ export function orderStatusForAssignment(assignment: DisplayAssignment, data: Pl
 
   const productStatuses = products.map((product) => {
     const strategy = data.bridgeStrategies.find((item) => item.productId === product.productId);
-    if (strategy?.eligibility === "no") return "exit_planned";
+    if (strategy?.strategy === "EXIT") return "exit_planned";
     const supplierCovered = Boolean(product.preferredSupplierId)
       || data.supplierProductOptions.some((option) => option.productId === product.productId && option.preferred);
     if (!supplierCovered) return "at_risk";
-    if (strategy?.eligibility === "yes") return "bridge_planned";
+    if (strategy?.strategy === "BRIDGE_BUY" && strategy.eligibility === "yes") return "bridge_planned";
     return "covered";
   });
 

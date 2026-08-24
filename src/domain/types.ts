@@ -6,7 +6,8 @@ export type MerchandisingProgramStatus = "draft" | "planned" | "active" | "compl
 export type DisplayAssignmentStatus = "draft" | "planned" | "ready" | "active" | "completed" | "cancelled";
 export type SupplierAvailability = "available" | "limited" | "unavailable" | "unknown";
 export type InboundOrderStatus = "draft" | "submitted" | "confirmed" | "received" | "cancelled";
-export type OrderRecommendationType = "opening_fill" | "replenishment" | "peak_build" | "bridge_buy" | "exit_control";
+export type OrderRecommendationType = "opening_fill" | "replenishment" | "normal_replenishment" | "peak_build" | "bridge_buy" | "exit_control";
+export type ProductInventoryStrategy = "EXIT" | "NORMAL_CARRY" | "BRIDGE_BUY";
 export type OrderRecommendationStatus = "pending" | "accepted" | "edited" | "dismissed" | "ordered";
 export type CampaignType =
   | "Monthly flyer"
@@ -225,11 +226,25 @@ export interface OrderRecommendation {
 
 export interface BridgeStrategy {
   productId: UUID;
+  strategy: ProductInventoryStrategy;
   eligibility: "yes" | "no" | "review";
   bridgeHorizonDays?: number;
   maxWeeksOfSupply?: number;
   maxCases?: number;
+  ltoEndDate?: string;
+  promotionalCost?: number;
+  expectedPostLtoCost?: number;
   note?: string;
+}
+
+export interface ResidualDemandInput {
+  storeId: UUID;
+  productId: UUID;
+  projectedQ1Volume: number;
+  currentStock: number;
+  inboundStock: number;
+  ondForecastConsumption: number;
+  normalWeeksOfSupply?: number;
 }
 
 export interface CampaignAssignment {
@@ -334,6 +349,7 @@ export interface PlatformSnapshot {
   orderRecommendations: OrderRecommendation[];
   historicalDemand: DemandHistoryRecord[];
   bridgeStrategies: BridgeStrategy[];
+  residualDemandInputs: ResidualDemandInput[];
   campaigns: Campaign[];
   assignments: CampaignAssignment[];
   executions: ExecutionTask[];

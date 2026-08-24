@@ -143,8 +143,18 @@ export const seedSnapshot: PlatformSnapshot = {
     { id: "d1000000-0000-4000-8000-000000000005", storeId: IDS.eagleStore, productId: "mock-category-only-cider", category: "Cider", date: "2025-12-10", cases: 5 },
   ],
   bridgeStrategies: [
-    { productId: IDS.ondBridgeProduct, eligibility: "yes", bridgeHorizonDays: 21, maxWeeksOfSupply: 3, maxCases: 24, note: "Synthetic buying decision for a short OND availability gap." },
-    { productId: IDS.ondExitProduct, eligibility: "no", note: "Synthetic exit-oriented seasonal SKU; do not bridge after its planned period." },
+    { productId: IDS.ondBridgeProduct, strategy: "BRIDGE_BUY", eligibility: "yes", bridgeHorizonDays: 21, maxWeeksOfSupply: 3, maxCases: 24, ltoEndDate: "2026-11-11", promotionalCost: 120, expectedPostLtoCost: 132, note: "Synthetic buying decision for a short OND availability gap." },
+    { productId: IDS.ondExitProduct, strategy: "EXIT", eligibility: "no", ltoEndDate: "2026-12-31", note: "Synthetic exit-oriented seasonal SKU; do not bridge after its planned period." },
+    { productId: IDS.ondHarvestProduct, strategy: "NORMAL_CARRY", eligibility: "no", ltoEndDate: "2026-12-31", note: "Synthetic core item returns to normal carry after OND." },
+    { productId: IDS.ondHolidayProduct, strategy: "NORMAL_CARRY", eligibility: "no", ltoEndDate: "2026-12-31" },
+    { productId: IDS.ondCiderProduct, strategy: "NORMAL_CARRY", eligibility: "no", ltoEndDate: "2026-11-11" },
+  ],
+  residualDemandInputs: [
+    { storeId: IDS.store, productId: IDS.ondBridgeProduct, projectedQ1Volume: 180, currentStock: 2, inboundStock: 0, ondForecastConsumption: 16 },
+    { storeId: IDS.store, productId: IDS.ondExitProduct, projectedQ1Volume: 12, currentStock: 9, inboundStock: 0, ondForecastConsumption: 4 },
+    { storeId: IDS.store, productId: IDS.ondHarvestProduct, projectedQ1Volume: 90, currentStock: 5, inboundStock: 2, ondForecastConsumption: 12, normalWeeksOfSupply: 2 },
+    { storeId: IDS.store, productId: IDS.ondHolidayProduct, projectedQ1Volume: 40, currentStock: 14, inboundStock: 0, ondForecastConsumption: 14, normalWeeksOfSupply: 2 },
+    { storeId: IDS.store, productId: IDS.ondCiderProduct, projectedQ1Volume: 30, currentStock: 0, inboundStock: 0, ondForecastConsumption: 0 },
   ],
   campaigns: [
     {

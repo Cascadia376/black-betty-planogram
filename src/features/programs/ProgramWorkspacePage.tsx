@@ -72,10 +72,10 @@ export function ProgramWorkspacePage() {
       || data?.supplierProductOptions.some((option) => option.productId === productId && option.preferred);
     let status: OrderingStatus = supplierCovered ? "covered" : "at risk";
     let rationale = supplierCovered ? "Preferred supplier coverage is recorded." : "No preferred supplier option is recorded.";
-    if (strategy?.eligibility === "yes") {
+    if (strategy?.strategy === "BRIDGE_BUY" && strategy.eligibility === "yes") {
       status = "bridge opportunity";
       rationale = strategy.note ?? "Eligible for a limited bridge buy.";
-    } else if (strategy?.eligibility === "no") {
+    } else if (strategy?.strategy === "EXIT") {
       status = "exit risk";
       rationale = strategy.note ?? "Exit-oriented item is not eligible for bridging.";
     }

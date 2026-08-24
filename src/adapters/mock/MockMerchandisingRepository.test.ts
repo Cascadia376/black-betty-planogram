@@ -101,6 +101,7 @@ describe("mock merchandising workflow", () => {
     const repository = new MockMerchandisingRepository();
     await repository.saveBridgeStrategy({
       productId: IDS.ondBridgeProduct,
+      strategy: "BRIDGE_BUY",
       eligibility: "review",
       bridgeHorizonDays: 14,
       maxWeeksOfSupply: 2,
@@ -112,6 +113,7 @@ describe("mock merchandising workflow", () => {
     const state = await reloadedRepository.load();
     expect(state.bridgeStrategies.find((item) => item.productId === IDS.ondBridgeProduct)).toEqual({
       productId: IDS.ondBridgeProduct,
+      strategy: "BRIDGE_BUY",
       eligibility: "review",
       bridgeHorizonDays: 14,
       maxWeeksOfSupply: 2,

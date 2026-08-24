@@ -15,6 +15,7 @@ export function OrderRecommendationCard({ item, data, programId, update }: { ite
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const details = assignmentProduct ? productDetails(assignmentProduct, data) : { name: recommendation.productId, category: "Uncategorized", supplierName: item.supplierName };
+  const residual = item.residualProjection;
 
   const act = async (input: Omit<UpdateOrderRecommendationInput, "id">, success: string) => {
     setActionError(""); setMessage("");
@@ -39,7 +40,14 @@ export function OrderRecommendationCard({ item, data, programId, update }: { ite
       <Metric label="Recommended order" value={`${recommendation.recommendedCases} cases`} strong />
       <Metric label="Required by" value={formatDate(recommendation.requiredByDate)} />
     </dl>
+    <dl className="mt-4 grid grid-cols-2 gap-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-4">
+      <Metric label="Projected Jan 1 inventory" value={residual ? `${residual.projectedInventoryAtProgramEnd} cases` : "Not available"} />
+      <Metric label="Bridge inventory" value={residual ? `${residual.intentionalBridgeInventory} cases` : "Not available"} />
+      <Metric label="Unwanted residual" value={residual ? `${residual.unwantedResidual} cases` : "Not available"} />
+      <Metric label="Estimated bridge margin captured" value={residual?.incrementalMarginOpportunity !== undefined ? `$${residual.incrementalMarginOpportunity.toFixed(2)}` : "Not available"} />
+    </dl>
     <div className="mt-4 rounded-md bg-subtle px-3 py-3"><p className="text-[10px] font-semibold uppercase text-text-muted">Rationale</p><p className="mt-1 text-sm leading-5 text-text-secondary">{recommendation.rationale}</p></div>
+    {residual && <div className="mt-3 rounded-md border border-border px-3 py-3"><p className="text-[10px] font-semibold uppercase text-text-muted">Residual strategy</p><p className="mt-1 text-sm leading-5 text-text-secondary">{residual.explanation}</p></div>}
     <div className="mt-3 flex flex-wrap gap-2"><Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${recommendation.storeId}/floorplan?${floorplanQuery}`}><MapPin className="h-4 w-4" />Locate display</Link>{assignment && <Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/programs/${assignment.programId}/allocations`}><PackageCheck className="h-4 w-4" />Open assignment</Link>}<Button type="button" variant="secondary" disabled title="Product details route is not available yet">View product details</Button></div>
   </div><aside className="space-y-3 border-t border-border pt-4 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
     <div><p className="text-[10px] font-semibold uppercase text-text-muted">Supplier</p><p className="mt-1 text-sm font-semibold">{item.supplierName}</p></div>
