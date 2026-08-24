@@ -30,7 +30,9 @@ test("presents the merchandising dashboard priorities and actions", async ({ pag
 
 const crownIsleFloorplan = "/stores/10000000-0000-4000-8000-000000000001/floorplan";
 const endcapAId = "40000000-0000-4000-8000-000000000001";
-const ondProgram = "/programs/c0000000-0000-4000-8000-000000000001";
+const ondProgramId = "c0000000-0000-4000-8000-000000000001";
+const ondProgram = `/programs/${ondProgramId}`;
+const ondFloorplan = `${crownIsleFloorplan}?program=${ondProgramId}`;
 
 test("loads the OND program workspace with store and reset actions", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -44,7 +46,7 @@ test("loads the OND program workspace with store and reset actions", async ({ pa
   await expect(page.getByText(/Display 3 · Cooler Doors 1-4/)).toBeVisible();
 
   await expect(page.getByRole("link", { name: /Open store/ }).first()).toHaveAttribute("href", "/stores/10000000-0000-4000-8000-000000000001/workspace");
-  await expect(page.getByRole("link", { name: "Review display assignments" })).toHaveAttribute("href", crownIsleFloorplan);
+  await expect(page.getByRole("link", { name: "Review display assignments" })).toHaveAttribute("href", ondFloorplan);
   await expect(page.getByRole("link", { name: "Review orders" })).toHaveAttribute("href", "#ordering-exceptions");
 });
 
@@ -62,6 +64,39 @@ test("keeps the OND program workspace within responsive viewports", async ({ pag
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`program-${viewport.width}.png`), fullPage: true });
   }
+});
+
+test("shows the current and next OND assignment for a selected display", async ({ page }) => {
+  await page.goto(ondFloorplan);
+  const canvas = page.getByLabel("Crown Isle merchandising floorplan");
+
+  await expect(canvas.getByRole("button", { name: /Endcap A, Upcoming reset/ })).toBeVisible();
+  await expect(canvas.getByRole("button", { name: /Feature Area 1, Current/ })).toBeVisible();
+  await expect(canvas.getByRole("button", { name: /Cooler Doors 1-4, Requires attention/ })).toBeVisible();
+  await canvas.getByRole("button", { name: /Endcap A/ }).click();
+
+  await expect(page).toHaveURL(new RegExp(`program=${ondProgramId}&area=${endcapAId}$`));
+  await expect(page.getByRole("heading", { name: "Endcap A" })).toBeVisible();
+  await expect(page.getByText("Display 1 · CI-D01", { exact: true })).toBeVisible();
+  await expect(page.getByText("Current assignment", { exact: true })).toBeVisible();
+  await expect(page.getByText("Oct 1, 2026 - Nov 11, 2026", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("MOCK-OND-1001", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("12 cases", { exact: true })).toBeVisible();
+  await expect(page.getByText("Bridge planned", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Next assignment", { exact: true })).toBeVisible();
+  await expect(page.getByText("Reset Nov 12, 2026", { exact: true })).toBeVisible();
+  await expect(page.getByText("MOCK-OND-2001", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("14 cases", { exact: true })).toBeVisible();
+});
+
+test("retains the OND program during keyboard display selection", async ({ page }) => {
+  await page.goto(ondFloorplan);
+  const area = page.getByLabel("Crown Isle merchandising floorplan").getByRole("button", { name: /Feature Area 1, Current/ });
+  await area.focus();
+  await expect(area).toBeFocused();
+  await area.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`program=${ondProgramId}&area=40000000-0000-4000-8000-000000000004$`));
+  await expect(page.getByRole("heading", { name: "Feature Area 1" })).toBeVisible();
 });
 
 test("loads the Crown Isle floorplan and selects a persistent display area", async ({ page }) => {
@@ -114,7 +149,7 @@ test("selects a floorplan display area with the keyboard", async ({ page }) => {
 test("keeps the floorplan within the viewport at desktop widths", async ({ page }, testInfo) => {
   for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }]) {
     await page.setViewportSize(viewport);
-    await page.goto(`${crownIsleFloorplan}?area=${endcapAId}`);
+    await page.goto(`${ondFloorplan}&area=${endcapAId}`);
     await expect(page.getByLabel("Crown Isle merchandising floorplan")).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`floorplan-${viewport.width}.png`), fullPage: true });

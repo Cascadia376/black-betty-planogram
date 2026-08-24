@@ -4,6 +4,8 @@ import { clsx } from "clsx";
 import { Badge, Card, DataState, EmptyState, PageHeader, formatDate, humanize } from "../../components/ui";
 import { usePlatform } from "../../services/PlatformProvider";
 import { displayAreaStateLabels, FloorplanCanvas, type DisplayAreaState } from "./FloorplanCanvas";
+import { ProgramDisplaySchedulePanel } from "./ProgramDisplaySchedulePanel";
+import { orderStatusForAssignment } from "./programSchedule";
 
 export function StoreOverviewPage() {
   const { storeId } = useParams();
@@ -19,7 +21,19 @@ export function StoreFloorplanPage() {
   const fixtures = data?.fixtures.filter((item) => item.storeId === storeId) ?? [];
   const areas = data?.displayAreas.filter((item) => item.storeId === storeId) ?? [];
   const selected = areas.find((item) => item.id === params.get("area"));
+  const selectedProgram = data?.programs.find((item) => item.id === params.get("program"));
+  const programAssignments = data?.displayAssignments.filter((item) => item.programId === selectedProgram?.id && item.storeId === storeId && item.status !== "cancelled") ?? [];
   const operationalStateFor = (areaId: string): DisplayAreaState => {
+    if (selectedProgram && data) {
+      const scheduled = programAssignments.filter((assignment) => assignment.displayAreaId === areaId);
+      if (scheduled.length === 0) return "available";
+      if (scheduled.some((assignment) => {
+        const status = orderStatusForAssignment(assignment, data);
+        return status === "at_risk" || status === "order_required";
+      })) return "requires_attention";
+      if (scheduled.length > 1 || scheduled.some((assignment) => assignment.resetRequired)) return "upcoming_reset";
+      return "current";
+    }
     const assignment = data?.assignments.find((item) => {
       const campaign = data.campaigns.find((candidate) => candidate.id === item.campaignId);
       return item.displayAreaId === areaId && (campaign?.status === "active" || campaign?.status === "scheduled");
@@ -70,10 +84,15 @@ export function StoreFloorplanPage() {
     available: "border-border-strong bg-surface",
     active_campaign: "border-success bg-success",
     upcoming_campaign: "border-info bg-info",
+    current: "border-success bg-success",
+    upcoming_reset: "border-warning bg-warning",
     requires_attention: "border-error bg-error",
     selected: "border-primary bg-primary ring-2 ring-focus",
   };
-  const badgeTone = (state: DisplayAreaState) => state === "active_campaign" ? "success" : state === "upcoming_campaign" ? "info" : state === "requires_attention" ? "error" : "neutral";
+  const legendStates: DisplayAreaState[] = selectedProgram
+    ? ["available", "current", "upcoming_reset", "requires_attention", "selected"]
+    : ["available", "active_campaign", "upcoming_campaign", "requires_attention", "selected"];
+  const badgeTone = (state: DisplayAreaState) => state === "active_campaign" || state === "current" ? "success" : state === "upcoming_campaign" ? "info" : state === "upcoming_reset" ? "warning" : state === "requires_attention" ? "error" : "neutral";
 
   return (
     <DataState loading={loading} error={error}>
@@ -82,11 +101,12 @@ export function StoreFloorplanPage() {
           <PageHeader
             eyebrow="Persistent display areas"
             title={`${store.name} floorplan`}
-            description="A simplified spatial index of zones, fixtures, and reusable merchandising assets."
+            description={selectedProgram ? `${selectedProgram.name} display schedule across persistent merchandising assets.` : "A simplified spatial index of zones, fixtures, and reusable merchandising assets."}
             actions={
-              <Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>
-                Store workspace <ArrowRight className="h-4 w-4" />
-              </Link>
+              <>
+                {selectedProgram && <Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/programs/${selectedProgram.id}`}>Open program</Link>}
+                <Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace <ArrowRight className="h-4 w-4" /></Link>
+              </>
             }
           />
 
@@ -98,7 +118,7 @@ export function StoreFloorplanPage() {
                   <p className="mt-1 text-xs text-text-muted">{areas.length} persistent display areas · simplified context</p>
                 </div>
                 <div aria-label="Display area state legend" className="flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-text-secondary">
-                  {(Object.keys(displayAreaStateLabels) as DisplayAreaState[]).map((state) => (
+                  {legendStates.map((state) => (
                     <span key={state} className="flex items-center gap-1.5">
                       <i aria-hidden="true" className={clsx("h-3 w-3 rounded-sm border-2", legendStyles[state])} />
                       {displayAreaStateLabels[state]}
@@ -124,7 +144,9 @@ export function StoreFloorplanPage() {
             </Card>
 
             <aside className="min-w-0">
-              {selected && details ? (
+              {selected && selectedProgram && data ? (
+                <ProgramDisplaySchedulePanel area={selected} programId={selectedProgram.id} data={data} />
+              ) : selected && details ? (
                 <Card className="overflow-hidden p-0 xl:sticky xl:top-24">
                   <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
                     <div className="min-w-0">

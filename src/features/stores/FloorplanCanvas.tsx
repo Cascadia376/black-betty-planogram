@@ -4,12 +4,14 @@ import { MapPin } from "lucide-react";
 import type { DisplayArea, Fixture, StoreZone } from "../../domain/types";
 import { humanize } from "../../components/ui";
 
-export type DisplayAreaState = "available" | "active_campaign" | "upcoming_campaign" | "requires_attention" | "selected";
+export type DisplayAreaState = "available" | "active_campaign" | "upcoming_campaign" | "current" | "upcoming_reset" | "requires_attention" | "selected";
 
 const stateStyles: Record<DisplayAreaState, string> = {
   available: "border-border-strong bg-surface text-text-primary",
   active_campaign: "border-success bg-success text-primary-foreground",
   upcoming_campaign: "border-info bg-info text-primary-foreground",
+  current: "border-success bg-success text-primary-foreground",
+  upcoming_reset: "border-warning bg-warning text-primary-foreground",
   requires_attention: "border-error bg-error text-destructive-foreground",
   selected: "border-primary bg-primary text-primary-foreground ring-4 ring-focus",
 };
@@ -18,6 +20,8 @@ export const displayAreaStateLabels: Record<DisplayAreaState, string> = {
   available: "Available",
   active_campaign: "Active campaign",
   upcoming_campaign: "Upcoming campaign",
+  current: "Current",
+  upcoming_reset: "Upcoming reset",
   requires_attention: "Requires attention",
   selected: "Selected",
 };

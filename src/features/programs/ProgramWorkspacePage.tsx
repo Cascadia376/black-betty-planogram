@@ -94,7 +94,7 @@ export function ProgramWorkspacePage() {
     {!program ? <EmptyState title="Program not found" message="The requested merchandising program is unavailable." /> : <>
       <PageHeader eyebrow="Quarterly merchandising program" title={program.name} description={`${formatDate(program.startDate)} - ${formatDate(program.endDate)} · ${program.description}`} actions={primaryStore && <>
         <Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${primaryStore.id}/workspace`}>Open store <ArrowRight className="h-4 w-4" /></Link>
-        <Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${primaryStore.id}/floorplan`}>Review display assignments</Link>
+        <Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${primaryStore.id}/floorplan?program=${program.id}`}>Review display assignments</Link>
         <a className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover" href="#ordering-exceptions">Review orders</a>
       </>} />
 
@@ -151,7 +151,7 @@ export function ProgramWorkspacePage() {
               <div><p className="text-sm font-semibold">Display {reset.area?.displayNumber} · {reset.area?.name}</p><p className="mt-1 text-xs text-text-muted">{reset.period?.name} → {reset.nextPeriod?.name ?? "Unassigned after reset"}</p></div>
               <Badge tone="info">{formatDate(reset.resetDate!)}</Badge>
             </div>
-            {reset.area && <Link className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary" to={`/stores/${reset.assignment.storeId}/floorplan?area=${reset.area.id}`}>Review assignment <ArrowRight className="h-3.5 w-3.5" /></Link>}
+            {reset.area && <Link className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary" to={`/stores/${reset.assignment.storeId}/floorplan?program=${program.id}&area=${reset.area.id}`}>Review assignment <ArrowRight className="h-3.5 w-3.5" /></Link>}
           </div>)}</div>
         </Card>
 
