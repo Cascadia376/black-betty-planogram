@@ -2,16 +2,24 @@ import type { PlatformSnapshot } from "../../domain/types";
 
 export const IDS = {
   store: "10000000-0000-4000-8000-000000000001",
+  eagleStore: "10000000-0000-4000-8000-000000000002",
   zoneEntrance: "20000000-0000-4000-8000-000000000001",
   zoneBeer: "20000000-0000-4000-8000-000000000002",
   zoneWine: "20000000-0000-4000-8000-000000000003",
+  eagleZoneFront: "20000000-0000-4000-8000-000000000004",
+  eagleZoneCooler: "20000000-0000-4000-8000-000000000005",
   fixtureEndcaps: "30000000-0000-4000-8000-000000000001",
   fixtureCooler: "30000000-0000-4000-8000-000000000002",
   fixtureFeature: "30000000-0000-4000-8000-000000000003",
+  eagleFixtureEndcaps: "30000000-0000-4000-8000-000000000004",
+  eagleFixtureCooler: "30000000-0000-4000-8000-000000000005",
   endcapA: "40000000-0000-4000-8000-000000000001",
   endcapB: "40000000-0000-4000-8000-000000000002",
   cooler14: "40000000-0000-4000-8000-000000000003",
   feature1: "40000000-0000-4000-8000-000000000004",
+  eagleEndcapA: "40000000-0000-4000-8000-000000000005",
+  eagleEndcapB: "40000000-0000-4000-8000-000000000006",
+  eagleCooler: "40000000-0000-4000-8000-000000000007",
   ondProgram: "c0000000-0000-4000-8000-000000000001",
   ondEarlyPeriod: "c1000000-0000-4000-8000-000000000001",
   ondHolidayPeriod: "c1000000-0000-4000-8000-000000000002",
@@ -38,22 +46,32 @@ export const IDS = {
 } as const;
 
 export const seedSnapshot: PlatformSnapshot = {
-  stores: [{ id: IDS.store, name: "Crown Isle", code: "CI", address: "Courtenay, BC" }],
+  stores: [
+    { id: IDS.store, name: "Crown Isle", code: "CI", address: "Courtenay, BC" },
+    { id: IDS.eagleStore, name: "Eagle Creek", code: "EC", address: "Victoria, BC (synthetic planning location)" },
+  ],
   zones: [
     { id: IDS.zoneEntrance, storeId: IDS.store, name: "Front feature", category: "Promotional", geometry: { x: 0.04, y: 0.06, width: 0.22, height: 0.36 } },
     { id: IDS.zoneBeer, storeId: IDS.store, name: "Beer & cooler", category: "Beer", geometry: { x: 0.7, y: 0.06, width: 0.26, height: 0.88 } },
     { id: IDS.zoneWine, storeId: IDS.store, name: "Wine gondolas", category: "Wine", geometry: { x: 0.3, y: 0.18, width: 0.34, height: 0.66 } },
+    { id: IDS.eagleZoneFront, storeId: IDS.eagleStore, name: "Front merchandising", category: "Promotional", geometry: { x: 0.06, y: 0.08, width: 0.58, height: 0.8 } },
+    { id: IDS.eagleZoneCooler, storeId: IDS.eagleStore, name: "Cooler perimeter", category: "Beer", geometry: { x: 0.7, y: 0.08, width: 0.24, height: 0.82 } },
   ],
   fixtures: [
     { id: IDS.fixtureEndcaps, storeId: IDS.store, zoneId: IDS.zoneWine, name: "Central gondola endcaps", type: "gondola", geometry: { x: 0.33, y: 0.22, width: 0.26, height: 0.56 } },
     { id: IDS.fixtureCooler, storeId: IDS.store, zoneId: IDS.zoneBeer, name: "Beer cooler perimeter", type: "cooler", geometry: { x: 0.74, y: 0.1, width: 0.18, height: 0.78 } },
     { id: IDS.fixtureFeature, storeId: IDS.store, zoneId: IDS.zoneEntrance, name: "Front feature fixtures", type: "feature", geometry: { x: 0.08, y: 0.12, width: 0.12, height: 0.22 } },
+    { id: IDS.eagleFixtureEndcaps, storeId: IDS.eagleStore, zoneId: IDS.eagleZoneFront, name: "Central endcaps", type: "gondola", geometry: { x: 0.28, y: 0.22, width: 0.28, height: 0.5 } },
+    { id: IDS.eagleFixtureCooler, storeId: IDS.eagleStore, zoneId: IDS.eagleZoneCooler, name: "Cooler run", type: "cooler", geometry: { x: 0.75, y: 0.14, width: 0.13, height: 0.66 } },
   ],
   displayAreas: [
     { id: IDS.endcapA, displayNumber: "1", code: "CI-D01", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap A", type: "endcap", description: "North-facing endcap on the central wine gondola.", capacity: "Approx. 24 cases", geometry: { x: 0.315, y: 0.22, width: 0.035, height: 0.14 } },
     { id: IDS.endcapB, displayNumber: "2", code: "CI-D02", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap B", type: "endcap", description: "South-facing endcap on the central wine gondola.", capacity: "Approx. 20 cases", geometry: { x: 0.57, y: 0.64, width: 0.035, height: 0.14 } },
     { id: IDS.cooler14, displayNumber: "3", code: "CI-D03", storeId: IDS.store, zoneId: IDS.zoneBeer, fixtureId: IDS.fixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Four-door group at the start of the beer cooler run.", capacity: "4 cooler doors", geometry: { x: 0.87, y: 0.18, width: 0.045, height: 0.28 } },
     { id: IDS.feature1, displayNumber: "4", code: "CI-D04", storeId: IDS.store, zoneId: IDS.zoneEntrance, fixtureId: IDS.fixtureFeature, name: "Feature Area 1", type: "feature_table", description: "Front-of-store feature table visible from entry.", capacity: "Approx. 16 cases", geometry: { x: 0.1, y: 0.17, width: 0.09, height: 0.08 } },
+    { id: IDS.eagleEndcapA, displayNumber: "1", code: "EC-D01", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneFront, fixtureId: IDS.eagleFixtureEndcaps, name: "Endcap A", type: "endcap", description: "Synthetic Eagle Creek endcap destination.", capacity: "Approx. 20 cases", geometry: { x: 0.265, y: 0.22, width: 0.04, height: 0.14 } },
+    { id: IDS.eagleEndcapB, displayNumber: "2", code: "EC-D02", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneFront, fixtureId: IDS.eagleFixtureEndcaps, name: "Endcap B", type: "endcap", description: "Synthetic Eagle Creek endcap destination.", capacity: "Approx. 18 cases", geometry: { x: 0.54, y: 0.58, width: 0.04, height: 0.14 } },
+    { id: IDS.eagleCooler, displayNumber: "3", code: "EC-D03", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneCooler, fixtureId: IDS.eagleFixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Synthetic four-door cooler destination.", capacity: "4 cooler doors", geometry: { x: 0.84, y: 0.2, width: 0.045, height: 0.28 } },
   ],
   programs: [
     {

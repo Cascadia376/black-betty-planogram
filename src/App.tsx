@@ -9,6 +9,7 @@ import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { ExecutionPage } from "./features/execution/ExecutionPage";
 import { DisplayAreaProfilePage, PerformancePage } from "./features/performance/PerformancePages";
 import { ProgramWorkspacePage } from "./features/programs/ProgramWorkspacePage";
+import { AllocationPlannerPage } from "./features/programs/AllocationPlannerPage";
 import { StoreFloorplanPage, StoreOverviewPage, StoreWorkspacePage } from "./features/stores/StorePages";
 import { PlatformProvider } from "./services/PlatformProvider";
 
@@ -21,6 +22,7 @@ export function App() {
     <Route path="campaigns/:campaignId/display" element={<DisplayDesignerPage />} />
     <Route path="campaigns/:campaignId/assign" element={<CampaignAssignmentPage />} />
     <Route path="programs/:programId" element={<ProgramWorkspacePage />} />
+    <Route path="programs/:programId/allocations" element={<AllocationPlannerPage />} />
     <Route path="stores/:storeId" element={<StoreOverviewPage />} />
     <Route path="stores/:storeId/floorplan" element={<StoreFloorplanPage />} />
     <Route path="stores/:storeId/workspace" element={<StoreWorkspacePage />} />

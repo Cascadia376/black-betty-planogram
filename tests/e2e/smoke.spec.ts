@@ -32,7 +32,61 @@ const crownIsleFloorplan = "/stores/10000000-0000-4000-8000-000000000001/floorpl
 const endcapAId = "40000000-0000-4000-8000-000000000001";
 const ondProgramId = "c0000000-0000-4000-8000-000000000001";
 const ondProgram = `/programs/${ondProgramId}`;
+const ondAllocations = `${ondProgram}/allocations`;
 const ondFloorplan = `${crownIsleFloorplan}?program=${ondProgramId}`;
+
+test("loads and filters the OND display allocation planner", async ({ page }) => {
+  await page.goto(ondAllocations);
+  await expect(page.getByRole("heading", { name: "OND 2026 allocations" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Display assignments" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Display #" })).toBeVisible();
+  await expect(page.getByText("MOCK-OND-1001", { exact: true }).first()).toBeVisible();
+  await page.getByLabel("Display type").selectOption("cooler_doors");
+  await expect(page.getByText("1 of 4 assignments")).toBeVisible();
+  await expect(page.getByText("Cooler Doors 1-4", { exact: true })).toBeVisible();
+});
+
+test("edits store-specific quantities and validates allocation rules", async ({ page }) => {
+  await page.goto(ondAllocations);
+  await page.getByRole("button", { name: "Edit" }).first().click();
+  const editor = page.getByRole("form", { name: "Assignment editor" });
+  await expect(editor.getByText("Products", { exact: true })).toBeVisible();
+  await expect(editor.getByLabel("Case quantity", { exact: true })).toHaveCount(2);
+  await expect(editor.getByLabel("Supplier").first()).toContainText("Mock Coastal Distribution");
+
+  await editor.getByLabel("Case quantity", { exact: true }).first().fill("0");
+  await editor.getByRole("button", { name: "Save assignment" }).click();
+  await expect(editor.getByRole("alert")).toContainText("case quantity of at least one");
+  await editor.getByLabel("Case quantity", { exact: true }).first().fill("20");
+  await editor.getByRole("button", { name: "Save assignment" }).click();
+  await expect(editor.getByRole("status")).toContainText("saved to mock storage");
+
+  await editor.getByTestId("display-area").selectOption(endcapAId);
+  await editor.getByLabel("Program period").selectOption("");
+  await editor.getByLabel("Start date").fill("2026-11-01");
+  await editor.getByLabel("End date").fill("2026-11-30");
+  await editor.getByRole("button", { name: "Save assignment" }).click();
+  await expect(editor.getByRole("alert")).toContainText("cannot overlap");
+});
+
+test("copies an allocation to another synthetic store", async ({ page }) => {
+  await page.goto(ondAllocations);
+  await page.getByRole("button", { name: "Edit" }).first().click();
+  const editor = page.getByRole("form", { name: "Assignment editor" });
+  await editor.getByRole("button", { name: "Copy assignment to another store" }).click();
+  await editor.getByRole("checkbox", { name: "Eagle Creek" }).check();
+  await editor.getByRole("button", { name: "Create copy" }).click();
+  await expect(editor.getByRole("status")).toContainText("copied to 1 store");
+});
+
+test("keeps the allocation planner within desktop viewports", async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(ondAllocations);
+    await expect(page.getByRole("heading", { name: "OND 2026 allocations" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
 
 test("loads the OND program workspace with store and reset actions", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -179,6 +233,7 @@ test("navigates the Crown Isle merchandising workflow", async ({ page }) => {
 const directRoutes = [
   { path: "/campaigns", heading: "Campaigns" },
   { path: ondProgram, heading: "OND 2026" },
+  { path: ondAllocations, heading: "OND 2026 allocations" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/floorplan", heading: "Crown Isle floorplan" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/workspace", heading: "Crown Isle merchandising workspace" },
   { path: "/executions/70000000-0000-4000-8000-000000000001", heading: "September Beer Feature" },

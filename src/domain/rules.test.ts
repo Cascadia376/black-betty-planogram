@@ -7,6 +7,7 @@ import {
   selectSupplierProductOption,
   validateCampaign,
   validateDisplayAssignment,
+  validateDisplayAssignmentProducts,
   validateGeometry,
 } from "./rules";
 import { IDS, seedSnapshot } from "../adapters/mock/seed";
@@ -46,6 +47,12 @@ describe("assignment compatibility", () => {
 });
 
 describe("OND display assignment scheduling", () => {
+  it("requires a positive case quantity for required products", () => {
+    const product = seedSnapshot.displayAssignmentProducts[0];
+    expect(validateDisplayAssignmentProducts([{ ...product, caseQuantity: 0 }])).toContain(
+      "Required assignment products need a case quantity of at least one.",
+    );
+  });
   it("accepts sequential assignments on one persistent display", () => {
     const [early, holiday] = seedSnapshot.displayAssignments.filter((item) => item.displayAreaId === IDS.endcapA);
     expect(early.endDate).toBe("2026-11-11");

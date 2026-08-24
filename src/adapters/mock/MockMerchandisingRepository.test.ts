@@ -70,6 +70,26 @@ describe("mock merchandising workflow", () => {
     expect(products[0].preferredSupplierId).toBe(IDS.ondPreferredSupplier);
   });
 
+  it("updates an assignment and replaces its store-specific quantities", async () => {
+    const repository = new MockMerchandisingRepository();
+    const input = ondAssignmentInput();
+    const assignment = await repository.createDisplayAssignment(input);
+    await repository.updateDisplayAssignment(assignment.id, {
+      assignment: { ...input.assignment, notes: "Updated in allocation planner." },
+      products: input.products.map((product, index) => ({ ...product, caseQuantity: index === 0 ? 24 : product.caseQuantity })),
+    });
+    const state = await repository.load();
+    expect(state.displayAssignments.find((item) => item.id === assignment.id)?.notes).toBe("Updated in allocation planner.");
+    expect(state.displayAssignmentProducts.filter((item) => item.assignmentId === assignment.id).map((item) => item.caseQuantity)).toEqual([24, 6]);
+  });
+
+  it("rejects a missing case quantity for a required assignment product", async () => {
+    const repository = new MockMerchandisingRepository();
+    const input = ondAssignmentInput();
+    input.products[0].caseQuantity = 0;
+    await expect(repository.createDisplayAssignment(input)).rejects.toThrow("case quantity of at least one");
+  });
+
   it("rejects overlapping OND assignments on one display", async () => {
     const repository = new MockMerchandisingRepository();
     await repository.createDisplayAssignment(ondAssignmentInput());

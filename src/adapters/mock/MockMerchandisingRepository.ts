@@ -85,6 +85,17 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
   }
 
   async createDisplayAssignment(input: CreateDisplayAssignmentInput) {
+    return this.saveDisplayAssignment(input);
+  }
+
+  async updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput) {
+    if (!this.state.displayAssignments.some((item) => item.id === id)) {
+      throw new Error("Display assignment was not found.");
+    }
+    return this.saveDisplayAssignment(input, id);
+  }
+
+  private async saveDisplayAssignment(input: CreateDisplayAssignmentInput, assignmentId?: UUID) {
     const { assignment: candidate, products } = input;
     const program = this.state.programs.find((item) => item.id === candidate.programId);
     const store = this.state.stores.find((item) => item.id === candidate.storeId);
@@ -102,13 +113,15 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       }
     }
     const errors = [
-      ...validateDisplayAssignment(candidate, this.state.displayAssignments),
+      ...validateDisplayAssignment(candidate, this.state.displayAssignments.filter((item) => item.id !== assignmentId)),
       ...validateDisplayAssignmentProducts(products),
     ];
     if (errors.length) throw new Error(errors.join(" "));
 
-    const assignment = { id: crypto.randomUUID(), ...candidate };
+    const assignment = { id: assignmentId ?? crypto.randomUUID(), ...candidate };
+    this.state.displayAssignments = this.state.displayAssignments.filter((item) => item.id !== assignment.id);
     this.state.displayAssignments.push(assignment);
+    this.state.displayAssignmentProducts = this.state.displayAssignmentProducts.filter((product) => product.assignmentId !== assignment.id);
     this.state.displayAssignmentProducts.push(...products.map((product) => ({
       ...product,
       id: crypto.randomUUID(),

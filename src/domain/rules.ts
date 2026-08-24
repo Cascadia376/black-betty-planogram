@@ -85,6 +85,9 @@ export function validateDisplayAssignmentProducts(products: Omit<DisplayAssignme
   if (products.some((product) => !Number.isInteger(product.caseQuantity) || product.caseQuantity < 0)) {
     errors.push("Assignment-product case quantities must be non-negative whole numbers.");
   }
+  if (products.some((product) => product.required && product.caseQuantity < 1)) {
+    errors.push("Required assignment products need a case quantity of at least one.");
+  }
   if (products.some((product) => product.minimumFacings !== undefined && (!Number.isInteger(product.minimumFacings) || product.minimumFacings < 0))) {
     errors.push("Minimum facings must be a non-negative whole number when provided.");
   }

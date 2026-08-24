@@ -44,6 +44,7 @@ export interface MerchandisingRepository {
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
+  updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   saveBridgeStrategy(strategy: BridgeStrategy): Promise<void>;
   completeExecution(input: CompleteExecutionInput): Promise<void>;
   reviewCompliance(input: SubmitComplianceInput): Promise<void>;
