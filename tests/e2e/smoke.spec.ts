@@ -35,6 +35,43 @@ const ondProgram = `/programs/${ondProgramId}`;
 const ondAllocations = `${ondProgram}/allocations`;
 const ondFloorplan = `${crownIsleFloorplan}?program=${ondProgramId}`;
 const crownIsleOrders = `/stores/10000000-0000-4000-8000-000000000001/orders?program=${ondProgramId}`;
+const crownIsleWorkspace = "/stores/10000000-0000-4000-8000-000000000001/workspace";
+
+test("shows the OND execution and ordering attention queue", async ({ page }) => {
+  await page.goto(crownIsleWorkspace);
+  await expect(page.getByRole("heading", { name: "Crown Isle merchandising workspace" })).toBeVisible();
+  await expect(page.getByText("What needs my attention?", { exact: false })).toBeVisible();
+
+  for (const label of ["Displays to set", "Resets due", "Overdue tasks", "Issues", "Orders required today", "Products at risk", "Upcoming opening fills", "Bridge actions", "Exit-risk products"]) {
+    await expect(page.getByText(label, { exact: true })).toBeVisible();
+  }
+
+  await expect(page.getByRole("heading", { name: "Operational timeline" })).toBeVisible();
+  await expect(page.getByText("Next display reset", { exact: true })).toBeVisible();
+  await expect(page.getByText("Nov 12, 2026", { exact: true })).toBeVisible();
+  await expect(page.getByText("Next required delivery", { exact: true })).toBeVisible();
+  await expect(page.getByText("Major holiday demand phase", { exact: true })).toBeVisible();
+  await expect(page.getByText("Program end", { exact: true })).toBeVisible();
+
+  await expect(page.getByText("RESET", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("ORDER", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("BRIDGE", { exact: true })).toBeVisible();
+  await expect(page.getByText("EXIT", { exact: true })).toBeVisible();
+  await expect(page.getByText("Order coverage: At risk.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open task/ }).first()).toHaveAttribute("href", /\/executions\//);
+  await expect(page.getByRole("link", { name: "Open orders" }).first()).toHaveAttribute("href", crownIsleOrders);
+  await expect(page.getByRole("link", { name: "Locate display" }).first()).toHaveAttribute("href", /\/floorplan\?/);
+  await expect(page.getByRole("link", { name: "Report issue" }).first()).toHaveAttribute("href", /\/executions\//);
+});
+
+test("keeps the OND store workspace within desktop and tablet viewports", async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(crownIsleWorkspace);
+    await expect(page.getByRole("heading", { name: "Crown Isle merchandising workspace" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
 
 test("shows order-today, bridge, and exit guidance for the store manager", async ({ page }) => {
   await page.goto(crownIsleOrders);

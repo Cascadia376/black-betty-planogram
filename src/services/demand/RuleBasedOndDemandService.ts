@@ -23,7 +23,7 @@ export const defaultOndDemandCurveConfig: OndDemandCurveConfig = {
   defaultDailyCases: 1,
 };
 
-function phaseForDate(date: string): OndDemandPhase {
+export function ondDemandPhaseForDate(date: string): OndDemandPhase {
   const monthDay = date.slice(5, 10);
   if (monthDay >= "10-01" && monthDay <= "11-30") return "baseline";
   if (monthDay >= "12-01" && monthDay <= "12-14") return "gradual_build";
@@ -68,7 +68,7 @@ export class RuleBasedOndDemandService implements DemandForecastService {
       ? selected.records.reduce((total, record) => total + record.cases, 0) / selected.records.length
       : this.config.defaultDailyCases;
     const dailyDemand = datesBetween(input.startDate, input.endDate).map((date) => {
-      const phase = phaseForDate(date);
+      const phase = ondDemandPhaseForDate(date);
       const multiplier = phase === "post_holiday"
         ? this.config.postHolidayCategoryMultipliers[input.category] ?? this.config.multipliers[phase]
         : this.config.multipliers[phase];

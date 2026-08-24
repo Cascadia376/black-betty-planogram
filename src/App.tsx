@@ -11,7 +11,8 @@ import { StoreOrdersPage } from "./features/orders/StoreOrdersPage";
 import { DisplayAreaProfilePage, PerformancePage } from "./features/performance/PerformancePages";
 import { ProgramWorkspacePage } from "./features/programs/ProgramWorkspacePage";
 import { AllocationPlannerPage } from "./features/programs/AllocationPlannerPage";
-import { StoreFloorplanPage, StoreOverviewPage, StoreWorkspacePage } from "./features/stores/StorePages";
+import { StoreFloorplanPage, StoreOverviewPage } from "./features/stores/StorePages";
+import { StoreWorkspacePage } from "./features/stores/OndStoreWorkspacePage";
 import { PlatformProvider } from "./services/PlatformProvider";
 
 export function App() {
