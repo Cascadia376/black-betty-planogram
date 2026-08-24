@@ -6,6 +6,28 @@ test.beforeEach(async ({ page }) => {
   await page.reload();
 });
 
+test("presents the merchandising dashboard priorities and actions", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await expect(page.getByRole("heading", { name: "Merchandising Dashboard" })).toBeVisible();
+  await expect(page.getByText("Synthetic demo data", { exact: true })).toBeVisible();
+  await expect(page.getByText("Displays due this week", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Store execution progress", { exact: true })).toBeVisible();
+  await expect(page.getByText("Compliance requiring review", { exact: true })).toBeVisible();
+  await expect(page.getByText("Current monthly flyer", { exact: true })).toBeVisible();
+  await expect(page.getByText("Seasonal programs", { exact: true })).toBeVisible();
+  await expect(page.getByText("Top-performing display areas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recommendations requiring attention", { exact: true })).toBeVisible();
+
+  await expect(page.getByRole("link", { name: "New campaign" }).first()).toHaveAttribute("href", "/campaigns/new");
+  await expect(page.getByRole("link", { name: "View campaigns" }).first()).toHaveAttribute("href", "/campaigns");
+  await expect(page.getByRole("link", { name: "Review compliance" }).first()).toHaveAttribute("href", /\/compliance\//);
+  await expect(page.getByRole("link", { name: "View performance" }).first()).toHaveAttribute("href", "/performance");
+  await expect(page.getByRole("link", { name: /September Beer Feature/ }).first()).toHaveAttribute("href", /\/campaigns\//);
+  await expect(page.getByRole("link", { name: /Crown Isle \/ Endcap A/ }).last()).toHaveAttribute("href", /\/display-areas\//);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test("navigates the Crown Isle merchandising workflow", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Merchandising Dashboard" })).toBeVisible();
   await page.getByRole("link", { name: "Displays" }).click();
