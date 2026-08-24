@@ -135,6 +135,13 @@ export const seedSnapshot: PlatformSnapshot = {
     { id: IDS.ondAtRiskRecommendation, storeId: IDS.store, productId: IDS.ondCiderProduct, displayAssignmentId: IDS.ondCoolerAssignment, supplierId: IDS.ondPreferredSupplier, recommendationDate: "2026-09-24", requiredByDate: "2026-10-01", recommendedCases: 10, recommendationType: "opening_fill", rationale: "Display 3 requires 10 cases and no supplier availability option is recorded. Review with Buying.", status: "pending" },
     { id: IDS.ondCoveredRecommendation, storeId: IDS.store, productId: IDS.ondHolidayProduct, displayAssignmentId: IDS.ondEndcapAHolidayAssignment, supplierId: IDS.ondPreferredSupplier, recommendationDate: "2026-11-05", requiredByDate: "2026-11-12", recommendedCases: 0, recommendationType: "opening_fill", rationale: "Display 1 requires 14 cases for the Nov 12 reset and 14 synthetic cases are on hand. No order is recommended.", status: "pending" },
   ],
+  historicalDemand: [
+    { id: "d1000000-0000-4000-8000-000000000001", storeId: IDS.store, productId: IDS.ondHarvestProduct, category: "Wine", date: "2025-10-15", cases: 2 },
+    { id: "d1000000-0000-4000-8000-000000000002", storeId: IDS.store, productId: IDS.ondHarvestProduct, category: "Wine", date: "2025-11-15", cases: 3 },
+    { id: "d1000000-0000-4000-8000-000000000003", storeId: IDS.eagleStore, productId: IDS.ondHarvestProduct, category: "Wine", date: "2025-11-15", cases: 2 },
+    { id: "d1000000-0000-4000-8000-000000000004", storeId: IDS.store, productId: "mock-category-only-wine", category: "Wine", date: "2025-12-10", cases: 4 },
+    { id: "d1000000-0000-4000-8000-000000000005", storeId: IDS.eagleStore, productId: "mock-category-only-cider", category: "Cider", date: "2025-12-10", cases: 5 },
+  ],
   bridgeStrategies: [
     { productId: IDS.ondBridgeProduct, eligibility: "yes", bridgeHorizonDays: 21, maxWeeksOfSupply: 3, maxCases: 24, note: "Synthetic buying decision for a short OND availability gap." },
     { productId: IDS.ondExitProduct, eligibility: "no", note: "Synthetic exit-oriented seasonal SKU; do not bridge after its planned period." },

@@ -189,6 +189,15 @@ export interface InventoryPosition {
   updatedAt: string;
 }
 
+export interface DemandHistoryRecord {
+  id: UUID;
+  storeId?: UUID;
+  productId?: UUID;
+  category?: string;
+  date: string;
+  cases: number;
+}
+
 export interface InboundOrder {
   id: UUID;
   storeId: UUID;
@@ -323,6 +332,7 @@ export interface PlatformSnapshot {
   inventoryPositions: InventoryPosition[];
   inboundOrders: InboundOrder[];
   orderRecommendations: OrderRecommendation[];
+  historicalDemand: DemandHistoryRecord[];
   bridgeStrategies: BridgeStrategy[];
   campaigns: Campaign[];
   assignments: CampaignAssignment[];

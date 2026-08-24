@@ -38,6 +38,7 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     inventoryPositions: snapshot.inventoryPositions ?? defaults.inventoryPositions,
     inboundOrders: snapshot.inboundOrders ?? defaults.inboundOrders,
     orderRecommendations: snapshot.orderRecommendations ?? defaults.orderRecommendations,
+    historicalDemand: snapshot.historicalDemand ?? defaults.historicalDemand,
     bridgeStrategies: snapshot.bridgeStrategies ?? defaults.bridgeStrategies,
   };
 }

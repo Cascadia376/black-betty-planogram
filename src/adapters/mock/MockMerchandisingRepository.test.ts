@@ -126,6 +126,7 @@ describe("mock merchandising workflow", () => {
     expect(state.inventoryPositions.find((position) => position.productId === IDS.ondHarvestProduct)?.onHandCases).toBe(5);
     expect(state.inboundOrders.find((order) => order.id === IDS.ondInboundOrder)).toEqual(expect.objectContaining({ cases: 2, status: "confirmed" }));
     expect(state.orderRecommendations.find((recommendation) => recommendation.id === IDS.ondOpeningRecommendation)).toEqual(expect.objectContaining({ recommendationType: "opening_fill", status: "pending" }));
+    expect(state.historicalDemand.some((record) => record.storeId === IDS.store && record.productId === IDS.ondHarvestProduct)).toBe(true);
   });
 
   it("persists store-manager ordering actions without changing buying policy", async () => {

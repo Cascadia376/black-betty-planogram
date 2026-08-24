@@ -25,6 +25,7 @@ The additive mock contracts imply future tables for:
 - `inventory_positions`;
 - `inbound_orders`;
 - `order_recommendations`;
+- `historical_demand`;
 - `bridge_strategies`.
 
 `display_areas` will need non-null, store-scoped unique `display_number` and `code` columns while preserving its UUID primary key. Campaigns may optionally reference a program and period; programs and campaigns remain separate entities.
@@ -32,6 +33,8 @@ The additive mock contracts imply future tables for:
 Use foreign keys for every program, period, store, display-area, product, and supplier relationship. Enforce non-overlapping active date ranges per display area with a PostgreSQL exclusion constraint over a daterange, excluding cancelled assignments. Keep `case_quantity` on `display_assignment_products`, supplier preference on `supplier_product_options`, and bridge policy in a buying-owned `bridge_strategies` table.
 
 Inventory positions should use a store/product unique key and retain source update timestamps. Inbound orders and order recommendations should preserve their status history rather than overwriting external order facts. The current selector and coverage calculation are deterministic mock-domain helpers, not forecasting or purchasing integrations.
+
+Historical demand access must implement the `HistoricalDemandSource` boundary. The rule-based OND service consumes that interface and must not query Supabase directly; a future adapter can supply approved store/SKU and category aggregates without changing recommendation logic.
 
 No migration or live connection is included in this prototype.
 
