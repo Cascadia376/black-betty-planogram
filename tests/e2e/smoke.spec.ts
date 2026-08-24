@@ -36,6 +36,43 @@ const ondAllocations = `${ondProgram}/allocations`;
 const ondFloorplan = `${crownIsleFloorplan}?program=${ondProgramId}`;
 const crownIsleOrders = `/stores/10000000-0000-4000-8000-000000000001/orders?program=${ondProgramId}`;
 const crownIsleWorkspace = "/stores/10000000-0000-4000-8000-000000000001/workspace";
+const ondSeasonalExecution = "/executions/70000000-0000-4000-8000-000000000002";
+
+test("completes and reviews an OND display assignment", async ({ page }) => {
+  await page.goto(ondSeasonalExecution);
+  await expect(page.getByRole("heading", { name: "Autumn Gathering" })).toBeVisible();
+  await expect(page.getByText("OND 2026", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("4 · Feature Area 1", { exact: true })).toBeVisible();
+  await expect(page.getByText("Assignment period", { exact: true })).toBeVisible();
+  await expect(page.getByText("No reset scheduled", { exact: true })).toBeVisible();
+
+  const products = page.getByRole("heading", { name: "Assignment products" }).locator("xpath=ancestor::section[1]");
+  await expect(products.getByText("MOCK-OND-1001", { exact: false })).toBeVisible();
+  await expect(products.getByText("10 cases", { exact: true })).toBeVisible();
+  await expect(products.getByText("5 cases on hand", { exact: true })).toBeVisible();
+  await expect(products.getByText(/2 inbound/)).toBeVisible();
+  await expect(products.getByText("Mock Coastal Distribution", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Unavailable SKU").first().check();
+  await page.getByLabel("Request an approved substitution").check();
+  await page.getByLabel("Completion note").fill("Synthetic OND execution with one stock gap.");
+  await page.getByLabel("Completion photo").setInputFiles("tests/fixtures/ond-display.jpg");
+  await page.getByRole("button", { name: "Submit completion" }).click();
+
+  await expect(page.getByRole("heading", { name: "Compliance review" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Assignment requirements" })).toBeVisible();
+  for (const check of ["Correct persistent display used", "Required assignment products present", "Required signage present", "Minimum merchandising requirement met", "Only approved substitutions used", "No major execution-time stock gaps"]) {
+    await expect(page.getByText(check, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByText("50%", { exact: true })).toBeVisible();
+  await expect(page.getByText("ond-display.jpg", { exact: true })).toBeVisible();
+  await expect(page.getByText("Synthetic OND execution with one stock gap.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Approval requested", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recommended order", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("On order", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Save review" }).click();
+  await expect(page.getByRole("status")).toContainText("saved");
+});
 
 test("shows the OND execution and ordering attention queue", async ({ page }) => {
   await page.goto(crownIsleWorkspace);

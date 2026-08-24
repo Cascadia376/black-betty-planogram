@@ -270,6 +270,7 @@ export interface ExecutionSubmission {
 export interface ExecutionTask {
   id: UUID;
   assignmentId: UUID;
+  displayAssignmentId?: UUID;
   dueDate: string;
   status: ExecutionStatus;
   issue?: string;

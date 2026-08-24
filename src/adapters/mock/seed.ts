@@ -191,7 +191,7 @@ export const seedSnapshot: PlatformSnapshot = {
   ],
   executions: [
     { id: IDS.beerExecution, assignmentId: IDS.beerAssignment, dueDate: "2026-08-28", status: "in_progress" },
-    { id: IDS.seasonalExecution, assignmentId: IDS.seasonalAssignment, dueDate: "2026-09-29", status: "not_started" },
+    { id: IDS.seasonalExecution, assignmentId: IDS.seasonalAssignment, displayAssignmentId: IDS.ondFeatureAssignment, dueDate: "2026-09-29", status: "not_started" },
     { id: IDS.summerExecution, assignmentId: IDS.summerAssignment, dueDate: "2026-06-01", status: "completed", submission: { id: "71000000-0000-4000-8000-000000000003", executionId: IDS.summerExecution, submittedAt: "2026-06-01T17:20:00Z", photoName: "summer-refresh-mock.jpg", note: "Completed with approved local spacing.", unavailableSkus: [], substitutionRequested: false } },
   ],
   complianceReviews: [{ id: "80000000-0000-4000-8000-000000000003", executionId: IDS.summerExecution, reviewer: "Operations Review", reviewedAt: "2026-06-02T16:00:00Z", decision: "approved", score: 100, checks: [{ key: "products", label: "Required products present", passed: true, required: true }, { key: "signage", label: "Required signage present", passed: true, required: true }, { key: "prominence", label: "Feature product is prominent", passed: true, required: true }], comment: "Mock review: execution met requirements." }],
