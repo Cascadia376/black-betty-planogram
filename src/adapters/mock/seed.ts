@@ -12,6 +12,20 @@ export const IDS = {
   endcapB: "40000000-0000-4000-8000-000000000002",
   cooler14: "40000000-0000-4000-8000-000000000003",
   feature1: "40000000-0000-4000-8000-000000000004",
+  ondProgram: "c0000000-0000-4000-8000-000000000001",
+  ondEarlyPeriod: "c1000000-0000-4000-8000-000000000001",
+  ondHolidayPeriod: "c1000000-0000-4000-8000-000000000002",
+  ondEndcapAEarlyAssignment: "c2000000-0000-4000-8000-000000000001",
+  ondEndcapAHolidayAssignment: "c2000000-0000-4000-8000-000000000002",
+  ondFeatureAssignment: "c2000000-0000-4000-8000-000000000003",
+  ondCoolerAssignment: "c2000000-0000-4000-8000-000000000004",
+  ondHarvestProduct: "c3000000-0000-4000-8000-000000000001",
+  ondBridgeProduct: "c3000000-0000-4000-8000-000000000002",
+  ondExitProduct: "c3000000-0000-4000-8000-000000000003",
+  ondHolidayProduct: "c3000000-0000-4000-8000-000000000004",
+  ondCiderProduct: "c3000000-0000-4000-8000-000000000005",
+  ondPreferredSupplier: "c4000000-0000-4000-8000-000000000001",
+  ondAlternateSupplier: "c4000000-0000-4000-8000-000000000002",
   beerCampaign: "50000000-0000-4000-8000-000000000001",
   seasonalCampaign: "50000000-0000-4000-8000-000000000002",
   summerCampaign: "50000000-0000-4000-8000-000000000003",
@@ -36,10 +50,49 @@ export const seedSnapshot: PlatformSnapshot = {
     { id: IDS.fixtureFeature, storeId: IDS.store, zoneId: IDS.zoneEntrance, name: "Front feature fixtures", type: "feature", geometry: { x: 0.08, y: 0.12, width: 0.12, height: 0.22 } },
   ],
   displayAreas: [
-    { id: IDS.endcapA, storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap A", type: "endcap", description: "North-facing endcap on the central wine gondola.", capacity: "Approx. 24 cases", geometry: { x: 0.315, y: 0.22, width: 0.035, height: 0.14 } },
-    { id: IDS.endcapB, storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap B", type: "endcap", description: "South-facing endcap on the central wine gondola.", capacity: "Approx. 20 cases", geometry: { x: 0.57, y: 0.64, width: 0.035, height: 0.14 } },
-    { id: IDS.cooler14, storeId: IDS.store, zoneId: IDS.zoneBeer, fixtureId: IDS.fixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Four-door group at the start of the beer cooler run.", capacity: "4 cooler doors", geometry: { x: 0.87, y: 0.18, width: 0.045, height: 0.28 } },
-    { id: IDS.feature1, storeId: IDS.store, zoneId: IDS.zoneEntrance, fixtureId: IDS.fixtureFeature, name: "Feature Area 1", type: "feature_table", description: "Front-of-store feature table visible from entry.", capacity: "Approx. 16 cases", geometry: { x: 0.1, y: 0.17, width: 0.09, height: 0.08 } },
+    { id: IDS.endcapA, displayNumber: "1", code: "CI-D01", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap A", type: "endcap", description: "North-facing endcap on the central wine gondola.", capacity: "Approx. 24 cases", geometry: { x: 0.315, y: 0.22, width: 0.035, height: 0.14 } },
+    { id: IDS.endcapB, displayNumber: "2", code: "CI-D02", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap B", type: "endcap", description: "South-facing endcap on the central wine gondola.", capacity: "Approx. 20 cases", geometry: { x: 0.57, y: 0.64, width: 0.035, height: 0.14 } },
+    { id: IDS.cooler14, displayNumber: "3", code: "CI-D03", storeId: IDS.store, zoneId: IDS.zoneBeer, fixtureId: IDS.fixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Four-door group at the start of the beer cooler run.", capacity: "4 cooler doors", geometry: { x: 0.87, y: 0.18, width: 0.045, height: 0.28 } },
+    { id: IDS.feature1, displayNumber: "4", code: "CI-D04", storeId: IDS.store, zoneId: IDS.zoneEntrance, fixtureId: IDS.fixtureFeature, name: "Feature Area 1", type: "feature_table", description: "Front-of-store feature table visible from entry.", capacity: "Approx. 16 cases", geometry: { x: 0.1, y: 0.17, width: 0.09, height: 0.08 } },
+  ],
+  programs: [
+    {
+      id: IDS.ondProgram,
+      name: "OND 2026",
+      startDate: "2026-10-01",
+      endDate: "2026-12-31",
+      status: "planned",
+      description: "Synthetic October, November, and December merchandising plan for the Crown Isle pilot.",
+    },
+  ],
+  programPeriods: [
+    { id: IDS.ondEarlyPeriod, programId: IDS.ondProgram, name: "October / Early November", startDate: "2026-10-01", endDate: "2026-11-11", resetDate: "2026-11-12" },
+    { id: IDS.ondHolidayPeriod, programId: IDS.ondProgram, name: "Holiday Reset", startDate: "2026-11-12", endDate: "2026-12-31" },
+  ],
+  displayAssignments: [
+    { id: IDS.ondEndcapAEarlyAssignment, programId: IDS.ondProgram, periodId: IDS.ondEarlyPeriod, storeId: IDS.store, displayAreaId: IDS.endcapA, startDate: "2026-10-01", endDate: "2026-11-11", resetRequired: true, notes: "Synthetic early OND allocation. Reset for holiday on Nov 12.", status: "planned" },
+    { id: IDS.ondEndcapAHolidayAssignment, programId: IDS.ondProgram, periodId: IDS.ondHolidayPeriod, storeId: IDS.store, displayAreaId: IDS.endcapA, startDate: "2026-11-12", endDate: "2026-12-31", resetRequired: false, notes: "Synthetic holiday allocation beginning after the Nov 12 reset.", status: "planned" },
+    { id: IDS.ondFeatureAssignment, programId: IDS.ondProgram, storeId: IDS.store, displayAreaId: IDS.feature1, startDate: "2026-10-01", endDate: "2026-12-31", resetRequired: false, notes: "Synthetic front feature allocation for OND.", status: "planned" },
+    { id: IDS.ondCoolerAssignment, programId: IDS.ondProgram, periodId: IDS.ondEarlyPeriod, storeId: IDS.store, displayAreaId: IDS.cooler14, startDate: "2026-10-01", endDate: "2026-11-11", resetRequired: true, notes: "Synthetic cooler allocation ending at the holiday reset.", status: "planned" },
+  ],
+  displayAssignmentProducts: [
+    { id: "c5000000-0000-4000-8000-000000000001", assignmentId: IDS.ondEndcapAEarlyAssignment, productId: IDS.ondHarvestProduct, sku: "MOCK-OND-1001", caseQuantity: 12, required: true, minimumFacings: 3, preferredSupplierId: IDS.ondPreferredSupplier },
+    { id: "c5000000-0000-4000-8000-000000000002", assignmentId: IDS.ondEndcapAEarlyAssignment, productId: IDS.ondBridgeProduct, sku: "MOCK-OND-1002", caseQuantity: 8, required: true, minimumFacings: 2, note: "Synthetic SKU approved for a limited bridge buy." },
+    { id: "c5000000-0000-4000-8000-000000000003", assignmentId: IDS.ondEndcapAHolidayAssignment, productId: IDS.ondHolidayProduct, sku: "MOCK-OND-2001", caseQuantity: 14, required: true, minimumFacings: 4, preferredSupplierId: IDS.ondPreferredSupplier },
+    { id: "c5000000-0000-4000-8000-000000000004", assignmentId: IDS.ondEndcapAHolidayAssignment, productId: IDS.ondExitProduct, sku: "MOCK-OND-EXIT-01", caseQuantity: 6, required: true, minimumFacings: 2, note: "Synthetic exit-oriented seasonal SKU; do not bridge beyond the holiday period." },
+    { id: "c5000000-0000-4000-8000-000000000005", assignmentId: IDS.ondFeatureAssignment, productId: IDS.ondHarvestProduct, sku: "MOCK-OND-1001", caseQuantity: 10, required: true },
+    { id: "c5000000-0000-4000-8000-000000000006", assignmentId: IDS.ondFeatureAssignment, productId: IDS.ondExitProduct, sku: "MOCK-OND-EXIT-01", caseQuantity: 4, required: false, note: "Exit-oriented seasonal item for the front feature." },
+    { id: "c5000000-0000-4000-8000-000000000007", assignmentId: IDS.ondCoolerAssignment, productId: IDS.ondBridgeProduct, sku: "MOCK-OND-1002", caseQuantity: 16, required: true, minimumFacings: 4 },
+    { id: "c5000000-0000-4000-8000-000000000008", assignmentId: IDS.ondCoolerAssignment, productId: IDS.ondCiderProduct, sku: "MOCK-OND-3001", caseQuantity: 10, required: true, minimumFacings: 3 },
+  ],
+  supplierProductOptions: [
+    { productId: IDS.ondHarvestProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 5, orderDays: ["Monday", "Thursday"], casePack: 6 },
+    { productId: IDS.ondHarvestProduct, supplierId: IDS.ondAlternateSupplier, supplierName: "Mock Island Wholesale", preferred: false, leadTimeDays: 7, orderDays: ["Tuesday"], casePack: 6 },
+    { productId: IDS.ondBridgeProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 4, orderDays: ["Monday", "Thursday"], casePack: 8 },
+  ],
+  bridgeStrategies: [
+    { productId: IDS.ondBridgeProduct, eligibility: "yes", bridgeHorizonDays: 21, maxWeeksOfSupply: 3, maxCases: 24, note: "Synthetic buying decision for a short OND availability gap." },
+    { productId: IDS.ondExitProduct, eligibility: "no", note: "Synthetic exit-oriented seasonal SKU; do not bridge after its planned period." },
   ],
   campaigns: [
     {
@@ -55,6 +108,7 @@ export const seedSnapshot: PlatformSnapshot = {
     },
     {
       id: IDS.seasonalCampaign, name: "Autumn Gathering", type: "Seasonal",
+      programId: IDS.ondProgram, periodId: IDS.ondEarlyPeriod,
       description: "Mock seasonal table for fall entertaining.", startDate: "2026-10-01", endDate: "2026-11-15",
       owner: "Buying Team", supplier: "Multiple suppliers", status: "scheduled",
       products: [{ id: "52000000-0000-4000-8000-000000000001", sku: "MOCK-2001", name: "Harvest Red Blend", category: "Wine", role: "Feature", required: true, minimumQuantity: 12, minimumFacings: 3 }],
@@ -89,4 +143,3 @@ export const seedSnapshot: PlatformSnapshot = {
   ],
   history: [{ id: "b0000000-0000-4000-8000-000000000001", displayAreaId: IDS.endcapA, campaignId: IDS.summerCampaign, assignmentId: IDS.summerAssignment, executionId: IDS.summerExecution, startDate: "2026-06-01", endDate: "2026-07-15" }],
 };
-

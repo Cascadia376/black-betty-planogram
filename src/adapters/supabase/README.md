@@ -12,5 +12,21 @@ Before enabling this adapter:
 - use only a publishable/anonymous browser key and never a service-role key;
 - add contract tests that run against an isolated non-production project.
 
-Supabase changed new-table Data API exposure defaults in 2026, so grants and RLS must be treated as separate, explicit controls.
+## OND planning migration outline
 
+The additive mock contracts imply future tables for:
+
+- `merchandising_programs`;
+- `program_periods`;
+- `display_assignments`;
+- `display_assignment_products`;
+- `supplier_product_options`;
+- `bridge_strategies`.
+
+`display_areas` will need non-null, store-scoped unique `display_number` and `code` columns while preserving its UUID primary key. Campaigns may optionally reference a program and period; programs and campaigns remain separate entities.
+
+Use foreign keys for every program, period, store, display-area, product, and supplier relationship. Enforce non-overlapping active date ranges per display area with a PostgreSQL exclusion constraint over a daterange, excluding cancelled assignments. Keep `case_quantity` on `display_assignment_products`, supplier preference on `supplier_product_options`, and bridge policy in a buying-owned `bridge_strategies` table.
+
+No migration or live connection is included in this prototype.
+
+Supabase changed new-table Data API exposure defaults in 2026, so grants and RLS must be treated as separate, explicit controls.

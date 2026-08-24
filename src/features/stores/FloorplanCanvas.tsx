@@ -96,7 +96,7 @@ export function FloorplanCanvas({
         Entrance / exit
       </div>
 
-      {areas.map((area, index) => {
+      {areas.map((area) => {
         const state = stateFor(area.id);
         return (
           <button
@@ -114,7 +114,7 @@ export function FloorplanCanvas({
           >
             <span className="sr-only">{area.name}</span>
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="absolute -right-1 -top-2 grid h-4 min-w-4 place-items-center rounded bg-text-primary px-1 text-[9px] leading-none text-primary-foreground" aria-hidden="true">{index + 1}</span>
+            <span className="absolute -right-1 -top-2 grid h-4 min-w-4 place-items-center rounded bg-text-primary px-1 text-[9px] leading-none text-primary-foreground" aria-hidden="true">{area.displayNumber}</span>
           </button>
         );
       })}

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { calculateComplianceScore, generateRecommendations, getAssignmentCompatibility, validateCampaign, validateGeometry } from "./rules";
-import { seedSnapshot } from "../adapters/mock/seed";
+import {
+  calculateComplianceScore,
+  displayAssignmentsOverlap,
+  generateRecommendations,
+  getAssignmentCompatibility,
+  selectSupplierProductOption,
+  validateCampaign,
+  validateDisplayAssignment,
+  validateGeometry,
+} from "./rules";
+import { IDS, seedSnapshot } from "../adapters/mock/seed";
 
 describe("campaign validation", () => {
   it("requires core campaign fields and products", () => {
@@ -36,6 +45,36 @@ describe("assignment compatibility", () => {
   });
 });
 
+describe("OND display assignment scheduling", () => {
+  it("accepts sequential assignments on one persistent display", () => {
+    const [early, holiday] = seedSnapshot.displayAssignments.filter((item) => item.displayAreaId === IDS.endcapA);
+    expect(early.endDate).toBe("2026-11-11");
+    expect(holiday.startDate).toBe("2026-11-12");
+    expect(displayAssignmentsOverlap(early, holiday)).toBe(false);
+    expect(validateDisplayAssignment(holiday, [early])).toEqual([]);
+  });
+
+  it("rejects overlapping assignments on one persistent display", () => {
+    const [early, holiday] = seedSnapshot.displayAssignments.filter((item) => item.displayAreaId === IDS.endcapA);
+    const overlapping = { ...holiday, startDate: "2026-11-11" };
+    expect(displayAssignmentsOverlap(early, overlapping)).toBe(true);
+    expect(validateDisplayAssignment(overlapping, [early])).toContain(
+      "Display assignments cannot overlap on the same persistent display area.",
+    );
+  });
+
+  it("selects the preferred supplier and supports an assignment override", () => {
+    const preferred = selectSupplierProductOption(IDS.ondHarvestProduct, seedSnapshot.supplierProductOptions);
+    const override = selectSupplierProductOption(
+      IDS.ondHarvestProduct,
+      seedSnapshot.supplierProductOptions,
+      IDS.ondAlternateSupplier,
+    );
+    expect(preferred?.supplierId).toBe(IDS.ondPreferredSupplier);
+    expect(override?.supplierId).toBe(IDS.ondAlternateSupplier);
+  });
+});
+
 describe("compliance scoring", () => {
   it("scores required checks only", () => {
     expect(calculateComplianceScore([
@@ -55,4 +94,3 @@ describe("recommendation rules", () => {
     expect(generateRecommendations([seedSnapshot.performance[1]]).map((item) => item.rule)).toEqual(["review_allocation", "aging_inventory"]);
   });
 });
-

@@ -1,6 +1,14 @@
 import type {
-  CampaignAssignment, ComplianceCheck, NewCampaignInput, PlatformSnapshot,
-  RecommendationStatus, ReviewDecision, UUID,
+  BridgeStrategy,
+  CampaignAssignment,
+  ComplianceCheck,
+  DisplayAssignment,
+  DisplayAssignmentProduct,
+  NewCampaignInput,
+  PlatformSnapshot,
+  RecommendationStatus,
+  ReviewDecision,
+  UUID,
 } from "./types";
 
 export interface AssignCampaignInput {
@@ -26,13 +34,19 @@ export interface SubmitComplianceInput {
   comment: string;
 }
 
+export interface CreateDisplayAssignmentInput {
+  assignment: Omit<DisplayAssignment, "id">;
+  products: Omit<DisplayAssignmentProduct, "id" | "assignmentId">[];
+}
+
 export interface MerchandisingRepository {
   load(): Promise<PlatformSnapshot>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
+  createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
+  saveBridgeStrategy(strategy: BridgeStrategy): Promise<void>;
   completeExecution(input: CompleteExecutionInput): Promise<void>;
   reviewCompliance(input: SubmitComplianceInput): Promise<void>;
   updateRecommendation(id: UUID, status: RecommendationStatus, note?: string): Promise<void>;
   reset(): Promise<void>;
 }
-

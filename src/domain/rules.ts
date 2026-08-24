@@ -3,10 +3,13 @@ import type {
   Compatibility,
   ComplianceCheck,
   DisplayArea,
+  DisplayAssignment,
+  DisplayAssignmentProduct,
   Geometry,
   NewCampaignInput,
   PerformanceRecord,
   Recommendation,
+  SupplierProductOption,
 } from "./types";
 
 export function validateGeometry(geometry: Geometry): string[] {
@@ -49,6 +52,57 @@ export function getAssignmentCompatibility(campaign: Campaign, area: DisplayArea
   return "incompatible";
 }
 
+export function displayAssignmentsOverlap(
+  left: Pick<DisplayAssignment, "displayAreaId" | "startDate" | "endDate" | "status">,
+  right: Pick<DisplayAssignment, "displayAreaId" | "startDate" | "endDate" | "status">,
+): boolean {
+  if (left.displayAreaId !== right.displayAreaId) return false;
+  if (left.status === "cancelled" || right.status === "cancelled") return false;
+  return left.startDate <= right.endDate && right.startDate <= left.endDate;
+}
+
+export function validateDisplayAssignment(
+  candidate: Omit<DisplayAssignment, "id">,
+  existingAssignments: DisplayAssignment[],
+): string[] {
+  const errors: string[] = [];
+  if (!candidate.programId) errors.push("Program is required.");
+  if (!candidate.storeId) errors.push("Store is required.");
+  if (!candidate.displayAreaId) errors.push("Display area is required.");
+  if (!candidate.startDate || !candidate.endDate) errors.push("Assignment start and end dates are required.");
+  if (candidate.startDate && candidate.endDate && candidate.endDate < candidate.startDate) {
+    errors.push("Assignment end date must be on or after its start date.");
+  }
+  if (existingAssignments.some((assignment) => displayAssignmentsOverlap(candidate, assignment))) {
+    errors.push("Display assignments cannot overlap on the same persistent display area.");
+  }
+  return errors;
+}
+
+export function validateDisplayAssignmentProducts(products: Omit<DisplayAssignmentProduct, "id" | "assignmentId">[]): string[] {
+  const errors: string[] = [];
+  if (products.length === 0) errors.push("Add at least one assignment product.");
+  if (products.some((product) => !Number.isInteger(product.caseQuantity) || product.caseQuantity < 0)) {
+    errors.push("Assignment-product case quantities must be non-negative whole numbers.");
+  }
+  if (products.some((product) => product.minimumFacings !== undefined && (!Number.isInteger(product.minimumFacings) || product.minimumFacings < 0))) {
+    errors.push("Minimum facings must be a non-negative whole number when provided.");
+  }
+  return errors;
+}
+
+export function selectSupplierProductOption(
+  productId: string,
+  options: SupplierProductOption[],
+  preferredSupplierId?: string,
+): SupplierProductOption | undefined {
+  const productOptions = options.filter((option) => option.productId === productId);
+  if (preferredSupplierId) {
+    return productOptions.find((option) => option.supplierId === preferredSupplierId);
+  }
+  return productOptions.find((option) => option.preferred) ?? productOptions[0];
+}
+
 export function calculateComplianceScore(checks: ComplianceCheck[]): number {
   const required = checks.filter((check) => check.required);
   if (required.length === 0) return 100;
@@ -85,4 +139,3 @@ export function generateRecommendations(records: PerformanceRecord[]): Recommend
     return recommendations;
   });
 }
-
