@@ -119,4 +119,20 @@ describe("mock merchandising workflow", () => {
       note: "Synthetic test buying decision.",
     });
   });
+
+  it("loads synthetic supplier, inventory, inbound, and recommendation data", async () => {
+    const state = await new MockMerchandisingRepository().load();
+    expect(state.suppliers.map((supplier) => supplier.name)).toEqual(expect.arrayContaining(["Mock Coastal Distribution", "Mock Island Wholesale"]));
+    expect(state.inventoryPositions.find((position) => position.productId === IDS.ondHarvestProduct)?.onHandCases).toBe(5);
+    expect(state.inboundOrders.find((order) => order.id === IDS.ondInboundOrder)).toEqual(expect.objectContaining({ cases: 2, status: "confirmed" }));
+    expect(state.orderRecommendations.find((recommendation) => recommendation.id === IDS.ondOpeningRecommendation)).toEqual(expect.objectContaining({ recommendationType: "opening_fill", status: "pending" }));
+  });
+
+  it("persists store-manager ordering actions without changing buying policy", async () => {
+    const repository = new MockMerchandisingRepository();
+    await repository.updateOrderRecommendation({ id: IDS.ondBridgeRecommendation, status: "edited", recommendedCases: 10, note: "Store manager mock note." });
+    const state = await repository.load();
+    expect(state.orderRecommendations.find((item) => item.id === IDS.ondBridgeRecommendation)).toEqual(expect.objectContaining({ status: "edited", recommendedCases: 10, note: "Store manager mock note.", recommendationType: "bridge_buy" }));
+    expect(state.bridgeStrategies.find((item) => item.productId === IDS.ondBridgeProduct)?.eligibility).toBe("yes");
+  });
 });

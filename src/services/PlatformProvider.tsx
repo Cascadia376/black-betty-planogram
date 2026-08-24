@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
-  AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput,
+  AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
 import type { NewCampaignInput, PlatformSnapshot, RecommendationStatus, UUID, UserRole } from "../domain/types";
 
@@ -22,6 +22,7 @@ interface PlatformContextValue {
   completeExecution(input: CompleteExecutionInput): Promise<void>;
   reviewCompliance(input: SubmitComplianceInput): Promise<void>;
   updateRecommendation(id: UUID, status: RecommendationStatus, note?: string): Promise<void>;
+  updateOrderRecommendation(input: UpdateOrderRecommendationInput): Promise<void>;
   resetDemo(): Promise<void>;
 }
 
@@ -72,6 +73,7 @@ export function PlatformProvider({ children, adapter = repository }: { children:
     completeExecution: (input) => mutate(() => adapter.completeExecution(input)).then(() => undefined),
     reviewCompliance: (input) => mutate(() => adapter.reviewCompliance(input)).then(() => undefined),
     updateRecommendation: (id, status, note) => mutate(() => adapter.updateRecommendation(id, status, note)).then(() => undefined),
+    updateOrderRecommendation: (input) => mutate(() => adapter.updateOrderRecommendation(input)).then(() => undefined),
     resetDemo: () => mutate(() => adapter.reset()).then(() => undefined),
   }), [adapter, data, error, loading, mutate, refresh, role]);
 

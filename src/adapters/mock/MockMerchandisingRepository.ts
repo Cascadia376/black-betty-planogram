@@ -1,5 +1,5 @@
 import type {
-  AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput,
+  AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -33,7 +33,11 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     programPeriods: snapshot.programPeriods ?? defaults.programPeriods,
     displayAssignments: snapshot.displayAssignments ?? defaults.displayAssignments,
     displayAssignmentProducts: snapshot.displayAssignmentProducts ?? defaults.displayAssignmentProducts,
+    suppliers: snapshot.suppliers ?? defaults.suppliers,
     supplierProductOptions: snapshot.supplierProductOptions ?? defaults.supplierProductOptions,
+    inventoryPositions: snapshot.inventoryPositions ?? defaults.inventoryPositions,
+    inboundOrders: snapshot.inboundOrders ?? defaults.inboundOrders,
+    orderRecommendations: snapshot.orderRecommendations ?? defaults.orderRecommendations,
     bridgeStrategies: snapshot.bridgeStrategies ?? defaults.bridgeStrategies,
   };
 }
@@ -168,6 +172,18 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     if (!recommendation) throw new Error("Recommendation was not found.");
     recommendation.status = status;
     recommendation.note = note;
+    this.persist();
+  }
+
+  async updateOrderRecommendation(input: UpdateOrderRecommendationInput): Promise<void> {
+    const recommendation = this.state.orderRecommendations.find((item) => item.id === input.id);
+    if (!recommendation) throw new Error("Order recommendation was not found.");
+    if (input.recommendedCases !== undefined && (!Number.isInteger(input.recommendedCases) || input.recommendedCases < 0)) {
+      throw new Error("Recommended cases must be a non-negative whole number.");
+    }
+    recommendation.status = input.status;
+    if (input.recommendedCases !== undefined) recommendation.recommendedCases = input.recommendedCases;
+    recommendation.note = input.note;
     this.persist();
   }
 

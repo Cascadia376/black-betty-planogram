@@ -4,6 +4,10 @@ export type UserRole = "admin" | "merchandising" | "operations" | "store_manager
 export type CampaignStatus = "draft" | "scheduled" | "active" | "completed";
 export type MerchandisingProgramStatus = "draft" | "planned" | "active" | "completed" | "archived";
 export type DisplayAssignmentStatus = "draft" | "planned" | "ready" | "active" | "completed" | "cancelled";
+export type SupplierAvailability = "available" | "limited" | "unavailable" | "unknown";
+export type InboundOrderStatus = "draft" | "submitted" | "confirmed" | "received" | "cancelled";
+export type OrderRecommendationType = "opening_fill" | "replenishment" | "peak_build" | "bridge_buy" | "exit_control";
+export type OrderRecommendationStatus = "pending" | "accepted" | "edited" | "dismissed" | "ordered";
 export type CampaignType =
   | "Monthly flyer"
   | "Seasonal"
@@ -166,6 +170,48 @@ export interface SupplierProductOption {
   leadTimeDays?: number;
   orderDays?: string[];
   casePack?: number;
+  availability?: SupplierAvailability;
+  availableFrom?: string;
+}
+
+export interface Supplier {
+  id: UUID;
+  name: string;
+  code: string;
+  active: boolean;
+}
+
+export interface InventoryPosition {
+  storeId: UUID;
+  productId: UUID;
+  onHandCases: number;
+  reservedCases?: number;
+  updatedAt: string;
+}
+
+export interface InboundOrder {
+  id: UUID;
+  storeId: UUID;
+  productId: UUID;
+  supplierId: UUID;
+  cases: number;
+  expectedArrivalDate: string;
+  status: InboundOrderStatus;
+}
+
+export interface OrderRecommendation {
+  id: UUID;
+  storeId: UUID;
+  productId: UUID;
+  displayAssignmentId?: UUID;
+  supplierId: UUID;
+  recommendationDate: string;
+  requiredByDate: string;
+  recommendedCases: number;
+  recommendationType: OrderRecommendationType;
+  rationale: string;
+  status: OrderRecommendationStatus;
+  note?: string;
 }
 
 export interface BridgeStrategy {
@@ -272,7 +318,11 @@ export interface PlatformSnapshot {
   programPeriods: ProgramPeriod[];
   displayAssignments: DisplayAssignment[];
   displayAssignmentProducts: DisplayAssignmentProduct[];
+  suppliers: Supplier[];
   supplierProductOptions: SupplierProductOption[];
+  inventoryPositions: InventoryPosition[];
+  inboundOrders: InboundOrder[];
+  orderRecommendations: OrderRecommendation[];
   bridgeStrategies: BridgeStrategy[];
   campaigns: Campaign[];
   assignments: CampaignAssignment[];

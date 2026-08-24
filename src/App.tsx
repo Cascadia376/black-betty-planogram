@@ -7,6 +7,7 @@ import { CampaignAssignmentPage, CampaignDetailPage, DisplayDesignerPage } from 
 import { CampaignsPage } from "./features/campaigns/CampaignsPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { ExecutionPage } from "./features/execution/ExecutionPage";
+import { StoreOrdersPage } from "./features/orders/StoreOrdersPage";
 import { DisplayAreaProfilePage, PerformancePage } from "./features/performance/PerformancePages";
 import { ProgramWorkspacePage } from "./features/programs/ProgramWorkspacePage";
 import { AllocationPlannerPage } from "./features/programs/AllocationPlannerPage";
@@ -26,6 +27,7 @@ export function App() {
     <Route path="stores/:storeId" element={<StoreOverviewPage />} />
     <Route path="stores/:storeId/floorplan" element={<StoreFloorplanPage />} />
     <Route path="stores/:storeId/workspace" element={<StoreWorkspacePage />} />
+    <Route path="stores/:storeId/orders" element={<StoreOrdersPage />} />
     <Route path="executions/:executionId" element={<ExecutionPage />} />
     <Route path="compliance/:executionId" element={<CompliancePage />} />
     <Route path="performance" element={<PerformancePage />} />

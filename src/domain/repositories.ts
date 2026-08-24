@@ -5,6 +5,7 @@ import type {
   DisplayAssignment,
   DisplayAssignmentProduct,
   NewCampaignInput,
+  OrderRecommendationStatus,
   PlatformSnapshot,
   RecommendationStatus,
   ReviewDecision,
@@ -39,6 +40,13 @@ export interface CreateDisplayAssignmentInput {
   products: Omit<DisplayAssignmentProduct, "id" | "assignmentId">[];
 }
 
+export interface UpdateOrderRecommendationInput {
+  id: UUID;
+  status: OrderRecommendationStatus;
+  recommendedCases?: number;
+  note?: string;
+}
+
 export interface MerchandisingRepository {
   load(): Promise<PlatformSnapshot>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
@@ -49,5 +57,6 @@ export interface MerchandisingRepository {
   completeExecution(input: CompleteExecutionInput): Promise<void>;
   reviewCompliance(input: SubmitComplianceInput): Promise<void>;
   updateRecommendation(id: UUID, status: RecommendationStatus, note?: string): Promise<void>;
+  updateOrderRecommendation(input: UpdateOrderRecommendationInput): Promise<void>;
   reset(): Promise<void>;
 }

@@ -34,6 +34,50 @@ const ondProgramId = "c0000000-0000-4000-8000-000000000001";
 const ondProgram = `/programs/${ondProgramId}`;
 const ondAllocations = `${ondProgram}/allocations`;
 const ondFloorplan = `${crownIsleFloorplan}?program=${ondProgramId}`;
+const crownIsleOrders = `/stores/10000000-0000-4000-8000-000000000001/orders?program=${ondProgramId}`;
+
+test("shows order-today, bridge, and exit guidance for the store manager", async ({ page }) => {
+  await page.goto(crownIsleOrders);
+  await expect(page.getByRole("heading", { name: "Crown Isle orders" })).toBeVisible();
+  const orderToday = page.getByRole("region", { name: "Order today" });
+  await expect(orderToday.getByText("MOCK-OND-1001", { exact: true })).toBeVisible();
+  await expect(orderToday.getByText("6 cases", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("Buying strategy: intentional bridge", { exact: true })).toBeVisible();
+  await expect(page.getByText("Exit strategy: minimize post-program stock", { exact: true })).toBeVisible();
+  await expect(orderToday.getByRole("link", { name: "Locate display" })).toHaveAttribute("href", new RegExp(`program=${ondProgramId}.*area=`));
+  await expect(orderToday.getByRole("link", { name: "Open assignment" })).toHaveAttribute("href", ondAllocations);
+});
+
+test("accepts and edits an order recommendation", async ({ page }) => {
+  await page.goto(crownIsleOrders);
+  const item = page.getByRole("region", { name: "Order today" });
+  await item.getByRole("button", { name: "Accept" }).click();
+  await expect(item.getByRole("status")).toContainText("accepted");
+  await expect(item.getByText("Accepted", { exact: true })).toBeVisible();
+  await item.getByRole("button", { name: "Edit cases" }).click();
+  await item.getByLabel("Edited cases").fill("9");
+  await item.getByRole("button", { name: "Save cases" }).click();
+  await expect(item.getByRole("status")).toContainText("updated");
+  await expect(item.getByText("9 cases", { exact: true })).toBeVisible();
+  await expect(item.getByText("Edited", { exact: true })).toBeVisible();
+});
+
+test("marks a recommendation ordered and moves it to arriving soon", async ({ page }) => {
+  await page.goto(crownIsleOrders);
+  await page.getByRole("region", { name: "Order today" }).getByRole("button", { name: "Mark ordered" }).click();
+  const arriving = page.getByRole("region", { name: "Arriving soon" });
+  await expect(arriving.getByText("MOCK-OND-1001", { exact: true })).toBeVisible();
+  await expect(arriving.getByText("Ordered", { exact: true })).toBeVisible();
+});
+
+test("keeps the store ordering assistant within desktop viewports", async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(crownIsleOrders);
+    await expect(page.getByRole("heading", { name: "Crown Isle orders" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
 
 test("loads and filters the OND display allocation planner", async ({ page }) => {
   await page.goto(ondAllocations);
@@ -236,6 +280,7 @@ const directRoutes = [
   { path: ondAllocations, heading: "OND 2026 allocations" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/floorplan", heading: "Crown Isle floorplan" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/workspace", heading: "Crown Isle merchandising workspace" },
+  { path: "/stores/10000000-0000-4000-8000-000000000001/orders", heading: "Crown Isle orders" },
   { path: "/executions/70000000-0000-4000-8000-000000000001", heading: "September Beer Feature" },
   { path: "/compliance/70000000-0000-4000-8000-000000000001", heading: "Compliance review" },
   { path: "/performance", heading: "Performance & Recommendations" },

@@ -20,5 +20,6 @@ export class SupabaseMerchandisingRepository implements MerchandisingRepository 
   async completeExecution(): Promise<void> { return this.unavailable(); }
   async reviewCompliance(): Promise<void> { return this.unavailable(); }
   async updateRecommendation(): Promise<void> { return this.unavailable(); }
+  async updateOrderRecommendation(): Promise<void> { return this.unavailable(); }
   async reset(): Promise<void> { return this.unavailable(); }
 }
