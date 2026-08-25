@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Building2,
+  CalendarRange,
   ClipboardCheck,
   LayoutDashboard,
   Layers3,
@@ -9,6 +10,7 @@ import {
   Megaphone,
   Plus,
   RotateCcw,
+  UploadCloud,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -19,10 +21,13 @@ import type { UserRole } from "../domain/types";
 import { Button } from "./ui";
 
 const crownIsleId = "10000000-0000-4000-8000-000000000001";
+const ondProgramId = "c0000000-0000-4000-8000-000000000001";
 const currentExecutionId = "70000000-0000-4000-8000-000000000001";
 
 const navigation = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/" },
+  { to: `/programs/${ondProgramId}`, label: "OND Program", icon: CalendarRange, matches: (path: string) => path.startsWith("/programs") },
+  { to: "/imports", label: "Uploads", icon: UploadCloud, matches: (path: string) => path.startsWith("/imports") },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns") },
   { to: `/stores/${crownIsleId}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas") },
   { to: `/stores/${crownIsleId}/workspace`, label: "Stores", icon: Building2, matches: (path: string) => (path.startsWith("/stores") && !path.includes("/floorplan")) || path.startsWith("/executions") },

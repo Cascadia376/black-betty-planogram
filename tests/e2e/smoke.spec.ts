@@ -25,6 +25,8 @@ test("presents the merchandising dashboard priorities and actions", async ({ pag
   await expect(page.getByText("Recommendations requiring attention", { exact: true })).toBeVisible();
 
   await expect(page.getByRole("link", { name: "New campaign" }).first()).toHaveAttribute("href", "/campaigns/new");
+  await expect(page.getByRole("link", { name: "Open OND 2026" })).toHaveAttribute("href", ondProgram);
+  await expect(page.getByRole("link", { name: "Upload spreadsheets" })).toHaveAttribute("href", "/imports");
   await expect(page.getByRole("link", { name: "View campaigns" }).first()).toHaveAttribute("href", "/campaigns");
   await expect(page.getByRole("link", { name: "Review compliance" }).first()).toHaveAttribute("href", /\/compliance\//);
   await expect(page.getByRole("link", { name: "View performance" }).first()).toHaveAttribute("href", "/performance");
@@ -84,6 +86,19 @@ const ondFloorplan = `${crownIsleFloorplan}?program=${ondProgramId}`;
 const crownIsleOrders = `/stores/10000000-0000-4000-8000-000000000001/orders?program=${ondProgramId}`;
 const crownIsleWorkspace = "/stores/10000000-0000-4000-8000-000000000001/workspace";
 const ondSeasonalExecution = "/executions/70000000-0000-4000-8000-000000000002";
+
+test("links to available spreadsheet upload workflows", async ({ page }) => {
+  await page.goto("/imports");
+  await expect(page.getByRole("heading", { name: "Spreadsheet imports" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "OND allocation spreadsheet" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Monthly flyer spreadsheet" })).toBeVisible();
+  await expect(page.getByText("Available", { exact: true })).toBeVisible();
+  await expect(page.getByText("Planned", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Upload OND spreadsheet" })).toHaveAttribute("href", ondImport);
+  await expect(page.getByRole("link", { name: "Create monthly flyer manually" })).toHaveAttribute("href", "/campaigns/new");
+  await page.getByRole("link", { name: "Upload OND spreadsheet" }).click();
+  await expect(page.getByRole("heading", { name: "OND 2026 legacy allocation import" })).toBeVisible();
+});
 
 test("reviews and applies the known Cascadia OND workbook", async ({ page }, testInfo) => {
   await page.goto(ondImport);
@@ -431,6 +446,7 @@ test("navigates the Crown Isle merchandising workflow", async ({ page }) => {
 
 const directRoutes = [
   { path: "/campaigns", heading: "Campaigns" },
+  { path: "/imports", heading: "Spreadsheet imports" },
   { path: ondProgram, heading: "OND 2026" },
   { path: ondAllocations, heading: "OND 2026 allocations" },
   { path: ondImport, heading: "OND 2026 legacy allocation import" },
@@ -458,6 +474,8 @@ test("keeps the application shell responsive without page overflow", async ({ pa
     await page.setViewportSize(viewport);
     await page.goto("/");
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "OND Program" })).toHaveAttribute("href", ondProgram);
+    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Uploads" })).toHaveAttribute("href", "/imports");
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`shell-${viewport.width}.png`), fullPage: true });

@@ -8,6 +8,7 @@ import { CampaignsPage } from "./features/campaigns/CampaignsPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { ExecutionPage } from "./features/execution/ExecutionPage";
 import { StoreOrdersPage } from "./features/orders/StoreOrdersPage";
+import { ImportsPage } from "./features/imports/ImportsPage";
 import { OndImportPage } from "./features/imports/OndImportPage";
 import { DisplayAreaProfilePage } from "./features/performance/PerformancePages";
 import { PerformancePage } from "./features/performance/OndPerformancePage";
@@ -28,6 +29,7 @@ export function App() {
     <Route path="programs/:programId" element={<ProgramWorkspacePage />} />
     <Route path="programs/:programId/allocations" element={<AllocationPlannerPage />} />
     <Route path="programs/:programId/import" element={<OndImportPage />} />
+    <Route path="imports" element={<ImportsPage />} />
     <Route path="stores/:storeId" element={<StoreOverviewPage />} />
     <Route path="stores/:storeId/floorplan" element={<StoreFloorplanPage />} />
     <Route path="stores/:storeId/workspace" element={<StoreWorkspacePage />} />

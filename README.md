@@ -17,6 +17,10 @@ Routes included:
 - `/campaigns/:campaignId`
 - `/campaigns/:campaignId/display`
 - `/campaigns/:campaignId/assign`
+- `/imports`
+- `/programs/:programId`
+- `/programs/:programId/allocations`
+- `/programs/:programId/import`
 - `/stores/:storeId`
 - `/stores/:storeId/floorplan`
 - `/stores/:storeId/workspace`

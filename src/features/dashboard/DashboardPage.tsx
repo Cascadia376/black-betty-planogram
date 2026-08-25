@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
   BarChart3,
+  CalendarRange,
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
@@ -9,12 +10,14 @@ import {
   Megaphone,
   Plus,
   Store,
+  UploadCloud,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge, Card, DataState, EmptyState, PageHeader, formatDate, humanize } from "../../components/ui";
 import { usePlatform } from "../../services/PlatformProvider";
 
 const DEMO_WEEK_START = new Date("2026-08-24T00:00:00Z");
+const OND_PROGRAM_ID = "c0000000-0000-4000-8000-000000000001";
 
 function isDueInDemoWeek(dueDate: string) {
   const due = new Date(`${dueDate}T00:00:00Z`);
@@ -90,6 +93,8 @@ export function DashboardPage() {
           <p className="text-xs font-semibold uppercase text-text-muted">Quick actions</p>
           <div className="mt-3 grid gap-2">
             {canEdit && <QuickAction icon={Plus} label="New campaign" to="/campaigns/new" primary />}
+            <QuickAction icon={CalendarRange} label="Open OND 2026" to={`/programs/${OND_PROGRAM_ID}`} />
+            <QuickAction icon={UploadCloud} label="Upload spreadsheets" to="/imports" />
             <QuickAction icon={Megaphone} label="View campaigns" to="/campaigns" />
             {complianceExecutionId && <QuickAction icon={ClipboardCheck} label="Review compliance" to={`/compliance/${complianceExecutionId}`} />}
             <QuickAction icon={BarChart3} label="View performance" to="/performance" />
