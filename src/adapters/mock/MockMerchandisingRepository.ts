@@ -44,6 +44,7 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
       return { ...strategy, strategy: strategy.strategy ?? seeded?.strategy ?? "NORMAL_CARRY" };
     }),
     residualDemandInputs: snapshot.residualDemandInputs ?? defaults.residualDemandInputs,
+    ondPerformance: snapshot.ondPerformance ?? defaults.ondPerformance,
   };
 }
 

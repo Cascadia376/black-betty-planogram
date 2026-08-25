@@ -311,6 +311,32 @@ export interface PerformanceRecord {
   agedInventoryPercent: number;
 }
 
+export interface OndPerformanceRecord {
+  id: UUID;
+  programId: UUID;
+  storeId: UUID;
+  displayAreaId: UUID;
+  displayAssignmentId: UUID;
+  productId: UUID;
+  periodId?: UUID;
+  periodStart: string;
+  periodEnd: string;
+  salesDollars: number;
+  units: number;
+  grossMarginDollars: number;
+  salesLiftPercent?: number;
+  stockoutRate: number;
+  compliancePercent: number;
+  openingFillReadinessPercent: number;
+  recommendedOrderCases: number;
+  actualOrderCases: number;
+  projectedResidualCases: number;
+  actualResidualCases: number;
+  bridgeInventoryCases: number;
+  bridgeSoldThroughCases: number;
+  incrementalBridgeMargin?: number;
+}
+
 export type RecommendationStatus = "open" | "accepted" | "dismissed" | "addressed";
 
 export interface Recommendation {
@@ -356,6 +382,7 @@ export interface PlatformSnapshot {
   executions: ExecutionTask[];
   complianceReviews: ComplianceReview[];
   performance: PerformanceRecord[];
+  ondPerformance: OndPerformanceRecord[];
   recommendations: Recommendation[];
   history: DisplayAreaHistoryEntry[];
 }

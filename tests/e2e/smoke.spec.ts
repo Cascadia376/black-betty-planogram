@@ -28,6 +28,47 @@ test("presents the merchandising dashboard priorities and actions", async ({ pag
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("explains OND performance learning from program to product", async ({ page }) => {
+  await page.goto("/performance");
+  await expect(page.getByRole("heading", { name: "Performance & Recommendations" })).toBeVisible();
+  for (const filter of ["Program", "Store", "Display area", "Assignment", "Product", "Period / reset"]) {
+    await expect(page.getByLabel(filter)).toBeVisible();
+  }
+  const summary = page.getByRole("region", { name: "OND performance summary" });
+  await expect(summary.getByText("$18,500", { exact: true })).toBeVisible();
+  await expect(summary.getByText("750", { exact: true })).toBeVisible();
+  await expect(summary.getByText("$5,670", { exact: true })).toBeVisible();
+  await expect(summary.getByText("$360", { exact: true })).toBeVisible();
+
+  for (const question of ["Which display areas worked best?", "Which products repeatedly stocked out?", "Which allocations were too high?", "Which allocations were too low?", "Which bridge buys created value?", "Which bridge buys left excess inventory?", "Which reset periods caused issues?"]) {
+    await expect(page.getByRole("heading", { name: question })).toBeVisible();
+  }
+  const learning = page.getByRole("heading", { name: "OND learning answers" }).locator("xpath=ancestor::section[1]");
+  await expect(learning.getByText("Mock Harvest Red Feature", { exact: true }).first()).toBeVisible();
+  await expect(learning.getByText("Mock Cream Liqueur Gift Pack", { exact: true }).first()).toBeVisible();
+  await expect(learning.getByText(/Rule: Flag a product when stockout rate/)).toBeVisible();
+
+  const results = page.getByRole("heading", { name: "OND measured results" }).locator("xpath=ancestor::section[1]");
+  await expect(results.locator("tbody tr")).toHaveCount(6);
+  await page.getByLabel("Product").selectOption({ label: "Mock Harvest Red Feature" });
+  await expect(results.locator("tbody tr")).toHaveCount(2);
+  await results.getByRole("button", { name: "Drill down" }).last().click();
+  await expect(page.getByText("Recommended / actual order", { exact: true })).toBeVisible();
+  await expect(page.getByText("Projected / actual residual", { exact: true })).toBeVisible();
+  await expect(page.getByText("Bridge sell-through", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Crown Isle / Feature Area 1" })).toHaveAttribute("href", /\/display-areas\//);
+  await expect(page.getByRole("link", { name: /Assignment/ })).toHaveAttribute("href", /\/programs\/.*\/allocations/);
+});
+
+test("keeps OND performance learning within desktop and tablet viewports", async ({ page }) => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/performance");
+    await expect(page.getByRole("heading", { name: "Performance & Recommendations" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
 const crownIsleFloorplan = "/stores/10000000-0000-4000-8000-000000000001/floorplan";
 const endcapAId = "40000000-0000-4000-8000-000000000001";
 const ondProgramId = "c0000000-0000-4000-8000-000000000001";
