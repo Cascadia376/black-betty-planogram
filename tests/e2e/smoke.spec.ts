@@ -12,6 +12,8 @@ test.beforeEach(async ({ page }) => {
 test("presents the merchandising dashboard priorities and actions", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
 
+  await expect(page).toHaveTitle("Black Betty | Cascadia Merchandising");
+  await expect(page.getByText("Black Betty", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Merchandising Dashboard" })).toBeVisible();
   await expect(page.getByText("Synthetic demo data", { exact: true })).toBeVisible();
   await expect(page.getByText("Displays due this week", { exact: true }).first()).toBeVisible();

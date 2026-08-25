@@ -1,4 +1,4 @@
-# Merchandising Platform
+# Black Betty
 
 Standalone merchandising operations application for Cascadia Liquor.
 

@@ -42,9 +42,9 @@ const roleLabels: Record<UserRole, string> = {
 function Brand() {
   return (
     <div className="flex h-[107px] items-center gap-3 px-6">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">LF</span>
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-primary text-sm font-bold text-primary-foreground">BB</span>
       <div className="min-w-0">
-        <p className="truncate text-lg font-semibold leading-6 text-text-primary">LiquorFlow</p>
+        <p className="truncate text-lg font-semibold leading-6 text-text-primary">Black Betty</p>
         <p className="text-xs font-medium leading-4 text-text-muted">Cascadia Merchandising</p>
       </div>
     </div>
@@ -156,7 +156,7 @@ export function AppShell() {
           <div className="flex items-center gap-3">
             <span className="hidden rounded border border-border bg-subtle px-2 py-1 text-[11px] font-semibold text-text-muted sm:inline-flex">MOCK DATA</span>
             <div className="hidden lg:block"><RoleSelect role={role} setRole={setRole} compact /></div>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-subtle text-xs font-bold text-primary">LF</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-subtle text-xs font-bold text-primary">BB</span>
           </div>
         </header>
 
@@ -180,4 +180,3 @@ export function AppShell() {
     </div>
   );
 }
-
