@@ -70,6 +70,17 @@ describe("mock merchandising workflow", () => {
     expect(state.complianceReviews.find((item) => item.executionId === execution!.id)).toEqual(expect.objectContaining({ score: 100, decision: "approved" }));
   });
 
+  it("creates a metadata-only campaign with legacy display defaults", async () => {
+    const repository = new MockMerchandisingRepository();
+    const campaignId = await repository.createCampaign({
+      name: "Synthetic OND Shell", type: "OND", description: "Phase 1 campaign shell", startDate: "2026-10-01",
+      endDate: "2026-12-31", owner: "Test owner", supplier: "", products: [],
+    });
+    const campaign = (await repository.load()).campaigns.find((item) => item.id === campaignId);
+    expect(campaign).toEqual(expect.objectContaining({ type: "OND", products: [], status: "draft" }));
+    expect(campaign?.requirement).toEqual(expect.objectContaining({ displayType: "flex", prescriptive: false }));
+  });
+
   it("rejects an incompatible campaign assignment", async () => {
     const repository = new MockMerchandisingRepository();
     await expect(repository.assignCampaign({ campaignId: IDS.beerCampaign, storeId: IDS.store, displayAreaId: IDS.cooler14, effectiveDate: "2026-09-01", notes: "" })).rejects.toThrow("incompatible");
