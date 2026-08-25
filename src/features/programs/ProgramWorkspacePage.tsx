@@ -95,6 +95,7 @@ export function ProgramWorkspacePage() {
       <PageHeader eyebrow="Quarterly merchandising program" title={program.name} description={`${formatDate(program.startDate)} - ${formatDate(program.endDate)} · ${program.description}`} actions={primaryStore && <>
         <Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${primaryStore.id}/workspace`}>Open store <ArrowRight className="h-4 w-4" /></Link>
         <Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/programs/${program.id}/allocations`}>Allocation planner</Link>
+        <Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/programs/${program.id}/import`}>Import legacy OND</Link>
         <Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${primaryStore.id}/floorplan?program=${program.id}`}>Review display assignments</Link>
         <a className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover" href="#ordering-exceptions">Review orders</a>
       </>} />

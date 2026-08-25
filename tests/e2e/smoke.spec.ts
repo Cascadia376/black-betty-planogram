@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { createCascadiaOndWorkbook } from "../fixtures/cascadiaOndWorkbook";
+
+declare const Buffer: { from(input: Uint8Array): Uint8Array };
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -74,10 +77,36 @@ const endcapAId = "40000000-0000-4000-8000-000000000001";
 const ondProgramId = "c0000000-0000-4000-8000-000000000001";
 const ondProgram = `/programs/${ondProgramId}`;
 const ondAllocations = `${ondProgram}/allocations`;
+const ondImport = `${ondProgram}/import`;
 const ondFloorplan = `${crownIsleFloorplan}?program=${ondProgramId}`;
 const crownIsleOrders = `/stores/10000000-0000-4000-8000-000000000001/orders?program=${ondProgramId}`;
 const crownIsleWorkspace = "/stores/10000000-0000-4000-8000-000000000001/workspace";
 const ondSeasonalExecution = "/executions/70000000-0000-4000-8000-000000000002";
+
+test("reviews and applies the known Cascadia OND workbook", async ({ page }, testInfo) => {
+  await page.goto(ondImport);
+  await expect(page.getByRole("heading", { name: "OND 2026 legacy allocation import" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Required columns" })).toBeVisible();
+  const bytes = createCascadiaOndWorkbook();
+  await page.getByLabel("Choose OND allocation workbook").setInputFiles({ name: "cascadia-ond-allocation-v1.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(bytes) as never });
+  await expect(page.getByRole("heading", { name: "Import review" })).toBeVisible();
+  await expect(page.getByText("3 ready", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 errors", { exact: true })).toBeVisible();
+  await expect(page.getByText("18", { exact: true })).toBeVisible();
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 768, height: 1024 }]) {
+    await page.setViewportSize(viewport);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`import-review-${viewport.width}.png`), fullPage: true });
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByRole("button", { name: "Approve import" }).click();
+  await expect(page.getByRole("button", { name: "Import applied" })).toBeVisible();
+  await page.getByRole("link", { name: "Open imported allocations" }).click();
+  await page.getByLabel("Store").selectOption({ label: "Eagle Creek" });
+  await expect(page.getByText("2 of 6 assignments", { exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /24 total 18 \+ 6/ })).toBeVisible();
+  await expect(page.getByRole("cell", { name: /14 total 14/ })).toBeVisible();
+});
 
 test("completes and reviews an OND display assignment", async ({ page }) => {
   await page.goto(ondSeasonalExecution);
@@ -281,6 +310,7 @@ test("keeps the OND program workspace within responsive viewports", async ({ pag
   for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
     await page.setViewportSize(viewport);
     await page.goto(ondProgram);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await expect(page.getByRole("heading", { name: "OND 2026" })).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`program-${viewport.width}.png`), fullPage: true });
@@ -401,6 +431,7 @@ const directRoutes = [
   { path: "/campaigns", heading: "Campaigns" },
   { path: ondProgram, heading: "OND 2026" },
   { path: ondAllocations, heading: "OND 2026 allocations" },
+  { path: ondImport, heading: "OND 2026 legacy allocation import" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/floorplan", heading: "Crown Isle floorplan" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/workspace", heading: "Crown Isle merchandising workspace" },
   { path: "/stores/10000000-0000-4000-8000-000000000001/orders", heading: "Crown Isle orders" },

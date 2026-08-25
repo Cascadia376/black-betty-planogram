@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
-  AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput, UpdateOrderRecommendationInput,
+  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
 import type { NewCampaignInput, PlatformSnapshot, RecommendationStatus, UUID, UserRole } from "../domain/types";
 
@@ -19,6 +19,7 @@ interface PlatformContextValue {
   assignCampaign(input: AssignCampaignInput): Promise<void>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<void>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<void>;
+  applyOndImport(input: ApplyOndImportInput): Promise<void>;
   completeExecution(input: CompleteExecutionInput): Promise<void>;
   reviewCompliance(input: SubmitComplianceInput): Promise<void>;
   updateRecommendation(id: UUID, status: RecommendationStatus, note?: string): Promise<void>;
@@ -70,6 +71,7 @@ export function PlatformProvider({ children, adapter = repository }: { children:
     assignCampaign: (input) => mutate(() => adapter.assignCampaign(input)).then(() => undefined),
     createDisplayAssignment: (input) => mutate(() => adapter.createDisplayAssignment(input)).then(() => undefined),
     updateDisplayAssignment: (id, input) => mutate(() => adapter.updateDisplayAssignment(id, input)).then(() => undefined),
+    applyOndImport: (input) => mutate(() => adapter.applyOndImport(input)).then(() => undefined),
     completeExecution: (input) => mutate(() => adapter.completeExecution(input)).then(() => undefined),
     reviewCompliance: (input) => mutate(() => adapter.reviewCompliance(input)).then(() => undefined),
     updateRecommendation: (id, status, note) => mutate(() => adapter.updateRecommendation(id, status, note)).then(() => undefined),

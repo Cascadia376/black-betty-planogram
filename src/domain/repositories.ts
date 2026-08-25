@@ -4,11 +4,13 @@ import type {
   ComplianceCheck,
   DisplayAssignment,
   DisplayAssignmentProduct,
+  MerchandisingProgram,
   NewCampaignInput,
   OrderRecommendationStatus,
   PlatformSnapshot,
   RecommendationStatus,
   ReviewDecision,
+  SupplierProductOption,
   UUID,
 } from "./types";
 
@@ -40,6 +42,12 @@ export interface CreateDisplayAssignmentInput {
   products: Omit<DisplayAssignmentProduct, "id" | "assignmentId">[];
 }
 
+export interface ApplyOndImportInput {
+  program: MerchandisingProgram;
+  assignments: CreateDisplayAssignmentInput[];
+  supplierProductOptions: SupplierProductOption[];
+}
+
 export interface UpdateOrderRecommendationInput {
   id: UUID;
   status: OrderRecommendationStatus;
@@ -53,6 +61,7 @@ export interface MerchandisingRepository {
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
+  applyOndImport(input: ApplyOndImportInput): Promise<void>;
   saveBridgeStrategy(strategy: BridgeStrategy): Promise<void>;
   completeExecution(input: CompleteExecutionInput): Promise<void>;
   reviewCompliance(input: SubmitComplianceInput): Promise<void>;

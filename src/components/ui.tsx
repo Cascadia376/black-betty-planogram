@@ -6,12 +6,12 @@ import { clsx } from "clsx";
 export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode }) {
   return (
     <header className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div className="min-w-0">
+      <div className="min-w-0 md:flex-1">
         {eyebrow && <p className="text-xs font-semibold uppercase text-primary">{eyebrow}</p>}
         <h1 className="mt-1 break-words text-2xl font-semibold leading-8 text-text-primary">{title}</h1>
         {description && <p className="mt-1 max-w-3xl text-sm leading-5 text-text-secondary">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 md:max-w-[65%] md:shrink-0 md:justify-end">{actions}</div>}
     </header>
   );
 }

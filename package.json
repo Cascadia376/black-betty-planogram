@@ -20,6 +20,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
+    "read-excel-file": "^6.0.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
@@ -39,6 +40,7 @@
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fflate": "^0.8.2",
     "globals": "^16.5.0",
     "happy-dom": "^20.5.0",
     "playwright": "^1.58.1",
@@ -47,4 +49,3 @@
     "vitest": "^4.0.18"
   }
 }
-

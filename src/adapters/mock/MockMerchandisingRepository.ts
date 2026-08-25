@@ -1,5 +1,5 @@
 import type {
-  AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput, UpdateOrderRecommendationInput,
+  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -103,6 +103,44 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       throw new Error("Display assignment was not found.");
     }
     return this.saveDisplayAssignment(input, id);
+  }
+
+  async applyOndImport(input: ApplyOndImportInput): Promise<void> {
+    const stagedAssignments = [...this.state.displayAssignments];
+    const importedAssignments: typeof this.state.displayAssignments = [];
+    const importedProducts: typeof this.state.displayAssignmentProducts = [];
+    for (const item of input.assignments) {
+      const { assignment, products } = item;
+      const store = this.state.stores.find((candidate) => candidate.id === assignment.storeId);
+      const area = this.state.displayAreas.find((candidate) => candidate.id === assignment.displayAreaId);
+      if (!store || !area || area.storeId !== store.id) throw new Error("Imported store or display area is invalid.");
+      if (assignment.programId !== input.program.id || assignment.startDate < input.program.startDate || assignment.endDate > input.program.endDate) {
+        throw new Error("Imported assignment dates must remain inside the imported program.");
+      }
+      if (assignment.periodId) {
+        const period = this.state.programPeriods.find((candidate) => candidate.id === assignment.periodId && candidate.programId === input.program.id);
+        if (!period || assignment.startDate < period.startDate || assignment.endDate > period.endDate) throw new Error("Imported program period is invalid.");
+      }
+      const errors = [...validateDisplayAssignment(assignment, stagedAssignments), ...validateDisplayAssignmentProducts(products)];
+      if (errors.length) throw new Error(errors.join(" "));
+      const id = crypto.randomUUID();
+      const normalized = { ...assignment, id };
+      stagedAssignments.push(normalized);
+      importedAssignments.push(normalized);
+      importedProducts.push(...products.map((product) => ({ ...product, id: crypto.randomUUID(), assignmentId: id })));
+    }
+    for (const option of input.supplierProductOptions) {
+      if (!this.state.suppliers.some((supplier) => supplier.id === option.supplierId)) throw new Error("Imported supplier option references an unknown supplier.");
+    }
+    this.state.programs = this.state.programs.filter((program) => program.id !== input.program.id);
+    this.state.programs.push(structuredClone(input.program));
+    this.state.displayAssignments.push(...importedAssignments);
+    this.state.displayAssignmentProducts.push(...importedProducts);
+    for (const option of input.supplierProductOptions) {
+      this.state.supplierProductOptions = this.state.supplierProductOptions.filter((candidate) => candidate.productId !== option.productId || candidate.supplierId !== option.supplierId);
+      this.state.supplierProductOptions.push(structuredClone(option));
+    }
+    this.persist();
   }
 
   private async saveDisplayAssignment(input: CreateDisplayAssignmentInput, assignmentId?: UUID) {

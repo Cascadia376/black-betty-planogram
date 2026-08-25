@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { CreateDisplayAssignmentInput } from "../../domain/repositories";
 import { MockMerchandisingRepository } from "./MockMerchandisingRepository";
 import { IDS, seedSnapshot } from "./seed";
+import { cascadiaOndRows as fixture } from "../../../tests/fixtures/cascadiaOndRows";
+import { CascadiaOndAllocationImportAdapter } from "../import/CascadiaOndAllocationImportAdapter";
 
 function ondAssignmentInput(startDate = "2026-10-01", endDate = "2026-11-11"): CreateDisplayAssignmentInput {
   return {
@@ -68,6 +70,28 @@ describe("mock merchandising workflow", () => {
     const products = state.displayAssignmentProducts.filter((item) => item.assignmentId === assignment.id);
     expect(products.map((item) => item.caseQuantity)).toEqual([18, 6]);
     expect(products[0].preferredSupplierId).toBe(IDS.ondPreferredSupplier);
+  });
+
+  it("atomically writes an approved OND import batch", async () => {
+    const repository = new MockMerchandisingRepository();
+    const result = new CascadiaOndAllocationImportAdapter().parseRows(fixture, { programId: IDS.ondProgram, snapshot: seedSnapshot });
+    await repository.applyOndImport(result.batch);
+    const state = await repository.load();
+    const imported = state.displayAssignments.filter((item) => item.storeId === IDS.eagleStore);
+    expect(imported).toHaveLength(2);
+    expect(state.displayAssignmentProducts.filter((item) => imported.some((assignment) => assignment.id === item.assignmentId))).toHaveLength(3);
+    expect(state.supplierProductOptions).toContainEqual(expect.objectContaining({ productId: IDS.ondHolidayProduct, supplierId: IDS.ondPreferredSupplier }));
+  });
+
+  it("does not partially write an import batch when an assignment overlaps", async () => {
+    const repository = new MockMerchandisingRepository();
+    const result = new CascadiaOndAllocationImportAdapter().parseRows(fixture, { programId: IDS.ondProgram, snapshot: seedSnapshot });
+    const invalidBatch = structuredClone(result.batch);
+    invalidBatch.assignments.push(structuredClone(invalidBatch.assignments[0]));
+
+    await expect(repository.applyOndImport(invalidBatch)).rejects.toThrow("cannot overlap");
+    const state = await repository.load();
+    expect(state.displayAssignments.filter((item) => item.storeId === IDS.eagleStore)).toEqual([]);
   });
 
   it("updates an assignment and replaces its store-specific quantities", async () => {
