@@ -3,8 +3,6 @@ import { Link } from "react-router-dom";
 import { Badge, Card, DataState, PageHeader, formatDate } from "../../components/ui";
 import { usePlatform } from "../../services/PlatformProvider";
 
-const OND_PROGRAM_ID = "c0000000-0000-4000-8000-000000000001";
-
 function linkClass(primary = false) {
   return primary
     ? "inline-flex min-h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
@@ -13,7 +11,7 @@ function linkClass(primary = false) {
 
 export function ImportsPage() {
   const { data, loading, error } = usePlatform();
-  const ondProgram = data?.programs.find((program) => program.id === OND_PROGRAM_ID);
+  const ondProgram = data?.programs.find((program) => program.status === "active") ?? data?.programs.find((program) => program.name.startsWith("OND"));
 
   return (
     <DataState loading={loading} error={error}>
@@ -43,8 +41,8 @@ export function ImportsPage() {
             )}
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link className={linkClass(true)} to={`/programs/${OND_PROGRAM_ID}/import`}><UploadCloud className="h-4 w-4" />Upload OND spreadsheet</Link>
-            <Link className={linkClass()} to={`/programs/${OND_PROGRAM_ID}/allocations`}>Review allocations <ArrowRight className="h-4 w-4" /></Link>
+            {ondProgram && <Link className={linkClass(true)} to={`/programs/${ondProgram.id}/import`}><UploadCloud className="h-4 w-4" />Upload OND spreadsheet</Link>}
+            {ondProgram && <Link className={linkClass()} to={`/programs/${ondProgram.id}/allocations`}>Review allocations <ArrowRight className="h-4 w-4" /></Link>}
           </div>
         </Card>
 

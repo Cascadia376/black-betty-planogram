@@ -31,8 +31,8 @@ export function AllocationPlannerPage() {
   const rows = data ? assignments.filter((assignment) => assignmentMatchesFilters(assignment, productsFor(assignment.id), filters, data)) : [];
   const displayTypes = [...new Set(data?.displayAreas.map((area) => area.type) ?? [])].sort();
   const suppliers = [...new Map((data?.supplierProductOptions ?? []).map((option) => [option.supplierId, option])).values()];
-  const categories = [...new Set((data?.displayAssignmentProducts ?? []).map((product) => data ? productDetails(product, data).category : ""))].filter(Boolean).sort();
-  const catalog = useMemo(() => [...new Map((data?.displayAssignmentProducts ?? []).map((product) => [product.productId, product])).values()], [data]);
+  const categories = [...new Set((data?.products ?? []).filter((product) => product.active).map((product) => product.category))].filter(Boolean).sort();
+  const catalog = useMemo(() => (data?.products ?? []).filter((product) => product.active).map((product) => ({ id: `catalog-${product.id}`, assignmentId: "catalog", productId: product.id, sku: product.sku, caseQuantity: 1, required: true, preferredSupplierId: data?.supplierProductOptions.find((option) => option.productId === product.id && option.preferred)?.supplierId })), [data]);
 
   const openEditor = (assignment: DisplayAssignment) => {
     setSelectedId(assignment.id);

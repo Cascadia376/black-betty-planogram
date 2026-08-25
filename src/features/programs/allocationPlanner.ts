@@ -18,14 +18,15 @@ export interface AllocationFilters {
 }
 
 export function productDetails(product: DisplayAssignmentProduct, data: PlatformSnapshot) {
+  const masterProduct = data.products.find((item) => item.id === product.productId || item.sku === product.sku);
   const campaignProduct = data.campaigns.flatMap((campaign) => campaign.products).find((item) => item.sku === product.sku);
   const syntheticProduct = syntheticProductMetadata[product.sku];
   const supplier = data.supplierProductOptions.find((option) =>
     option.productId === product.productId && option.supplierId === product.preferredSupplierId,
   ) ?? data.supplierProductOptions.find((option) => option.productId === product.productId && option.preferred);
   return {
-    name: campaignProduct?.name ?? syntheticProduct?.name ?? product.sku,
-    category: campaignProduct?.category ?? syntheticProduct?.category ?? "Uncategorized",
+    name: masterProduct?.name ?? campaignProduct?.name ?? syntheticProduct?.name ?? product.sku,
+    category: masterProduct?.category ?? campaignProduct?.category ?? syntheticProduct?.category ?? "Uncategorized",
     supplierName: supplier?.supplierName ?? "Not specified",
   };
 }

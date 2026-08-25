@@ -7,17 +7,16 @@ All primary keys are UUIDs. Foreign keys use the same shared IDs expected by Urs
 ## Core hierarchy
 
 ```text
-stores
-  -> store_zones
-    -> fixtures
-      -> display_areas
-        -> campaign_assignments
-          -> execution_tasks
-            -> execution_submissions
-              -> compliance_reviews
+merchandising_programs -> program_stores
+                       -> program_releases
+                       -> display_assignments -> display_assignment_products
+                                              -> execution_tasks
+                                              -> order_recommendations -> purchase_order_lines
+execution_tasks -> execution_submissions -> compliance_reviews
+purchase_orders -> purchase_order_lines -> inbound_orders
 ```
 
-`display_areas` are persistent physical assets. Campaign changes never replace or repurpose their identity.
+`display_areas` are persistent physical assets. Campaign changes never replace or repurpose their identity. Legacy campaign assignments remain supported, but new OND operational tasks reference `display_assignment_id` directly.
 
 ## Tables
 
@@ -27,10 +26,19 @@ stores
 | `store_zones` | `id`, `store_id`, `name`, `category`, `geometry` | Belongs to one store. Geometry uses normalized coordinates. |
 | `fixtures` | `id`, `store_id`, `zone_id`, `name`, `type`, `geometry` | Belongs to one zone and store. |
 | `display_areas` | `id`, `store_id`, `zone_id`, `fixture_id`, `name`, `type`, `description`, `capacity`, `geometry` | Persistent first-class merchandising asset. |
+| `products` | `id`, `sku`, `name`, `category`, `case_pack`, `active` | Product master abstraction. Production identity and attributes should be sourced from Ursus/Supabase, not inferred from allocations. |
+| `merchandising_programs` | `id`, `name`, `start_date`, `end_date`, `status`, `description` | A quarterly program may contain multiple periods and campaigns. |
+| `program_stores` | `id`, `program_id`, `store_id`, `included`, `status`, optional `owner_user_id` | Establishes program scope before allocations exist, so not-started stores remain visible. |
+| `program_releases` | `id`, `program_id`, `version`, `status`, `published_at`, `published_by_user_id` | Immutable release header. Published assignment/product snapshots should use child release tables or versioned JSON with an auditable schema. |
+| `display_assignments` | `id`, `program_id`, optional `period_id`, `store_id`, `display_area_id`, `start_date`, `end_date`, `reset_required`, `notes`, `status` | Canonical OND operational allocation. Exclusion constraints should reject overlapping date ranges for one display. |
+| `display_assignment_products` | `id`, `assignment_id`, `product_id`, `sku`, `case_quantity`, `required`, optional supplier/facing/note fields | Case quantity is store/display specific. |
 | `campaigns` | `id`, `name`, `type`, `description`, `start_date`, `end_date`, `owner_user_id`, `supplier`, `status`, display requirement fields | Campaign dates use inclusive business dates. |
 | `campaign_products` | `id`, `campaign_id`, `product_id` or `sku`, `name`, `category`, `role`, `required`, `minimum_quantity`, `minimum_facings` | Product master data remains externally owned. Snapshot names may be retained for historical display. |
 | `campaign_assignments` | `id`, `campaign_id`, `store_id`, `display_area_id`, `effective_date`, `compatibility`, `notes` | Connects a campaign to one persistent area at one store. |
-| `execution_tasks` | `id`, `assignment_id`, `due_date`, `status`, `issue` | One or more tasks may eventually exist per assignment. |
+| `execution_tasks` | `id`, optional legacy `assignment_id`, optional `display_assignment_id`, `program_release_id`, `task_type`, `due_date`, `status`, `issue` | Require exactly one assignment reference. OND publish creates initial-set and reset tasks from display assignments. |
+| `order_recommendations` | `id`, `store_id`, `product_id`, `display_assignment_id`, `supplier_id`, dates, cases, type, rationale, status, forecast metadata | Generated from assignment, demand, inventory, inbound, supplier, and Buying-owned bridge policy inputs. Keep rationale and source for auditability. |
+| `purchase_orders` | `id`, `store_id`, `supplier_id`, optional `program_id`, `created_at`, `expected_arrival_date`, `status` | Supplier-grouped operational order batch. |
+| `purchase_order_lines` | `id`, `purchase_order_id`, `recommendation_id`, `product_id`, `cases` | Connects accepted recommendations to a concrete order and resulting inbound records. |
 | `execution_submissions` | `id`, `execution_id`, `submitted_at`, `submitted_by_user_id`, `photo_storage_path`, `note`, unavailable SKU and substitution fields | Store only operationally necessary metadata. |
 | `compliance_reviews` | `id`, `execution_id`, `reviewer_user_id`, `reviewed_at`, `decision`, `score`, `checks`, `comment` | Checks are requirements-based; a normalized child table can replace JSON if reporting needs demand it. |
 | `display_area_history` | `id`, `display_area_id`, `campaign_id`, `assignment_id`, `execution_id`, `start_date`, `end_date` | Stable bridge for historical reporting. |
@@ -48,4 +56,3 @@ Zone, fixture, and display-area geometry is stored as `x`, `y`, `width`, and `he
 - Store managers are scoped to assigned store IDs; buying, merchandising, and operations roles receive only the mutations their work requires.
 - Authorization claims come from trusted `app_metadata`, not user-editable metadata.
 - Browser code never receives a secret or service-role key.
-

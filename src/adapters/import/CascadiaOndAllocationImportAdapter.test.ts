@@ -26,6 +26,14 @@ describe("Cascadia OND allocation import adapter", () => {
     expect(result.batch.supplierProductOptions.some((option) => option.productId === IDS.ondHolidayProduct && option.supplierId === IDS.ondPreferredSupplier)).toBe(true);
   });
 
+  it("resolves SKUs from the product master without requiring prior allocations", () => {
+    const snapshot = structuredClone(seedSnapshot);
+    snapshot.displayAssignmentProducts = [];
+    const result = adapter.parseRows(fixture, { programId: IDS.ondProgram, snapshot });
+    expect(result.issues).toEqual([]);
+    expect(result.batch.assignments.flatMap((item) => item.products)).toHaveLength(3);
+  });
+
   it("rejects a workbook whose headers do not exactly match the known format", () => {
     const rows = [[...CASCADIA_OND_HEADERS.slice(0, -1), "Notes"], ...fixture.slice(1)];
     const result = adapter.parseRows(rows, context);
@@ -48,5 +56,19 @@ describe("Cascadia OND allocation import adapter", () => {
     const result = adapter.parseRows([fixture[0], row], context);
     expect(result.issues).toContainEqual(expect.objectContaining({ code: "unparsed_timing_note", severity: "warning" }));
     expect(result.rows[0].status).toBe("review");
+  });
+
+  it("clears a timing warning after the reset date is explicitly structured", () => {
+    const row = [...fixture[1]];
+    row[9] = "";
+    row[10] = "Reset Nov 12 for holiday assortment";
+    const warning = adapter.parseRows([fixture[0], row], context);
+    expect(warning.rows[0].status).toBe("review");
+
+    row[9] = "2026-11-12";
+    const resolved = adapter.parseRows([fixture[0], row], context);
+    expect(resolved.issues).toEqual([]);
+    expect(resolved.rows[0].status).toBe("ready");
+    expect(resolved.batch.assignments[0].assignment.resetRequired).toBe(true);
   });
 });

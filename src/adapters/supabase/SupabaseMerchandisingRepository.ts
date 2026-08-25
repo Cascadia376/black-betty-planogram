@@ -17,6 +17,10 @@ export class SupabaseMerchandisingRepository implements MerchandisingRepository 
   async createDisplayAssignment(): Promise<never> { return this.unavailable(); }
   async updateDisplayAssignment(): Promise<never> { return this.unavailable(); }
   async applyOndImport(): Promise<void> { return this.unavailable(); }
+  async publishProgram(): Promise<never> { return this.unavailable(); }
+  async refreshOrderRecommendations(): Promise<never> { return this.unavailable(); }
+  async createPurchaseOrder(): Promise<never> { return this.unavailable(); }
+  async setProgramStore(): Promise<void> { return this.unavailable(); }
   async saveBridgeStrategy(): Promise<void> { return this.unavailable(); }
   async completeExecution(): Promise<void> { return this.unavailable(); }
   async reviewCompliance(): Promise<void> { return this.unavailable(); }

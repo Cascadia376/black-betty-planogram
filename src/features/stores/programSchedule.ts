@@ -17,8 +17,9 @@ export function orderStatusForAssignment(assignment: DisplayAssignment, data: Pl
   const productStatuses = products.map((product) => {
     const strategy = data.bridgeStrategies.find((item) => item.productId === product.productId);
     if (strategy?.strategy === "EXIT") return "exit_planned";
-    const supplierCovered = Boolean(product.preferredSupplierId)
-      || data.supplierProductOptions.some((option) => option.productId === product.productId && option.preferred);
+    const supplierCovered = data.supplierProductOptions.some((option) =>
+      option.productId === product.productId && option.preferred && !["unavailable", "unknown"].includes(option.availability ?? "unknown"),
+    );
     if (!supplierCovered) return "at_risk";
     if (strategy?.strategy === "BRIDGE_BUY" && strategy.eligibility === "yes") return "bridge_planned";
     return "covered";

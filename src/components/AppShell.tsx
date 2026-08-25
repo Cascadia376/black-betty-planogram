@@ -10,6 +10,7 @@ import {
   Megaphone,
   Plus,
   RotateCcw,
+  ShoppingCart,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -17,24 +18,33 @@ import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { clsx } from "clsx";
 import { usePlatform } from "../services/PlatformProvider";
-import type { UserRole } from "../domain/types";
+import type { PlatformSnapshot, UserRole } from "../domain/types";
 import { Button } from "./ui";
 
-const crownIsleId = "10000000-0000-4000-8000-000000000001";
-const ondProgramId = "c0000000-0000-4000-8000-000000000001";
-const currentExecutionId = "70000000-0000-4000-8000-000000000001";
-
-const navigation = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/" },
-  { to: `/programs/${ondProgramId}`, label: "OND Program", icon: CalendarRange, matches: (path: string) => path.startsWith("/programs") },
-  { to: "/imports", label: "Uploads", icon: UploadCloud, matches: (path: string) => path.startsWith("/imports") },
-  { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns") },
-  { to: `/stores/${crownIsleId}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas") },
-  { to: `/stores/${crownIsleId}/workspace`, label: "Stores", icon: Building2, matches: (path: string) => (path.startsWith("/stores") && !path.includes("/floorplan")) || path.startsWith("/executions") },
-  { to: `/compliance/${currentExecutionId}`, label: "Compliance", icon: ClipboardCheck, matches: (path: string) => path.startsWith("/compliance") },
-  { to: "/performance", label: "Performance", icon: BarChart3, matches: (path: string, search: string) => path === "/performance" && !search.includes("view=recommendations") },
-  { to: "/performance?view=recommendations", label: "Recommendations", icon: Lightbulb, matches: (path: string, search: string) => path === "/performance" && search.includes("view=recommendations") },
-];
+function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
+  const program = data?.programs.find((item) => item.status === "active") ?? data?.programs.find((item) => item.name.startsWith("OND")) ?? data?.programs[0];
+  const membership = data?.programStores.find((item) => item.programId === program?.id && item.included && item.status !== "not_started")
+    ?? data?.programStores.find((item) => item.programId === program?.id && item.included);
+  const store = data?.stores.find((item) => item.id === membership?.storeId) ?? data?.stores[0];
+  const execution = data?.executions.find((item) => item.status === "completed") ?? data?.executions[0];
+  const planningRoles: UserRole[] = ["admin", "merchandising", "read_only"];
+  const reviewRoles: UserRole[] = ["admin", "merchandising", "operations", "read_only"];
+  const items = [
+    { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/", roles: undefined },
+    ...(program ? [{ to: `/programs/${program.id}`, label: "OND Program", icon: CalendarRange, matches: (path: string) => path.startsWith("/programs"), roles: reviewRoles }] : []),
+    { to: "/imports", label: "Uploads", icon: UploadCloud, matches: (path: string) => path.startsWith("/imports"), roles: planningRoles },
+    { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns"), roles: planningRoles },
+    ...(store ? [
+      { to: `/stores/${store.id}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas"), roles: undefined },
+      { to: `/stores/${store.id}/workspace`, label: role === "store_manager" ? "My workspace" : "Stores", icon: Building2, matches: (path: string) => (path.startsWith("/stores") && !path.includes("/floorplan") && !path.includes("/orders")) || path.startsWith("/executions"), roles: undefined },
+      { to: `/stores/${store.id}/orders${program ? `?program=${program.id}` : ""}`, label: "Orders", icon: ShoppingCart, matches: (path: string) => path.includes("/orders"), roles: undefined },
+    ] : []),
+    ...(execution ? [{ to: `/compliance/${execution.id}`, label: "Compliance", icon: ClipboardCheck, matches: (path: string) => path.startsWith("/compliance"), roles: reviewRoles }] : []),
+    { to: "/performance", label: "Performance", icon: BarChart3, matches: (path: string, search: string) => path === "/performance" && !search.includes("view=recommendations"), roles: reviewRoles },
+    { to: "/performance?view=recommendations", label: "Recommendations", icon: Lightbulb, matches: (path: string, search: string) => path === "/performance" && search.includes("view=recommendations"), roles: reviewRoles },
+  ];
+  return items.filter((item) => !item.roles || item.roles.includes(role));
+}
 
 const roleLabels: Record<UserRole, string> = {
   admin: "Admin",
@@ -77,6 +87,8 @@ function RoleSelect({ role, setRole, compact = false }: { role: UserRole; setRol
 
 function Navigation({ close }: { close?: () => void }) {
   const location = useLocation();
+  const { data, role } = usePlatform();
+  const navigation = buildNavigation(data, role);
   return (
     <nav aria-label="Primary navigation" className="space-y-1 px-2 py-2">
       {navigation.map(({ to, label, icon: Icon, matches }) => {
@@ -105,10 +117,11 @@ function Navigation({ close }: { close?: () => void }) {
 
 function SidebarContent({ close }: { close?: () => void }) {
   const { role, setRole, resetDemo } = usePlatform();
+  const canCreateCampaign = role === "admin" || role === "merchandising";
   return (
     <div className="flex h-full flex-col">
       <Brand />
-      <div className="border-y border-border px-4 py-4">
+      {canCreateCampaign && <div className="border-y border-border px-4 py-4">
         <Link
           to="/campaigns/new"
           onClick={close}
@@ -117,7 +130,7 @@ function SidebarContent({ close }: { close?: () => void }) {
           <Plus className="h-3.5 w-3.5" />
           New campaign
         </Link>
-      </div>
+      </div>}
       <div className="min-h-0 flex-1 overflow-y-auto"><Navigation close={close} /></div>
       <div className="space-y-3 border-t border-border p-4 lg:hidden">
         <RoleSelect role={role} setRole={setRole} />
@@ -135,7 +148,8 @@ function SidebarContent({ close }: { close?: () => void }) {
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { role, setRole } = usePlatform();
+  const { role, setRole, data } = usePlatform();
+  const pilotStore = data?.stores.find((store) => data.programStores.some((membership) => membership.storeId === store.id && membership.included && membership.status !== "not_started")) ?? data?.stores[0];
   return (
     <div className="min-h-screen overflow-x-hidden bg-page-canvas text-text-primary">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-border bg-sidebar lg:block">
@@ -155,7 +169,7 @@ export function AppShell() {
             </button>
             <div className="min-w-0">
               <p className="truncate text-base font-semibold leading-5">Merchandising</p>
-              <p className="truncate text-xs text-text-muted">Crown Isle pilot</p>
+              <p className="truncate text-xs text-text-muted">{pilotStore ? `${pilotStore.name} pilot` : "Merchandising operations"}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

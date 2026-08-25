@@ -1,5 +1,6 @@
 import type {
-  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, MerchandisingRepository, SubmitComplianceInput, UpdateOrderRecommendationInput,
+  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -8,7 +9,14 @@ import {
   validateDisplayAssignment,
   validateDisplayAssignmentProducts,
 } from "../../domain/rules";
-import type { BridgeStrategy, NewCampaignInput, PlatformSnapshot, RecommendationStatus, UUID } from "../../domain/types";
+import type { BridgeStrategy, NewCampaignInput, OrderRecommendation, PlatformSnapshot, RecommendationStatus, UUID } from "../../domain/types";
+import { productDetails } from "../../features/programs/allocationPlanner";
+import type { BusinessClock } from "../../services/clock";
+import { mockBusinessClock } from "../../services/clock";
+import { MockHistoricalDemandSource } from "../../services/demand/MockHistoricalDemandSource";
+import { RuleBasedOndDemandService } from "../../services/demand/RuleBasedOndDemandService";
+import { RuleBasedOrderRecommendationService } from "../../services/orders/OrderRecommendationService";
+import { calculateResidualInventory } from "../../services/orders/ResidualInventoryService";
 import { seedSnapshot } from "./seed";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
@@ -21,6 +29,7 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
   const defaults = cloneSeed();
   return {
     ...snapshot,
+    products: snapshot.products ?? defaults.products,
     displayAreas: snapshot.displayAreas.map((area) => {
       const seededArea = defaults.displayAreas.find((candidate) => candidate.id === area.id);
       return {
@@ -31,6 +40,8 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     }),
     programs: snapshot.programs ?? defaults.programs,
     programPeriods: snapshot.programPeriods ?? defaults.programPeriods,
+    programStores: snapshot.programStores ?? defaults.programStores,
+    programReleases: snapshot.programReleases ?? defaults.programReleases,
     displayAssignments: snapshot.displayAssignments ?? defaults.displayAssignments,
     displayAssignmentProducts: snapshot.displayAssignmentProducts ?? defaults.displayAssignmentProducts,
     suppliers: snapshot.suppliers ?? defaults.suppliers,
@@ -38,6 +49,7 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     inventoryPositions: snapshot.inventoryPositions ?? defaults.inventoryPositions,
     inboundOrders: snapshot.inboundOrders ?? defaults.inboundOrders,
     orderRecommendations: snapshot.orderRecommendations ?? defaults.orderRecommendations,
+    purchaseOrders: snapshot.purchaseOrders ?? defaults.purchaseOrders,
     historicalDemand: snapshot.historicalDemand ?? defaults.historicalDemand,
     bridgeStrategies: (snapshot.bridgeStrategies ?? defaults.bridgeStrategies).map((strategy) => {
       const seeded = defaults.bridgeStrategies.find((item) => item.productId === strategy.productId);
@@ -60,6 +72,8 @@ function readInitialState(): PlatformSnapshot {
 
 export class MockMerchandisingRepository implements MerchandisingRepository {
   private state = readInitialState();
+
+  constructor(private readonly clock: BusinessClock = mockBusinessClock) {}
 
   private persist() {
     if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
@@ -140,6 +154,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       this.state.supplierProductOptions = this.state.supplierProductOptions.filter((candidate) => candidate.productId !== option.productId || candidate.supplierId !== option.supplierId);
       this.state.supplierProductOptions.push(structuredClone(option));
     }
+    await this.refreshOrderRecommendationsInternal({ programId: input.program.id });
     this.persist();
   }
 
@@ -175,13 +190,187 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       id: crypto.randomUUID(),
       assignmentId: assignment.id,
     })));
+    await this.refreshOrderRecommendationsInternal({ programId: assignment.programId, storeId: assignment.storeId });
     this.persist();
     return structuredClone(assignment);
+  }
+
+  async publishProgram(input: PublishProgramInput): Promise<PublishProgramResult> {
+    const program = this.state.programs.find((item) => item.id === input.programId);
+    if (!program) throw new Error("Merchandising program was not found.");
+    const assignments = this.state.displayAssignments.filter((item) => item.programId === program.id && item.status !== "cancelled");
+    if (!assignments.length) throw new Error("At least one display assignment is required before publishing.");
+    const validationErrors = assignments.flatMap((assignment) => {
+      const products = this.state.displayAssignmentProducts.filter((item) => item.assignmentId === assignment.id);
+      return [
+        ...validateDisplayAssignment(assignment, assignments.filter((item) => item.id !== assignment.id)),
+        ...validateDisplayAssignmentProducts(products),
+        ...products.filter((product) => !this.state.supplierProductOptions.some((option) => option.productId === product.productId)).map((product) => `SKU ${product.sku} has no supplier option.`),
+      ];
+    });
+    if (validationErrors.length) throw new Error([...new Set(validationErrors)].join(" "));
+
+    const scopedStores = this.state.programStores.filter((item) => item.programId === program.id && item.included);
+    const warnings = scopedStores.flatMap((programStore) => {
+      const storeAssignments = assignments.filter((item) => item.storeId === programStore.storeId);
+      const store = this.state.stores.find((item) => item.id === programStore.storeId);
+      if (!storeAssignments.length) return [`${store?.name ?? "An included store"} has no display assignments and remains not started.`];
+      const assignedAreas = new Set(storeAssignments.map((item) => item.displayAreaId));
+      const unassigned = this.state.displayAreas.filter((item) => item.storeId === programStore.storeId && !assignedAreas.has(item.id)).length;
+      return unassigned ? [`${store?.name ?? "An included store"} has ${unassigned} unassigned display space${unassigned === 1 ? "" : "s"}.`] : [];
+    });
+
+    this.state.programReleases.forEach((release) => {
+      if (release.programId === program.id && release.status === "published") release.status = "superseded";
+    });
+    const version = Math.max(0, ...this.state.programReleases.filter((item) => item.programId === program.id).map((item) => item.version)) + 1;
+    const releaseId = crypto.randomUUID();
+    const executionIds: string[] = [];
+    for (const assignment of assignments) {
+      assignment.status = "ready";
+      const prior = assignments.some((item) => item.displayAreaId === assignment.displayAreaId && item.endDate < assignment.startDate);
+      let execution = this.state.executions.find((item) => item.displayAssignmentId === assignment.id);
+      if (!execution) {
+        execution = {
+          id: crypto.randomUUID(), displayAssignmentId: assignment.id, dueDate: assignment.startDate,
+          status: "not_started", taskType: prior ? "reset" : "initial_set", programReleaseId: releaseId,
+        };
+        this.state.executions.push(execution);
+      } else {
+        execution.programReleaseId = releaseId;
+        execution.taskType = prior ? "reset" : "initial_set";
+      }
+      executionIds.push(execution.id);
+    }
+    program.status = "active";
+    for (const programStore of scopedStores) {
+      programStore.status = assignments.some((item) => item.storeId === programStore.storeId) ? "published" : "not_started";
+    }
+    const recommendationCount = await this.refreshOrderRecommendationsInternal({ programId: program.id });
+    const recommendationIds = this.state.orderRecommendations
+      .filter((item) => assignments.some((assignment) => assignment.id === item.displayAssignmentId))
+      .map((item) => item.id);
+    this.state.programReleases.push({
+      id: releaseId, programId: program.id, version, status: "published", publishedAt: this.clock.now(), publishedBy: input.publishedBy,
+      assignmentIds: assignments.map((item) => item.id),
+      assignments: assignments.map((assignment) => ({
+        assignment: structuredClone(assignment),
+        products: structuredClone(this.state.displayAssignmentProducts.filter((item) => item.assignmentId === assignment.id)),
+      })),
+      executionIds, recommendationIds,
+    });
+    this.persist();
+    return { releaseId, version, executionCount: executionIds.length, recommendationCount, warnings };
+  }
+
+  async refreshOrderRecommendations(input: RefreshOrderRecommendationsInput): Promise<number> {
+    const count = await this.refreshOrderRecommendationsInternal(input);
+    this.persist();
+    return count;
+  }
+
+  private async refreshOrderRecommendationsInternal(input: RefreshOrderRecommendationsInput): Promise<number> {
+    const assignments = this.state.displayAssignments.filter((item) =>
+      item.programId === input.programId && item.status !== "cancelled" && (!input.storeId || item.storeId === input.storeId),
+    );
+    const assignmentIds = new Set(assignments.map((item) => item.id));
+    const existing = this.state.orderRecommendations.filter((item) => assignmentIds.has(item.displayAssignmentId ?? ""));
+    const preservedOrdered = existing.filter((item) => item.status === "ordered");
+    const generated: OrderRecommendation[] = [];
+    const recommendationDate = input.recommendationDate ?? this.clock.today();
+    const demand = new RuleBasedOndDemandService(new MockHistoricalDemandSource(this.state.historicalDemand));
+    const service = new RuleBasedOrderRecommendationService(demand);
+    for (const assignment of assignments) {
+      for (const assignmentProduct of this.state.displayAssignmentProducts.filter((item) => item.assignmentId === assignment.id)) {
+        if (preservedOrdered.some((item) => item.displayAssignmentId === assignment.id && item.productId === assignmentProduct.productId)) continue;
+        const previous = existing.find((item) => item.displayAssignmentId === assignment.id && item.productId === assignmentProduct.productId);
+        const strategy = this.state.bridgeStrategies.find((item) => item.productId === assignmentProduct.productId);
+        const details = productDetails(assignmentProduct, this.state);
+        const type = strategy?.strategy === "EXIT" ? "exit_control" : strategy?.strategy === "BRIDGE_BUY" && strategy.eligibility === "yes" ? "bridge_buy" : "opening_fill";
+        const result = await service.generate({
+          id: previous?.id ?? crypto.randomUUID(), storeId: assignment.storeId, productId: assignmentProduct.productId,
+          category: details.category, displayAssignmentId: assignment.id, recommendationDate,
+          requiredByDate: assignment.startDate < recommendationDate ? recommendationDate : assignment.startDate,
+          recommendationType: type,
+        }, this.state);
+        let recommendation = result.recommendation;
+        if (type === "exit_control") {
+          const residualInput = this.state.residualDemandInputs.find((item) => item.storeId === assignment.storeId && item.productId === assignmentProduct.productId);
+          const projection = strategy && residualInput ? calculateResidualInventory(strategy, residualInput) : undefined;
+          recommendation = { ...recommendation, recommendedCases: 0, rationale: projection?.explanation ?? "Exit strategy. Do not add inventory beyond the assignment requirement." };
+        } else if (type === "bridge_buy") {
+          const residualInput = this.state.residualDemandInputs.find((item) => item.storeId === assignment.storeId && item.productId === assignmentProduct.productId);
+          const projection = strategy && residualInput ? calculateResidualInventory(strategy, residualInput) : undefined;
+          if (projection) recommendation = {
+            ...recommendation,
+            recommendedCases: Math.max(recommendation.recommendedCases, projection.safeBridgeQuantity),
+            rationale: `${recommendation.rationale} ${projection.explanation}`,
+          };
+        }
+        generated.push({
+          ...recommendation,
+          note: previous?.note,
+          status: previous && ["accepted", "edited"].includes(previous.status) ? "pending" : recommendation.status,
+          forecastCases: Math.ceil(result.forecast.dailyDemand.reduce((sum, day) => sum + day.expectedCases, 0)),
+          forecastConfidence: result.forecast.confidence,
+          forecastSource: result.forecast.source,
+          generatedAt: this.clock.now(),
+        });
+      }
+    }
+    this.state.orderRecommendations = this.state.orderRecommendations.filter((item) => !assignmentIds.has(item.displayAssignmentId ?? ""));
+    this.state.orderRecommendations.push(...preservedOrdered, ...generated);
+    return generated.length;
+  }
+
+  async createPurchaseOrder(input: CreatePurchaseOrderInput): Promise<UUID> {
+    const recommendations = input.recommendationIds.map((id) => this.state.orderRecommendations.find((item) => item.id === id));
+    if (!input.recommendationIds.length || recommendations.some((item) => !item)) throw new Error("Select at least one valid recommendation.");
+    if (recommendations.some((item) => item!.storeId !== input.storeId || item!.supplierId !== input.supplierId)) {
+      throw new Error("Purchase order recommendations must share one store and supplier.");
+    }
+    if (recommendations.some((item) => item!.recommendedCases <= 0 || ["dismissed", "ordered"].includes(item!.status))) {
+      throw new Error("Only actionable, positive recommendations can be ordered.");
+    }
+    const id = crypto.randomUUID();
+    const expectedArrivalDate = recommendations.map((item) => item!.requiredByDate).sort()[0];
+    const lines = recommendations.map((item) => ({
+      id: crypto.randomUUID(), purchaseOrderId: id, recommendationId: item!.id, productId: item!.productId, cases: item!.recommendedCases,
+    }));
+    this.state.purchaseOrders.push({ id, storeId: input.storeId, supplierId: input.supplierId, programId: input.programId, createdAt: this.clock.now(), expectedArrivalDate, status: "submitted", lines });
+    for (const item of recommendations) {
+      item!.status = "ordered";
+      this.state.inboundOrders.push({
+        id: crypto.randomUUID(), storeId: input.storeId, productId: item!.productId, supplierId: input.supplierId,
+        cases: item!.recommendedCases, expectedArrivalDate, status: "submitted",
+      });
+    }
+    if (input.programId) await this.refreshOrderRecommendationsInternal({ programId: input.programId, storeId: input.storeId });
+    this.persist();
+    return id;
+  }
+
+  async setProgramStore(input: SetProgramStoreInput): Promise<void> {
+    if (!this.state.programs.some((item) => item.id === input.programId)) throw new Error("Merchandising program was not found.");
+    if (!this.state.stores.some((item) => item.id === input.storeId)) throw new Error("Store was not found.");
+    const existing = this.state.programStores.find((item) => item.programId === input.programId && item.storeId === input.storeId);
+    if (existing) {
+      existing.included = input.included;
+      if (!input.included) existing.status = "not_started";
+    } else {
+      this.state.programStores.push({ id: crypto.randomUUID(), programId: input.programId, storeId: input.storeId, included: input.included, status: "not_started" });
+    }
+    this.persist();
   }
 
   async saveBridgeStrategy(strategy: BridgeStrategy): Promise<void> {
     this.state.bridgeStrategies = this.state.bridgeStrategies.filter((item) => item.productId !== strategy.productId);
     this.state.bridgeStrategies.push(structuredClone(strategy));
+    const affectedPrograms = new Set(this.state.displayAssignmentProducts
+      .filter((item) => item.productId === strategy.productId)
+      .map((product) => this.state.displayAssignments.find((assignment) => assignment.id === product.assignmentId)?.programId)
+      .filter((programId): programId is string => Boolean(programId)));
+    for (const programId of affectedPrograms) await this.refreshOrderRecommendationsInternal({ programId });
     this.persist();
   }
 
@@ -190,7 +379,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     if (!execution) throw new Error("Execution task was not found.");
     execution.status = input.unavailableSkus.length ? "issue" : "completed";
     execution.submission = {
-      id: crypto.randomUUID(), executionId: execution.id, submittedAt: new Date().toISOString(),
+      id: crypto.randomUUID(), executionId: execution.id, submittedAt: this.clock.now(),
       note: input.note, photoName: input.photoName, unavailableSkus: input.unavailableSkus,
       substitutionRequested: input.substitutionRequested,
     };
@@ -203,7 +392,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const existing = this.state.complianceReviews.find((item) => item.executionId === input.executionId);
     const review = {
       id: existing?.id ?? crypto.randomUUID(), executionId: input.executionId, reviewer: "Mock Operations Reviewer",
-      reviewedAt: new Date().toISOString(), decision: input.decision,
+      reviewedAt: this.clock.now(), decision: input.decision,
       score: calculateComplianceScore(input.checks), checks: input.checks, comment: input.comment,
     };
     this.state.complianceReviews = this.state.complianceReviews.filter((item) => item.executionId !== input.executionId);

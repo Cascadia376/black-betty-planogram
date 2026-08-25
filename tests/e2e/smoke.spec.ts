@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createCascadiaOndWorkbook } from "../fixtures/cascadiaOndWorkbook";
+import { cascadiaOndRows } from "../fixtures/cascadiaOndRows";
 
 declare const Buffer: { from(input: Uint8Array): Uint8Array };
 
@@ -33,6 +34,17 @@ test("presents the merchandising dashboard priorities and actions", async ({ pag
   await expect(page.getByRole("link", { name: /September Beer Feature/ }).first()).toHaveAttribute("href", /\/campaigns\//);
   await expect(page.getByRole("link", { name: /Crown Isle \/ Endcap A/ }).last()).toHaveAttribute("href", /\/display-areas\//);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("shows a store-manager operational navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByLabel("Demo role").last().selectOption("store_manager");
+  const navigation = page.getByRole("navigation", { name: "Primary navigation" });
+  await expect(navigation.getByRole("link", { name: "My workspace" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "Orders" })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: "Campaigns" })).toHaveCount(0);
+  await expect(navigation.getByRole("link", { name: "Uploads" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "New campaign" })).toHaveCount(0);
 });
 
 test("explains OND performance learning from program to product", async ({ page }) => {
@@ -125,6 +137,19 @@ test("reviews and applies the known Cascadia OND workbook", async ({ page }, tes
   await expect(page.getByRole("cell", { name: /14 total 14/ })).toBeVisible();
 });
 
+test("resolves an ambiguous reset date inside import review", async ({ page }) => {
+  const rows = structuredClone(cascadiaOndRows);
+  rows[1][9] = "";
+  rows[1][10] = "Reset Nov 12 for holiday assortment";
+  await page.goto(ondImport);
+  await page.locator('input[type="file"]').setInputFiles({ name: "ond-warning.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(createCascadiaOndWorkbook(rows)) });
+  await expect(page.getByText("1 review", { exact: true })).toBeVisible();
+  await page.getByLabel("Reset date for row 2").fill("2026-11-12");
+  await page.getByRole("button", { name: "Apply resolution" }).click();
+  await expect(page.getByText("3 ready", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve import" })).toBeVisible();
+});
+
 test("completes and reviews an OND display assignment", async ({ page }) => {
   await page.goto(ondSeasonalExecution);
   await expect(page.getByRole("heading", { name: "Autumn Gathering" })).toBeVisible();
@@ -138,7 +163,7 @@ test("completes and reviews an OND display assignment", async ({ page }) => {
   await expect(products.getByText("10 cases", { exact: true })).toBeVisible();
   await expect(products.getByText("5 cases on hand", { exact: true })).toBeVisible();
   await expect(products.getByText(/2 inbound/)).toBeVisible();
-  await expect(products.getByText("Mock Coastal Distribution", { exact: true })).toBeVisible();
+  await expect(products.getByText("Mock Coastal Distribution", { exact: true }).first()).toBeVisible();
 
   await page.getByLabel("Unavailable SKU").first().check();
   await page.getByLabel("Request an approved substitution").check();
@@ -239,6 +264,15 @@ test("marks a recommendation ordered and moves it to arriving soon", async ({ pa
   await expect(arriving.getByText("Ordered", { exact: true })).toBeVisible();
 });
 
+test("creates a supplier order batch and records inbound stock", async ({ page }) => {
+  await page.goto(crownIsleOrders);
+  const createOrder = page.getByRole("button", { name: "Create supplier order" }).first();
+  await expect(createOrder).toBeVisible();
+  await createOrder.click();
+  await expect(page.getByRole("status")).toContainText("Supplier order");
+  await expect(page.getByText("Submitted orders", { exact: true })).toBeVisible();
+});
+
 test("keeps the store ordering assistant within desktop viewports", async ({ page }) => {
   for (const viewport of [{ width: 1280, height: 900 }, { width: 1024, height: 768 }]) {
     await page.setViewportSize(viewport);
@@ -288,6 +322,7 @@ test("copies an allocation to another synthetic store", async ({ page }) => {
   const editor = page.getByRole("form", { name: "Assignment editor" });
   await editor.getByRole("button", { name: "Copy assignment to another store" }).click();
   await editor.getByRole("checkbox", { name: "Eagle Creek" }).check();
+  await editor.getByLabel("Destination display").selectOption({ label: "Display 1 · Endcap A" });
   await editor.getByRole("button", { name: "Create copy" }).click();
   await expect(editor.getByRole("status")).toContainText("copied to 1 store");
 });
@@ -307,6 +342,9 @@ test("loads the OND program workspace with store and reset actions", async ({ pa
 
   await expect(page.getByRole("heading", { name: "OND 2026" })).toBeVisible();
   await expect(page.getByText("Program timeline", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Program store scope" })).toBeVisible();
+  await expect(page.getByLabel("Include Crown Isle")).toBeChecked();
+  await expect(page.getByLabel("Include Eagle Creek")).toBeChecked();
   await expect(page.getByText("Nov 12 reset", { exact: true })).toBeVisible();
   await expect(page.getByText("Upcoming resets", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/Display 1 · Endcap A/)).toBeVisible();
@@ -315,6 +353,17 @@ test("loads the OND program workspace with store and reset actions", async ({ pa
   await expect(page.getByRole("link", { name: /Open store/ }).first()).toHaveAttribute("href", "/stores/10000000-0000-4000-8000-000000000001/workspace");
   await expect(page.getByRole("link", { name: "Review display assignments" })).toHaveAttribute("href", ondFloorplan);
   await expect(page.getByRole("link", { name: "Review orders" })).toHaveAttribute("href", "#ordering-exceptions");
+});
+
+test("publishes OND into versioned execution and ordering work", async ({ page }) => {
+  await page.goto(ondProgram);
+  await page.getByRole("button", { name: "Publish to stores" }).click();
+  await expect(page.getByRole("status")).toContainText("Program published · version 1");
+  await expect(page.getByRole("status")).toContainText("4 execution tasks and 8 order recommendations generated");
+  await expect(page.getByText("Published", { exact: true }).first()).toBeVisible();
+  await page.getByRole("link", { name: /Open store/ }).first().click();
+  await expect(page.getByText("OND 2026 reset", { exact: true })).toBeVisible();
+  await expect(page.getByText("Display 1 · Due Nov 12, 2026", { exact: true })).toBeVisible();
 });
 
 test("opens Crown Isle from the OND program workspace", async ({ page }) => {

@@ -1,7 +1,6 @@
 import readXlsxFile from "read-excel-file";
 import type { ApplyOndImportInput } from "../../domain/repositories";
 import type { PlatformSnapshot } from "../../domain/types";
-import { productDetails } from "../../features/programs/allocationPlanner";
 import type { ImportAdapter, ImportIssue } from "../../services/imports/contracts";
 
 export const CASCADIA_OND_HEADERS = ["Program", "Store", "Display #", "SKU", "Product", "Case Qty", "Vendor", "Start Date", "End Date", "Reset Date", "Promo Notes"] as const;
@@ -89,9 +88,9 @@ export class CascadiaOndAllocationImportAdapter implements ImportAdapter<Cascadi
       if (!store) add("Store", "unknown_store", `Store ${storeText || "blank"} is not recognized by name or code.`);
       const matchingAreas = store ? context.snapshot.displayAreas.filter((item) => item.storeId === store.id && item.displayNumber === displayNumber) : [];
       if (!displayNumber || matchingAreas.length !== 1) add("Display #", "invalid_display_number", `Display number ${displayNumber || "blank"} does not identify exactly one display at the selected store.`);
-      const assignmentProduct = context.snapshot.displayAssignmentProducts.find((item) => item.sku.toUpperCase() === sku);
-      if (!assignmentProduct) add("SKU", "unknown_sku", `SKU ${sku || "blank"} is not in the known OND product set.`);
-      const expectedProduct = assignmentProduct ? productDetails(assignmentProduct, context.snapshot).name : undefined;
+      const masterProduct = context.snapshot.products.find((item) => item.active && item.sku.toUpperCase() === sku);
+      if (!masterProduct) add("SKU", "unknown_sku", `SKU ${sku || "blank"} is not in the product master.`);
+      const expectedProduct = masterProduct?.name;
       if (expectedProduct && !exactMatch(productText, expectedProduct)) add("Product", "product_mismatch", `SKU ${sku} is recorded as ${expectedProduct}; found ${productText || "blank"}.`);
       if (caseQuantity === undefined || caseQuantity <= 0) add("Case Qty", "invalid_case_quantity", "Case quantity must be a positive whole number.");
       const supplier = context.snapshot.suppliers.find((item) => exactMatch(vendorText, item.name) || exactMatch(vendorText, item.code));
@@ -107,7 +106,7 @@ export class CascadiaOndAllocationImportAdapter implements ImportAdapter<Cascadi
       if (resetDate && resetDirective === false) add("Promo Notes", "reset_conflict", "Promo Notes say reset is not required but Reset Date is populated.");
       const period = startDate && endDate ? context.snapshot.programPeriods.find((item) => item.programId === program.id && startDate >= item.startDate && endDate <= item.endDate) : undefined;
       if (resetDate && period?.resetDate !== resetDate) add("Reset Date", "unknown_reset_date", "Reset Date does not match the reset configured for the assignment period.");
-      const duplicateKey = `${store?.id}|${matchingAreas[0]?.id}|${startDate}|${endDate}|${assignmentProduct?.productId}`;
+      const duplicateKey = `${store?.id}|${matchingAreas[0]?.id}|${startDate}|${endDate}|${masterProduct?.id}`;
       if (seenProducts.has(duplicateKey)) add("SKU", "duplicate_assignment_product", "The same SKU appears more than once for this store, display, and date range.");
       seenProducts.add(duplicateKey);
 
@@ -115,7 +114,7 @@ export class CascadiaOndAllocationImportAdapter implements ImportAdapter<Cascadi
       const reviewRow: CascadiaOndReviewRow = { rowNumber, program: programName, store: storeText, displayNumber, sku, product: productText, caseQuantity, vendor: vendorText, startDate, endDate, resetDate, promoNotes, status, issues: rowIssues };
       reviewRows.push(reviewRow);
       issues.push(...rowIssues);
-      if (status !== "error" && store && matchingAreas[0] && assignmentProduct && supplier && caseQuantity && startDate && endDate) normalized.push({ ...reviewRow, storeId: store.id, displayAreaId: matchingAreas[0].id, productId: assignmentProduct.productId, supplierId: supplier.id, periodId: period?.id, resetRequired: Boolean(resetDate) || resetDirective === true });
+      if (status !== "error" && store && matchingAreas[0] && masterProduct && supplier && caseQuantity && startDate && endDate) normalized.push({ ...reviewRow, storeId: store.id, displayAreaId: matchingAreas[0].id, productId: masterProduct.id, supplierId: supplier.id, periodId: period?.id, resetRequired: Boolean(resetDate) || resetDirective === true });
     }
 
     const assignmentGroups = new Map<string, NormalizedRow[]>();

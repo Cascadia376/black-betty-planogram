@@ -31,7 +31,7 @@ export function calculateResidualInventory(strategy: BridgeStrategy, demand: Res
   const projectedPostProgramDemand = demand.projectedQ1Volume;
   const dailyDemand = demand.projectedQ1Volume / 90;
   const weeklyDemand = demand.projectedQ1Volume / 13;
-  const ltoEndDate = strategy.ltoEndDate ?? "2026-12-31";
+  const ltoEndDate = strategy.ltoEndDate ?? `${new Date().getUTCFullYear()}-12-31`;
   let unwantedResidual = projectedInventoryAtProgramEnd;
   let intentionalBridgeInventory = 0;
   let safeBridgeQuantity = 0;

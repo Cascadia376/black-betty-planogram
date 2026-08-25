@@ -25,7 +25,13 @@ export function AssignmentEditor({ data, draft, assignmentId, defaultQuantity, o
   const quantityRef = useRef<HTMLInputElement>(null);
   const program = data.programs.find((item) => item.id === draft.assignment.programId)!;
   const periods = data.programPeriods.filter((item) => item.programId === program.id);
-  const catalog = [...new Map(data.displayAssignmentProducts.map((product) => [product.productId, product])).values()];
+  const catalog: ProductDraft[] = data.products.filter((product) => product.active).map((product) => ({
+    productId: product.id,
+    sku: product.sku,
+    caseQuantity: defaultQuantity,
+    required: true,
+    preferredSupplierId: data.supplierProductOptions.find((option) => option.productId === product.id && option.preferred)?.supplierId,
+  }));
 
   const assignmentPatch = (patch: Partial<CreateDisplayAssignmentInput["assignment"]>) => onChange({ ...draft, assignment: { ...draft.assignment, ...patch } });
   const productPatch = (index: number, patch: Partial<ProductDraft>) => onChange({ ...draft, products: draft.products.map((product, itemIndex) => itemIndex === index ? { ...product, ...patch } : product) });
@@ -48,10 +54,12 @@ export function AssignmentEditor({ data, draft, assignmentId, defaultQuantity, o
     setFormError(""); setMessage("");
     try {
       for (const storeId of copyStoreIds) {
+        const source = data.displayAreas.find((area) => area.id === draft.assignment.displayAreaId);
+        const compatible = data.displayAreas.filter((area) => area.storeId === storeId && area.type === source?.type && area.capacity === source?.capacity);
         const destination = copyStoreIds.length === 1 && copyAreaId
           ? data.displayAreas.find((area) => area.id === copyAreaId && area.storeId === storeId)
-          : data.displayAreas.find((area) => area.storeId === storeId && area.displayNumber === data.displayAreas.find((source) => source.id === draft.assignment.displayAreaId)?.displayNumber);
-        if (!destination) throw new Error("A matching persistent display destination was not found for each selected store.");
+          : compatible.length === 1 ? compatible[0] : undefined;
+        if (!destination) throw new Error("Choose a compatible destination display for each store; display numbers are not assumed to mean the same asset across stores.");
         await onSave({ ...draft, assignment: { ...draft.assignment, storeId, displayAreaId: destination.id, status: "draft" } });
       }
       setMessage(`Assignment copied to ${copyStoreIds.length} store${copyStoreIds.length === 1 ? "" : "s"}.`); setCopyOpen(false);

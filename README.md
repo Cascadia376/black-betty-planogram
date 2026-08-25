@@ -8,7 +8,7 @@ This application manages persistent high-value merchandising spaces such as endc
 
 The MVP supports the workflow:
 
-Plan -> Design -> Assign -> Locate -> Execute -> Verify -> Measure -> Improve
+Scope -> Import -> Allocate -> Publish -> Order -> Execute -> Verify -> Measure -> Improve
 
 Routes included:
 
@@ -24,6 +24,7 @@ Routes included:
 - `/stores/:storeId`
 - `/stores/:storeId/floorplan`
 - `/stores/:storeId/workspace`
+- `/stores/:storeId/orders`
 - `/executions/:executionId`
 - `/compliance/:executionId`
 - `/performance`
@@ -43,6 +44,10 @@ Primary boundaries:
 - `docs`: architecture and Ursus Major integration notes.
 
 The table-level schema contract is documented in `docs/DATA_MODEL.md`. No production database migration is included or applied in the mock-first MVP.
+
+OND programs use `DisplayAssignment` as the canonical operational allocation. Publishing creates a versioned mock release, direct initial-set/reset execution tasks, and explainable order recommendations. Supplier order batches create mock purchase orders and inbound records. Legacy campaign assignments remain supported for existing campaign screens.
+
+The deterministic mock business clock is centralized in `src/services/clock.ts`. A production repository should inject the system/business date rather than copy the mock date into UI code.
 
 ## Development
 

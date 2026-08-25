@@ -36,7 +36,7 @@ export function OrderRecommendationCard({ item, data, programId, update }: { ite
       <Metric label="On hand" value={`${item.onHandCases} cases`} detail={item.reservedCases ? `${item.reservedCases} reserved` : undefined} />
       <Metric label="On order" value={`${item.onOrderCases} cases`} />
       <Metric label="Required display stock" value={`${assignmentProduct?.caseQuantity ?? 0} cases`} />
-      <Metric label="Forecast need" value="Not calculated" />
+      <Metric label="Forecast need" value={recommendation.forecastCases === undefined ? "Not calculated" : `${recommendation.forecastCases} cases`} detail={recommendation.forecastConfidence ? `${humanize(recommendation.forecastConfidence)} confidence · ${humanize(recommendation.forecastSource ?? "default_ond_curve")}` : undefined} />
       <Metric label="Recommended order" value={`${recommendation.recommendedCases} cases`} strong />
       <Metric label="Required by" value={formatDate(recommendation.requiredByDate)} />
     </dl>

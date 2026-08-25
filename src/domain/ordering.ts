@@ -3,6 +3,7 @@ import type { InboundOrder, InventoryPosition, SupplierProductOption } from "./t
 export interface SupplierSelection {
   option: SupplierProductOption;
   isAlternate: boolean;
+  canMeetRequiredDate: boolean;
   rationale: string;
   expectedArrivalDate: string;
 }
@@ -35,12 +36,20 @@ export function selectSupplierForRequiredDate(
     return {
       option: preferred,
       isAlternate: false,
+      canMeetRequiredDate: true,
       expectedArrivalDate: expectedArrival(preferred, recommendationDate),
       rationale: `${preferred.supplierName} is preferred and can arrive by the required date.`,
     };
   }
 
   const alternate = productOptions.find((option) => !option.preferred && canMeetRequiredDate(option, recommendationDate, requiredByDate));
+  if (!alternate && preferred) return {
+    option: preferred,
+    isAlternate: false,
+    canMeetRequiredDate: false,
+    expectedArrivalDate: expectedArrival(preferred, recommendationDate),
+    rationale: `${preferred.supplierName} is preferred but cannot satisfy the required date. Buying review is required.`,
+  };
   if (!alternate) return undefined;
   const preferredReason = preferred?.availability === "unavailable"
     ? `${preferred.supplierName} is marked unavailable`
@@ -50,6 +59,7 @@ export function selectSupplierForRequiredDate(
   return {
     option: alternate,
     isAlternate: true,
+    canMeetRequiredDate: true,
     expectedArrivalDate: expectedArrival(alternate, recommendationDate),
     rationale: `${preferredReason}; ${alternate.supplierName} is suggested as an alternate that can meet the required date.`,
   };

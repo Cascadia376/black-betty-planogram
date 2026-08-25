@@ -14,16 +14,15 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge, Card, DataState, EmptyState, PageHeader, formatDate, humanize } from "../../components/ui";
+import { mockBusinessClock } from "../../services/clock";
 import { usePlatform } from "../../services/PlatformProvider";
 
-const DEMO_WEEK_START = new Date("2026-08-24T00:00:00Z");
-const OND_PROGRAM_ID = "c0000000-0000-4000-8000-000000000001";
-
 function isDueInDemoWeek(dueDate: string) {
+  const start = new Date(`${mockBusinessClock.today()}T00:00:00Z`);
   const due = new Date(`${dueDate}T00:00:00Z`);
-  const weekEnd = new Date(DEMO_WEEK_START);
-  weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-  return due >= DEMO_WEEK_START && due <= weekEnd;
+  const weekEnd = new Date(start);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+  return due >= start && due <= weekEnd;
 }
 
 function MetricCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string | number; detail: string }) {
@@ -64,6 +63,7 @@ function QuickAction({ icon: Icon, label, to, primary = false }: { icon: LucideI
 
 export function DashboardPage() {
   const { data, loading, error, role } = usePlatform();
+  const ondProgram = data?.programs.find((item) => item.status === "active") ?? data?.programs.find((item) => item.name.startsWith("OND"));
   const canEdit = role === "admin" || role === "merchandising";
   const activeCampaigns = data?.campaigns.filter((campaign) => campaign.status === "active") ?? [];
   const monthlyFlyer = activeCampaigns.find((campaign) => campaign.type === "Monthly flyer");
@@ -93,7 +93,7 @@ export function DashboardPage() {
           <p className="text-xs font-semibold uppercase text-text-muted">Quick actions</p>
           <div className="mt-3 grid gap-2">
             {canEdit && <QuickAction icon={Plus} label="New campaign" to="/campaigns/new" primary />}
-            <QuickAction icon={CalendarRange} label="Open OND 2026" to={`/programs/${OND_PROGRAM_ID}`} />
+            {ondProgram && <QuickAction icon={CalendarRange} label={`Open ${ondProgram.name}`} to={`/programs/${ondProgram.id}`} />}
             <QuickAction icon={UploadCloud} label="Upload spreadsheets" to="/imports" />
             <QuickAction icon={Megaphone} label="View campaigns" to="/campaigns" />
             {complianceExecutionId && <QuickAction icon={ClipboardCheck} label="Review compliance" to={`/compliance/${complianceExecutionId}`} />}
@@ -172,7 +172,11 @@ export function DashboardPage() {
             <div className="p-5">
               {data?.stores.map((store) => {
                 const assignmentIds = data.assignments.filter((assignment) => assignment.storeId === store.id).map((assignment) => assignment.id);
-                const storeExecutions = data.executions.filter((execution) => assignmentIds.includes(execution.assignmentId));
+                const displayAssignmentIds = data.displayAssignments.filter((assignment) => assignment.storeId === store.id).map((assignment) => assignment.id);
+                const storeExecutions = data.executions.filter((execution) =>
+                  (execution.assignmentId ? assignmentIds.includes(execution.assignmentId) : false)
+                  || (execution.displayAssignmentId ? displayAssignmentIds.includes(execution.displayAssignmentId) : false),
+                );
                 const storeCompleted = storeExecutions.filter((execution) => execution.status === "completed").length;
                 const progress = storeExecutions.length ? Math.round((storeCompleted / storeExecutions.length) * 100) : 0;
                 return (

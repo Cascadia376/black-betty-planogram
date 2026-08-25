@@ -40,6 +40,8 @@ export const IDS = {
   ondExitRecommendation: "c7000000-0000-4000-8000-000000000003",
   ondAtRiskRecommendation: "c7000000-0000-4000-8000-000000000004",
   ondCoveredRecommendation: "c7000000-0000-4000-8000-000000000005",
+  ondCrownProgramStore: "c8000000-0000-4000-8000-000000000001",
+  ondEagleProgramStore: "c8000000-0000-4000-8000-000000000002",
   beerCampaign: "50000000-0000-4000-8000-000000000001",
   seasonalCampaign: "50000000-0000-4000-8000-000000000002",
   summerCampaign: "50000000-0000-4000-8000-000000000003",
@@ -55,6 +57,13 @@ export const seedSnapshot: PlatformSnapshot = {
   stores: [
     { id: IDS.store, name: "Crown Isle", code: "CI", address: "Courtenay, BC" },
     { id: IDS.eagleStore, name: "Eagle Creek", code: "EC", address: "Victoria, BC (synthetic planning location)" },
+  ],
+  products: [
+    { id: IDS.ondHarvestProduct, sku: "MOCK-OND-1001", name: "Mock Harvest Red Feature", category: "Wine", casePack: 6, active: true, synthetic: true },
+    { id: IDS.ondBridgeProduct, sku: "MOCK-OND-1002", name: "Mock Cream Liqueur Gift Pack", category: "Spirits", casePack: 8, active: true, synthetic: true },
+    { id: IDS.ondHolidayProduct, sku: "MOCK-OND-2001", name: "Mock Holiday Cream Liqueur", category: "Spirits", casePack: 6, active: true, synthetic: true },
+    { id: IDS.ondExitProduct, sku: "MOCK-OND-EXIT-01", name: "Mock Seasonal Gift Set", category: "Gifts", casePack: 6, active: true, synthetic: true },
+    { id: IDS.ondCiderProduct, sku: "MOCK-OND-3001", name: "Mock Winter Cider Pack", category: "Cider", casePack: 6, active: true, synthetic: true },
   ],
   zones: [
     { id: IDS.zoneEntrance, storeId: IDS.store, name: "Front feature", category: "Promotional", geometry: { x: 0.04, y: 0.06, width: 0.22, height: 0.36 } },
@@ -93,6 +102,11 @@ export const seedSnapshot: PlatformSnapshot = {
     { id: IDS.ondEarlyPeriod, programId: IDS.ondProgram, name: "October / Early November", startDate: "2026-10-01", endDate: "2026-11-11", resetDate: "2026-11-12" },
     { id: IDS.ondHolidayPeriod, programId: IDS.ondProgram, name: "Holiday Reset", startDate: "2026-11-12", endDate: "2026-12-31" },
   ],
+  programStores: [
+    { id: IDS.ondCrownProgramStore, programId: IDS.ondProgram, storeId: IDS.store, included: true, status: "planning", owner: "Crown Isle Store Manager" },
+    { id: IDS.ondEagleProgramStore, programId: IDS.ondProgram, storeId: IDS.eagleStore, included: true, status: "not_started", owner: "Eagle Creek Store Manager" },
+  ],
+  programReleases: [],
   displayAssignments: [
     { id: IDS.ondEndcapAEarlyAssignment, programId: IDS.ondProgram, periodId: IDS.ondEarlyPeriod, storeId: IDS.store, displayAreaId: IDS.endcapA, startDate: "2026-10-01", endDate: "2026-11-11", resetRequired: true, notes: "Synthetic early OND allocation. Reset for holiday on Nov 12.", status: "planned" },
     { id: IDS.ondEndcapAHolidayAssignment, programId: IDS.ondProgram, periodId: IDS.ondHolidayPeriod, storeId: IDS.store, displayAreaId: IDS.endcapA, startDate: "2026-11-12", endDate: "2026-12-31", resetRequired: false, notes: "Synthetic holiday allocation beginning after the Nov 12 reset.", status: "planned" },
@@ -117,6 +131,10 @@ export const seedSnapshot: PlatformSnapshot = {
     { productId: IDS.ondHarvestProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 5, orderDays: ["Monday", "Thursday"], casePack: 6, availability: "available" },
     { productId: IDS.ondHarvestProduct, supplierId: IDS.ondAlternateSupplier, supplierName: "Mock Island Wholesale", preferred: false, leadTimeDays: 7, orderDays: ["Tuesday"], casePack: 6, availability: "available" },
     { productId: IDS.ondBridgeProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 4, orderDays: ["Monday", "Thursday"], casePack: 8, availability: "limited" },
+    { productId: IDS.ondBridgeProduct, supplierId: IDS.ondAlternateSupplier, supplierName: "Mock Island Wholesale", preferred: false, leadTimeDays: 6, orderDays: ["Tuesday"], casePack: 8, availability: "available" },
+    { productId: IDS.ondHolidayProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 5, orderDays: ["Monday", "Thursday"], casePack: 6, availability: "available" },
+    { productId: IDS.ondExitProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 5, orderDays: ["Monday", "Thursday"], casePack: 6, availability: "available" },
+    { productId: IDS.ondCiderProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 9, orderDays: ["Monday"], casePack: 6, availability: "unavailable" },
   ],
   inventoryPositions: [
     { storeId: IDS.store, productId: IDS.ondHarvestProduct, onHandCases: 5, reservedCases: 1, updatedAt: "2026-09-24T16:00:00Z" },
@@ -135,6 +153,7 @@ export const seedSnapshot: PlatformSnapshot = {
     { id: IDS.ondAtRiskRecommendation, storeId: IDS.store, productId: IDS.ondCiderProduct, displayAssignmentId: IDS.ondCoolerAssignment, supplierId: IDS.ondPreferredSupplier, recommendationDate: "2026-09-24", requiredByDate: "2026-10-01", recommendedCases: 10, recommendationType: "opening_fill", rationale: "Display 3 requires 10 cases and no supplier availability option is recorded. Review with Buying.", status: "pending" },
     { id: IDS.ondCoveredRecommendation, storeId: IDS.store, productId: IDS.ondHolidayProduct, displayAssignmentId: IDS.ondEndcapAHolidayAssignment, supplierId: IDS.ondPreferredSupplier, recommendationDate: "2026-11-05", requiredByDate: "2026-11-12", recommendedCases: 0, recommendationType: "opening_fill", rationale: "Display 1 requires 14 cases for the Nov 12 reset and 14 synthetic cases are on hand. No order is recommended.", status: "pending" },
   ],
+  purchaseOrders: [],
   historicalDemand: [
     { id: "d1000000-0000-4000-8000-000000000001", storeId: IDS.store, productId: IDS.ondHarvestProduct, category: "Wine", date: "2025-10-15", cases: 2 },
     { id: "d1000000-0000-4000-8000-000000000002", storeId: IDS.store, productId: IDS.ondHarvestProduct, category: "Wine", date: "2025-11-15", cases: 3 },

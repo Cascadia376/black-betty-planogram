@@ -1,8 +1,8 @@
 import { strToU8, zipSync } from "fflate";
 import { cascadiaOndRows as rows } from "./cascadiaOndRows";
 
-export function createCascadiaOndWorkbook() {
-  const sheetRows = rows.map((row, rowIndex) => `<row r="${rowIndex + 1}">${row.map((value, columnIndex) => {
+export function createCascadiaOndWorkbook(workbookRows = rows) {
+  const sheetRows = workbookRows.map((row, rowIndex) => `<row r="${rowIndex + 1}">${row.map((value, columnIndex) => {
     const reference = `${columnName(columnIndex)}${rowIndex + 1}`;
     return typeof value === "number"
       ? `<c r="${reference}"><v>${value}</v></c>`

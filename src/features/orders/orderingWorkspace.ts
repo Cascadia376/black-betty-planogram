@@ -40,6 +40,6 @@ export function buildOrderWorkspaceItems(data: PlatformSnapshot, storeId: string
     const strategy = data.bridgeStrategies.find((item) => item.productId === recommendation.productId);
     const residualInput = data.residualDemandInputs.find((item) => item.storeId === storeId && item.productId === recommendation.productId);
     const residualProjection = strategy && residualInput ? calculateResidualInventory(strategy, residualInput) : undefined;
-    return [{ recommendation, assignment, assignmentProduct, area, onHandCases: inventory?.onHandCases ?? 0, reservedCases: inventory?.reservedCases ?? 0, onOrderCases, supplierName: selection?.option.supplierName ?? supplier?.name ?? "Supplier review required", residualProjection, group: groupFor(recommendation, Boolean(selection), onOrderCases) }];
+    return [{ recommendation, assignment, assignmentProduct, area, onHandCases: inventory?.onHandCases ?? 0, reservedCases: inventory?.reservedCases ?? 0, onOrderCases, supplierName: selection?.option.supplierName ?? supplier?.name ?? "Supplier review required", residualProjection, group: groupFor(recommendation, selection?.canMeetRequiredDate === true, onOrderCases) }];
   });
 }

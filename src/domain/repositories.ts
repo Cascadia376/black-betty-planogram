@@ -55,6 +55,38 @@ export interface UpdateOrderRecommendationInput {
   note?: string;
 }
 
+export interface PublishProgramInput {
+  programId: UUID;
+  publishedBy: string;
+}
+
+export interface PublishProgramResult {
+  releaseId: UUID;
+  version: number;
+  executionCount: number;
+  recommendationCount: number;
+  warnings: string[];
+}
+
+export interface RefreshOrderRecommendationsInput {
+  programId: UUID;
+  storeId?: UUID;
+  recommendationDate?: string;
+}
+
+export interface CreatePurchaseOrderInput {
+  storeId: UUID;
+  supplierId: UUID;
+  programId?: UUID;
+  recommendationIds: UUID[];
+}
+
+export interface SetProgramStoreInput {
+  programId: UUID;
+  storeId: UUID;
+  included: boolean;
+}
+
 export interface MerchandisingRepository {
   load(): Promise<PlatformSnapshot>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
@@ -62,6 +94,10 @@ export interface MerchandisingRepository {
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   applyOndImport(input: ApplyOndImportInput): Promise<void>;
+  publishProgram(input: PublishProgramInput): Promise<PublishProgramResult>;
+  refreshOrderRecommendations(input: RefreshOrderRecommendationsInput): Promise<number>;
+  createPurchaseOrder(input: CreatePurchaseOrderInput): Promise<UUID>;
+  setProgramStore(input: SetProgramStoreInput): Promise<void>;
   saveBridgeStrategy(strategy: BridgeStrategy): Promise<void>;
   completeExecution(input: CompleteExecutionInput): Promise<void>;
   reviewCompliance(input: SubmitComplianceInput): Promise<void>;

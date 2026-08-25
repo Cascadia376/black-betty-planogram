@@ -5,8 +5,11 @@ import type { CampaignProduct, CampaignType, DisplayType, NewCampaignInput, Prod
 import { validateCampaign } from "../../domain/rules";
 import { usePlatform } from "../../services/PlatformProvider";
 import { Button, Card, Field, PageHeader, inputClass } from "../../components/ui";
+import { mockBusinessClock } from "../../services/clock";
 
 const newProduct = (): CampaignProduct => ({ id: crypto.randomUUID(), sku: "", name: "", category: "", role: "Feature", required: true, minimumQuantity: 1, minimumFacings: 1 });
+const defaultCampaignStart = mockBusinessClock.today();
+const defaultCampaignEnd = (() => { const date = new Date(`${defaultCampaignStart}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 30); return date.toISOString().slice(0, 10); })();
 
 export function CampaignBuilderPage() {
   const navigate = useNavigate();
@@ -14,7 +17,7 @@ export function CampaignBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string>();
   const [input, setInput] = useState<NewCampaignInput>({
-    name: "", type: "Monthly flyer", description: "", startDate: "2026-09-01", endDate: "2026-09-30",
+    name: "", type: "Monthly flyer", description: "", startDate: defaultCampaignStart, endDate: defaultCampaignEnd,
     owner: "Merchandising Team", supplier: "", products: [newProduct()],
     requirement: { displayType: "endcap", priority: "standard", signage: "", minimumSpace: "One full display area", executionNotes: "", prescriptive: false },
   });
@@ -35,4 +38,3 @@ export function CampaignBuilderPage() {
     <Card><h2 className="font-semibold">Display requirements</h2><div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Field label="Display type"><select className={inputClass} value={input.requirement.displayType} onChange={(e) => set("requirement", { ...input.requirement, displayType: e.target.value as DisplayType })}><option value="endcap">Endcap</option><option value="cooler_doors">Cooler-door group</option><option value="feature_table">Feature table</option><option value="floor_display">Floor display</option><option value="seasonal_area">Seasonal area</option></select></Field><Field label="Priority"><select className={inputClass} value={input.requirement.priority} onChange={(e) => set("requirement", { ...input.requirement, priority: e.target.value as "standard" | "high" | "critical" })}><option value="standard">Standard</option><option value="high">High</option><option value="critical">Critical</option></select></Field><Field label="Minimum space"><input className={inputClass} value={input.requirement.minimumSpace} onChange={(e) => set("requirement", { ...input.requirement, minimumSpace: e.target.value })} /></Field><Field label="Signage"><input className={inputClass} value={input.requirement.signage} onChange={(e) => set("requirement", { ...input.requirement, signage: e.target.value })} /></Field><div className="md:col-span-2"><Field label="Execution notes"><textarea className={`${inputClass} min-h-20 py-2`} value={input.requirement.executionNotes} onChange={(e) => set("requirement", { ...input.requirement, executionNotes: e.target.value })} /></Field></div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={input.requirement.prescriptive} onChange={(e) => set("requirement", { ...input.requirement, prescriptive: e.target.checked })} />This display is prescriptive</label></div></Card>
   </form>;
 }
-

@@ -9,6 +9,10 @@ export type InboundOrderStatus = "draft" | "submitted" | "confirmed" | "received
 export type OrderRecommendationType = "opening_fill" | "replenishment" | "normal_replenishment" | "peak_build" | "bridge_buy" | "exit_control";
 export type ProductInventoryStrategy = "EXIT" | "NORMAL_CARRY" | "BRIDGE_BUY";
 export type OrderRecommendationStatus = "pending" | "accepted" | "edited" | "dismissed" | "ordered";
+export type ProgramStoreStatus = "not_started" | "planning" | "ready" | "published";
+export type ProgramReleaseStatus = "published" | "superseded";
+export type ExecutionTaskType = "initial_set" | "reset";
+export type PurchaseOrderStatus = "draft" | "submitted" | "received" | "cancelled";
 export type CampaignType =
   | "Monthly flyer"
   | "Seasonal"
@@ -43,6 +47,16 @@ export interface Store {
   name: string;
   code: string;
   address: string;
+}
+
+export interface Product {
+  id: UUID;
+  sku: string;
+  name: string;
+  category: string;
+  casePack?: number;
+  active: boolean;
+  synthetic: boolean;
 }
 
 export interface StoreZone {
@@ -138,6 +152,28 @@ export interface ProgramPeriod {
   resetDate?: string;
 }
 
+export interface ProgramStore {
+  id: UUID;
+  programId: UUID;
+  storeId: UUID;
+  included: boolean;
+  status: ProgramStoreStatus;
+  owner?: string;
+}
+
+export interface ProgramRelease {
+  id: UUID;
+  programId: UUID;
+  version: number;
+  status: ProgramReleaseStatus;
+  publishedAt: string;
+  publishedBy: string;
+  assignmentIds: UUID[];
+  assignments: Array<{ assignment: DisplayAssignment; products: DisplayAssignmentProduct[] }>;
+  executionIds: UUID[];
+  recommendationIds: UUID[];
+}
+
 export interface DisplayAssignment {
   id: UUID;
   programId: UUID;
@@ -222,6 +258,29 @@ export interface OrderRecommendation {
   rationale: string;
   status: OrderRecommendationStatus;
   note?: string;
+  forecastCases?: number;
+  forecastConfidence?: "high" | "medium" | "low";
+  forecastSource?: "store_sku" | "chainwide_sku" | "store_category" | "chainwide_category" | "default_ond_curve";
+  generatedAt?: string;
+}
+
+export interface PurchaseOrderLine {
+  id: UUID;
+  purchaseOrderId: UUID;
+  recommendationId: UUID;
+  productId: UUID;
+  cases: number;
+}
+
+export interface PurchaseOrder {
+  id: UUID;
+  storeId: UUID;
+  supplierId: UUID;
+  programId?: UUID;
+  createdAt: string;
+  expectedArrivalDate: string;
+  status: PurchaseOrderStatus;
+  lines: PurchaseOrderLine[];
 }
 
 export interface BridgeStrategy {
@@ -269,10 +328,12 @@ export interface ExecutionSubmission {
 
 export interface ExecutionTask {
   id: UUID;
-  assignmentId: UUID;
+  assignmentId?: UUID;
   displayAssignmentId?: UUID;
   dueDate: string;
   status: ExecutionStatus;
+  taskType?: ExecutionTaskType;
+  programReleaseId?: UUID;
   issue?: string;
   submission?: ExecutionSubmission;
 }
@@ -362,11 +423,14 @@ export interface DisplayAreaHistoryEntry {
 
 export interface PlatformSnapshot {
   stores: Store[];
+  products: Product[];
   zones: StoreZone[];
   fixtures: Fixture[];
   displayAreas: DisplayArea[];
   programs: MerchandisingProgram[];
   programPeriods: ProgramPeriod[];
+  programStores: ProgramStore[];
+  programReleases: ProgramRelease[];
   displayAssignments: DisplayAssignment[];
   displayAssignmentProducts: DisplayAssignmentProduct[];
   suppliers: Supplier[];
@@ -374,6 +438,7 @@ export interface PlatformSnapshot {
   inventoryPositions: InventoryPosition[];
   inboundOrders: InboundOrder[];
   orderRecommendations: OrderRecommendation[];
+  purchaseOrders: PurchaseOrder[];
   historicalDemand: DemandHistoryRecord[];
   bridgeStrategies: BridgeStrategy[];
   residualDemandInputs: ResidualDemandInput[];

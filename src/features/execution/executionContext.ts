@@ -10,6 +10,12 @@ export function getExecutionContext(data: PlatformSnapshot, executionId: string)
   const program = data.programs.find((item) => item.id === displayAssignment?.programId);
   const period = data.programPeriods.find((item) => item.id === displayAssignment?.periodId);
   const assignmentProducts = data.displayAssignmentProducts.filter((item) => item.assignmentId === displayAssignment?.id);
+  const title = campaign?.name ?? (program && area ? `${program.name} · Display ${area.displayNumber} ${execution?.taskType === "reset" ? "reset" : "set"}` : "Display execution");
+  const requirement = campaign?.requirement ?? {
+    signage: "Use the approved program signage recorded for this assignment.",
+    minimumSpace: area?.capacity ?? "Use the assigned persistent display area.",
+    executionNotes: displayAssignment?.notes ?? "Follow the published display assignment.",
+  };
 
   const products = assignmentProducts.length ? assignmentProducts.map((product) => {
     const details = productDetails(product, data);
@@ -44,7 +50,7 @@ export function getExecutionContext(data: PlatformSnapshot, executionId: string)
     supplierName: campaign?.supplier ?? "Not specified",
   }));
 
-  return { execution, campaignAssignment, campaign, displayAssignment, area, program, period, products };
+  return { execution, campaignAssignment, campaign, displayAssignment, area, program, period, products, title, requirement };
 }
 
 export function buildAssignmentComplianceChecks(requiredSkus: string[], unavailableSkus: string[], substitutionRequested: boolean): ComplianceCheck[] {

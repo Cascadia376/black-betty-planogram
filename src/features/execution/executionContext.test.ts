@@ -11,6 +11,16 @@ describe("OND execution context", () => {
     expect(context.products[0]).toEqual(expect.objectContaining({ sku: "MOCK-OND-1001", plannedQuantity: "10 cases", onHandCases: 5 }));
   });
 
+  it("resolves a direct published display assignment without a campaign assignment", () => {
+    const data = structuredClone(seedSnapshot);
+    data.executions.push({ id: "direct-reset", displayAssignmentId: IDS.ondEndcapAHolidayAssignment, dueDate: "2026-11-12", status: "not_started", taskType: "reset" });
+    const context = getExecutionContext(data, "direct-reset");
+    expect(context.campaign).toBeUndefined();
+    expect(context.title).toBe("OND 2026 · Display 1 reset");
+    expect(context.area?.name).toBe("Endcap A");
+    expect(context.products.map((item) => item.sku)).toEqual(["MOCK-OND-2001", "MOCK-OND-EXIT-01"]);
+  });
+
   it("flags required stock gaps and substitution requests for review", () => {
     const checks = buildAssignmentComplianceChecks(["REQUIRED"], ["REQUIRED"], true);
     expect(checks.find((item) => item.key === "products")?.passed).toBe(false);

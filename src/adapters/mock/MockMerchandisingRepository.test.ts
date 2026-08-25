@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { CreateDisplayAssignmentInput } from "../../domain/repositories";
+import type { PlatformSnapshot } from "../../domain/types";
 import { MockMerchandisingRepository } from "./MockMerchandisingRepository";
 import { IDS, seedSnapshot } from "./seed";
 import { cascadiaOndRows as fixture } from "../../../tests/fixtures/cascadiaOndRows";
@@ -144,6 +145,7 @@ describe("mock merchandising workflow", () => {
       maxCases: 12,
       note: "Synthetic test buying decision.",
     });
+    expect(state.orderRecommendations.find((item) => item.displayAssignmentId === IDS.ondEndcapAEarlyAssignment && item.productId === IDS.ondBridgeProduct)?.recommendationType).toBe("opening_fill");
   });
 
   it("loads synthetic supplier, inventory, inbound, and recommendation data", async () => {
@@ -162,4 +164,65 @@ describe("mock merchandising workflow", () => {
     expect(state.orderRecommendations.find((item) => item.id === IDS.ondBridgeRecommendation)).toEqual(expect.objectContaining({ status: "edited", recommendedCases: 10, note: "Store manager mock note.", recommendationType: "bridge_buy" }));
     expect(state.bridgeStrategies.find((item) => item.productId === IDS.ondBridgeProduct)?.eligibility).toBe("yes");
   });
+
+  it("publishes a versioned program into direct display execution and reset tasks", async () => {
+    const repository = new MockMerchandisingRepository();
+    const result = await repository.publishProgram({ programId: IDS.ondProgram, publishedBy: "Test Merchandiser" });
+    const state = await repository.load();
+
+    expect(result).toEqual(expect.objectContaining({ version: 1, executionCount: 4, recommendationCount: 8 }));
+    expect(state.programs.find((item) => item.id === IDS.ondProgram)?.status).toBe("active");
+    expect(state.programStores.find((item) => item.id === IDS.ondCrownProgramStore)?.status).toBe("published");
+    expect(state.programStores.find((item) => item.id === IDS.ondEagleProgramStore)?.status).toBe("not_started");
+    const holidayReset = state.executions.find((item) => item.displayAssignmentId === IDS.ondEndcapAHolidayAssignment);
+    expect(holidayReset).toEqual(expect.objectContaining({ taskType: "reset", dueDate: "2026-11-12" }));
+    expect(holidayReset?.assignmentId).toBeUndefined();
+    expect(state.programReleases[0]).toEqual(expect.objectContaining({ version: 1, publishedBy: "Test Merchandiser" }));
+    expect(state.programReleases[0].assignments).toHaveLength(4);
+  });
+
+  it("maintains program store scope before allocations exist", async () => {
+    const repository = new MockMerchandisingRepository();
+    await repository.setProgramStore({ programId: IDS.ondProgram, storeId: IDS.eagleStore, included: false });
+    let state = await repository.load();
+    expect(state.programStores.find((item) => item.id === IDS.ondEagleProgramStore)).toEqual(expect.objectContaining({ included: false, status: "not_started" }));
+    await repository.setProgramStore({ programId: IDS.ondProgram, storeId: IDS.eagleStore, included: true });
+    state = await repository.load();
+    expect(state.programStores.find((item) => item.id === IDS.ondEagleProgramStore)?.included).toBe(true);
+  });
+
+  it("keeps a frozen release snapshot when planning changes after publish", async () => {
+    const repository = new MockMerchandisingRepository();
+    await repository.publishProgram({ programId: IDS.ondProgram, publishedBy: "Test Merchandiser" });
+    const before = await repository.load();
+    const released = before.programReleases[0].assignments.find((item) => item.assignment.id === IDS.ondFeatureAssignment)!;
+    const current = before.displayAssignments.find((item) => item.id === IDS.ondFeatureAssignment)!;
+    const products = before.displayAssignmentProducts.filter((item) => item.assignmentId === current.id).map(toProductInput);
+    await repository.updateDisplayAssignment(current.id, { assignment: { ...current, notes: "Post-publish planning change." }, products });
+    const after = await repository.load();
+    expect(after.displayAssignments.find((item) => item.id === current.id)?.notes).toBe("Post-publish planning change.");
+    expect(after.programReleases[0].assignments.find((item) => item.assignment.id === current.id)?.assignment.notes).toBe(released.assignment.notes);
+  });
+
+  it("regenerates explainable recommendations and creates a supplier order with inbound stock", async () => {
+    const repository = new MockMerchandisingRepository();
+    const count = await repository.refreshOrderRecommendations({ programId: IDS.ondProgram, storeId: IDS.store });
+    let state = await repository.load();
+    expect(count).toBe(8);
+    const recommendation = state.orderRecommendations.find((item) => item.displayAssignmentId === IDS.ondEndcapAEarlyAssignment && item.productId === IDS.ondHarvestProduct)!;
+    const relatedBefore = state.orderRecommendations.find((item) => item.displayAssignmentId === IDS.ondFeatureAssignment && item.productId === IDS.ondHarvestProduct)!;
+    expect(recommendation).toEqual(expect.objectContaining({ forecastConfidence: "high", forecastSource: "store_sku" }));
+    expect(recommendation.forecastCases).toBeGreaterThan(0);
+
+    const orderId = await repository.createPurchaseOrder({ storeId: IDS.store, supplierId: recommendation.supplierId, programId: IDS.ondProgram, recommendationIds: [recommendation.id] });
+    state = await repository.load();
+    expect(state.purchaseOrders.find((item) => item.id === orderId)?.lines).toEqual([expect.objectContaining({ recommendationId: recommendation.id, cases: recommendation.recommendedCases })]);
+    expect(state.orderRecommendations.find((item) => item.id === recommendation.id)?.status).toBe("ordered");
+    expect(state.inboundOrders).toContainEqual(expect.objectContaining({ productId: recommendation.productId, cases: recommendation.recommendedCases, status: "submitted" }));
+    expect(state.orderRecommendations.find((item) => item.id === relatedBefore.id)?.recommendedCases).toBeLessThan(relatedBefore.recommendedCases);
+  });
 });
+
+function toProductInput(product: PlatformSnapshot["displayAssignmentProducts"][number]): CreateDisplayAssignmentInput["products"][number] {
+  return { productId: product.productId, sku: product.sku, caseQuantity: product.caseQuantity, required: product.required, minimumFacings: product.minimumFacings, preferredSupplierId: product.preferredSupplierId, note: product.note };
+}
