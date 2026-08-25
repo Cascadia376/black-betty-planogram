@@ -2,10 +2,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
-  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
   PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
-import type { NewCampaignInput, PlatformSnapshot, RecommendationStatus, UUID, UserRole } from "../domain/types";
+import type { NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
 
 const repository = new MockMerchandisingRepository();
 
@@ -16,6 +16,8 @@ interface PlatformContextValue {
   role: UserRole;
   setRole(role: UserRole): void;
   refresh(): Promise<void>;
+  searchProducts(query: string): Promise<Product[]>;
+  createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   assignCampaign(input: AssignCampaignInput): Promise<void>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<void>;
@@ -68,6 +70,13 @@ export function PlatformProvider({ children, adapter = repository }: { children:
 
   const value = useMemo<PlatformContextValue>(() => ({
     data, loading, error, role, setRole, refresh,
+    searchProducts: (query) => adapter.searchProducts(query),
+    createPendingProduct: async (input) => {
+      let product: Product | undefined;
+      await mutate(async () => { product = await adapter.createPendingProduct(input); });
+      if (!product) throw new Error("Pending product creation did not return a product.");
+      return product;
+    },
     createCampaign: async (input) => {
       let id = "";
       await mutate(async () => { id = await adapter.createCampaign(input); });

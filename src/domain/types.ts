@@ -8,6 +8,7 @@ export type SupplierAvailability = "available" | "limited" | "unavailable" | "un
 export type InboundOrderStatus = "draft" | "submitted" | "confirmed" | "received" | "cancelled";
 export type OrderRecommendationType = "opening_fill" | "replenishment" | "normal_replenishment" | "peak_build" | "bridge_buy" | "exit_control";
 export type ProductInventoryStrategy = "EXIT" | "NORMAL_CARRY" | "BRIDGE_BUY";
+export type ProductMasterStatus = "verified" | "pending" | "unresolved";
 export type OrderRecommendationStatus = "pending" | "accepted" | "edited" | "dismissed" | "ordered";
 export type ProgramStoreStatus = "not_started" | "planning" | "ready" | "published";
 export type ProgramReleaseStatus = "published" | "superseded";
@@ -54,7 +55,15 @@ export interface Product {
   sku: string;
   name: string;
   category: string;
+  subcategory?: string;
+  brand?: string;
+  packageSize?: string;
   casePack?: number;
+  supplierName?: string;
+  supplierProductCode?: string;
+  notes?: string;
+  masterStatus: ProductMasterStatus;
+  authoritativeProductId?: UUID;
   active: boolean;
   synthetic: boolean;
 }
@@ -100,13 +109,11 @@ export interface DisplayArea {
 
 export interface CampaignProduct {
   id: UUID;
-  sku: string;
-  name: string;
-  category: string;
+  campaignId?: UUID;
+  productId: UUID;
   role: ProductRole;
   required: boolean;
-  minimumQuantity: number;
-  minimumFacings: number;
+  note?: string;
 }
 
 export interface DisplayRequirement {
@@ -461,5 +468,5 @@ export interface NewCampaignInput {
   owner: string;
   supplier: string;
   products: CampaignProduct[];
-  requirement: DisplayRequirement;
+  requirement?: DisplayRequirement;
 }

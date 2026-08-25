@@ -6,6 +6,7 @@ import type {
   DisplayAssignmentProduct,
   MerchandisingProgram,
   NewCampaignInput,
+  Product,
   OrderRecommendationStatus,
   PlatformSnapshot,
   RecommendationStatus,
@@ -13,6 +14,18 @@ import type {
   SupplierProductOption,
   UUID,
 } from "./types";
+
+export interface CreatePendingProductInput {
+  sku: string;
+  name: string;
+  category: string;
+  brand?: string;
+  packageSize?: string;
+  casePack?: number;
+  supplierName?: string;
+  supplierProductCode?: string;
+  notes?: string;
+}
 
 export interface AssignCampaignInput {
   campaignId: UUID;
@@ -89,6 +102,8 @@ export interface SetProgramStoreInput {
 
 export interface MerchandisingRepository {
   load(): Promise<PlatformSnapshot>;
+  searchProducts(query: string): Promise<Product[]>;
+  createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;

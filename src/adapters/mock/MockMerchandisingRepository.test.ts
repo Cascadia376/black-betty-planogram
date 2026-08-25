@@ -41,6 +41,16 @@ function ondAssignmentInput(startDate = "2026-10-01", endDate = "2026-11-11"): C
 describe("mock merchandising workflow", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("searches Product Master and creates a visibly pending temporary product", async () => {
+    const repository = new MockMerchandisingRepository();
+    const results = await repository.searchProducts("Coastal Lager");
+    expect(results.map((product) => product.sku)).toContain("MOCK-1001");
+
+    const pending = await repository.createPendingProduct({ sku: "001234", name: "Synthetic New Product", category: "Wine" });
+    expect(pending).toEqual(expect.objectContaining({ sku: "001234", masterStatus: "pending", active: true }));
+    await expect(repository.createPendingProduct({ sku: "001234", name: "Duplicate", category: "Wine" })).rejects.toThrow("already exists");
+  });
+
   it("creates a campaign, assignment, execution, and compliance review", async () => {
     const repository = new MockMerchandisingRepository();
     const source = seedSnapshot.campaigns[0];
@@ -49,6 +59,7 @@ describe("mock merchandising workflow", () => {
       endDate: "2026-09-30", owner: "Test owner", supplier: "Test supplier", products: source.products,
       requirement: source.requirement,
     });
+    expect((await repository.load()).campaigns.find((campaign) => campaign.id === campaignId)?.products.every((product) => product.campaignId === campaignId)).toBe(true);
     const assignment = await repository.assignCampaign({ campaignId, storeId: IDS.store, displayAreaId: IDS.endcapB, effectiveDate: "2026-09-01", notes: "Test assignment" });
     let state = await repository.load();
     const execution = state.executions.find((item) => item.assignmentId === assignment.id);

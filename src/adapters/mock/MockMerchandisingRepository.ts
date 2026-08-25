@@ -1,5 +1,5 @@
 import type {
-  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
   PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
@@ -9,7 +9,7 @@ import {
   validateDisplayAssignment,
   validateDisplayAssignmentProducts,
 } from "../../domain/rules";
-import type { BridgeStrategy, NewCampaignInput, OrderRecommendation, PlatformSnapshot, RecommendationStatus, UUID } from "../../domain/types";
+import type { BridgeStrategy, CampaignProduct, DisplayRequirement, NewCampaignInput, OrderRecommendation, PlatformSnapshot, Product, RecommendationStatus, UUID } from "../../domain/types";
 import { productDetails } from "../../features/programs/allocationPlanner";
 import type { BusinessClock } from "../../services/clock";
 import { mockBusinessClock } from "../../services/clock";
@@ -20,6 +20,14 @@ import { calculateResidualInventory } from "../../services/orders/ResidualInvent
 import { seedSnapshot } from "./seed";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
+const defaultDisplayRequirement: DisplayRequirement = {
+  displayType: "flex",
+  priority: "standard",
+  signage: "To be defined during display building",
+  minimumSpace: "To be defined during display building",
+  executionNotes: "Display guidance has not been built yet.",
+  prescriptive: false,
+};
 
 function cloneSeed(): PlatformSnapshot {
   return structuredClone(seedSnapshot);
@@ -27,9 +35,37 @@ function cloneSeed(): PlatformSnapshot {
 
 function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
   const defaults = cloneSeed();
+  const products: Product[] = (snapshot.products ?? defaults.products).map((product) => ({
+    ...product,
+    masterStatus: product.masterStatus ?? "verified",
+  }));
+  const campaigns = snapshot.campaigns.map((campaign) => ({
+    ...campaign,
+    requirement: campaign.requirement ?? structuredClone(defaultDisplayRequirement),
+    products: campaign.products.map((campaignProduct) => {
+      const legacy = campaignProduct as unknown as CampaignProduct & { sku?: string; name?: string; category?: string };
+      if (legacy.productId) return { ...campaignProduct, campaignId: campaign.id };
+      let master = products.find((product) => product.sku === legacy.sku);
+      if (!master) {
+        master = {
+          id: `migrated-${campaignProduct.id}`,
+          sku: legacy.sku ?? campaignProduct.id,
+          name: legacy.name ?? "Migrated campaign product",
+          category: legacy.category ?? "Uncategorized",
+          masterStatus: "pending",
+          active: true,
+          synthetic: true,
+          notes: "Migrated from legacy campaign-specific product data; Product Master review required.",
+        };
+        products.push(master);
+      }
+      return { id: campaignProduct.id, campaignId: campaign.id, productId: master.id, role: campaignProduct.role, required: campaignProduct.required };
+    }),
+  }));
   return {
     ...snapshot,
-    products: snapshot.products ?? defaults.products,
+    products,
+    campaigns,
     displayAreas: snapshot.displayAreas.map((area) => {
       const seededArea = defaults.displayAreas.find((candidate) => candidate.id === area.id);
       return {
@@ -83,11 +119,42 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     return structuredClone(this.state);
   }
 
+  async searchProducts(query: string): Promise<Product[]> {
+    const normalized = query.trim().toLocaleLowerCase();
+    const matches = normalized
+      ? this.state.products.filter((product) => [product.sku, product.name, product.brand, product.category].some((value) => value?.toLocaleLowerCase().includes(normalized)))
+      : this.state.products;
+    return structuredClone(matches.slice(0, 50));
+  }
+
+  async createPendingProduct(input: CreatePendingProductInput): Promise<Product> {
+    const sku = input.sku.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(sku)) throw new Error("Enter a valid SKU using letters, numbers, periods, underscores, or hyphens.");
+    if (!input.name.trim() || !input.category.trim()) throw new Error("SKU, product name, and category are required.");
+    if (this.state.products.some((product) => product.sku.toLocaleLowerCase() === sku.toLocaleLowerCase())) {
+      throw new Error("This SKU already exists in Product Master.");
+    }
+    const product: Product = {
+      ...input,
+      id: crypto.randomUUID(),
+      sku,
+      name: input.name.trim(),
+      category: input.category.trim(),
+      masterStatus: "pending",
+      active: true,
+      synthetic: true,
+    };
+    this.state.products.push(product);
+    this.persist();
+    return structuredClone(product);
+  }
+
   async createCampaign(input: NewCampaignInput): Promise<UUID> {
     const errors = validateCampaign(input);
     if (errors.length) throw new Error(errors.join(" "));
     const id = crypto.randomUUID();
-    this.state.campaigns.unshift({ ...input, id, status: "draft" });
+    const products = input.products.map((product) => ({ ...product, campaignId: id }));
+    this.state.campaigns.unshift({ ...input, products, requirement: input.requirement ?? structuredClone(defaultDisplayRequirement), id, status: "draft" });
     this.persist();
     return id;
   }

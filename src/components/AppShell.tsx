@@ -11,7 +11,6 @@ import {
   Plus,
   RotateCcw,
   ShoppingCart,
-  UploadCloud,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -32,7 +31,6 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
   const items = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/", roles: undefined },
     ...(program ? [{ to: `/programs/${program.id}`, label: "OND Program", icon: CalendarRange, matches: (path: string) => path.startsWith("/programs"), roles: reviewRoles }] : []),
-    { to: "/imports", label: "Uploads", icon: UploadCloud, matches: (path: string) => path.startsWith("/imports"), roles: planningRoles },
     { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns"), roles: planningRoles },
     ...(store ? [
       { to: `/stores/${store.id}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas"), roles: undefined },

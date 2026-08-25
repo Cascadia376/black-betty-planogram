@@ -1,4 +1,5 @@
 import type { ComplianceCheck, PlatformSnapshot } from "../../domain/types";
+import { resolveCampaignProduct } from "../../domain/productMaster";
 import { productDetails } from "../programs/allocationPlanner";
 
 export function getExecutionContext(data: PlatformSnapshot, executionId: string) {
@@ -36,19 +37,22 @@ export function getExecutionContext(data: PlatformSnapshot, executionId: string)
       nextArrival: inbound.map((item) => item.expectedArrivalDate).sort()[0],
       supplierName: supplier?.supplierName ?? details.supplierName,
     };
-  }) : (campaign?.products ?? []).map((product) => ({
-    id: product.id,
-    sku: product.sku,
-    name: product.name,
-    required: product.required,
-    plannedQuantity: `${product.minimumQuantity} units`,
-    placement: `${product.minimumFacings} facings · ${product.role}`,
-    note: undefined,
-    onHandCases: undefined,
-    inboundCases: 0,
-    nextArrival: undefined,
-    supplierName: campaign?.supplier ?? "Not specified",
-  }));
+  }) : (campaign?.products ?? []).map((campaignProduct) => {
+    const product = resolveCampaignProduct(campaignProduct, data.products);
+    return {
+      id: campaignProduct.id,
+      sku: product?.sku ?? "Unresolved SKU",
+      name: product?.name ?? "Unresolved campaign product",
+      required: campaignProduct.required,
+      plannedQuantity: campaignProduct.required ? "Required campaign product" : "Optional campaign product",
+      placement: `${campaignProduct.role} product · Placement defined during display building`,
+      note: campaignProduct.note,
+      onHandCases: undefined,
+      inboundCases: 0,
+      nextArrival: undefined,
+      supplierName: product?.supplierName ?? campaign?.supplier ?? "Not specified",
+    };
+  });
 
   return { execution, campaignAssignment, campaign, displayAssignment, area, program, period, products, title, requirement };
 }

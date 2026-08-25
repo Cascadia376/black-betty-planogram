@@ -112,6 +112,43 @@ test("links to available spreadsheet upload workflows", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "OND 2026 legacy allocation import" })).toBeVisible();
 });
 
+test("builds a campaign assortment from Product Master and bulk SKU intake", async ({ page }) => {
+  await page.goto("/campaigns/new");
+  await expect(page.getByRole("heading", { name: "New campaign" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Display requirements" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Add products" }).click();
+  await page.getByPlaceholder("Search SKU, product, brand, or category").fill("Coastal Lager");
+  await page.getByRole("checkbox", { name: /MOCK-1001/ }).check();
+  await page.getByRole("button", { name: "Add selected products" }).click();
+  await expect(page.getByText("Coastal Lager 12 Pack", { exact: true })).toBeVisible();
+  await expect(page.getByText("Verified: 1", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Bulk add SKUs" }).click();
+  await page.getByPlaceholder("123456\n234567\n345678").fill("MOCK-1001, MOCK-1002, 001234, ABC???");
+  await page.getByRole("button", { name: "Review SKUs" }).click();
+  await expect(page.getByText("Already added", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Product not found", { exact: true })).toBeVisible();
+  await expect(page.getByText("ABC???", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add matched products" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("table").getByText("Island IPA 6 Pack", { exact: true })).toBeVisible();
+});
+
+test("creates a pending product for a valid unknown SKU", async ({ page }) => {
+  await page.goto("/campaigns/new");
+  await page.getByRole("button", { name: "Bulk add SKUs" }).click();
+  await page.getByPlaceholder("123456\n234567\n345678").fill("001234");
+  await page.getByRole("button", { name: "Review SKUs" }).click();
+  await page.getByRole("button", { name: "Mark as new product" }).click();
+  await page.getByLabel("Product name").fill("Synthetic First-Time Product");
+  await page.getByRole("textbox", { name: "Category" }).fill("Wine");
+  await page.getByRole("button", { name: "Create and add product" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("table").getByText("Synthetic First-Time Product", { exact: true })).toBeVisible();
+  await expect(page.getByText("New / pending: 1", { exact: true })).toBeVisible();
+});
+
 test("reviews and applies the known Cascadia OND workbook", async ({ page }, testInfo) => {
   await page.goto(ondImport);
   await expect(page.getByRole("heading", { name: "OND 2026 legacy allocation import" })).toBeVisible();
@@ -524,7 +561,7 @@ test("keeps the application shell responsive without page overflow", async ({ pa
     await page.goto("/");
     await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "OND Program" })).toHaveAttribute("href", ondProgram);
-    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Uploads" })).toHaveAttribute("href", "/imports");
+    await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Uploads" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Open navigation" })).toBeHidden();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`shell-${viewport.width}.png`), fullPage: true });

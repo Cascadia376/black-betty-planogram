@@ -1,40 +1,45 @@
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import type { CampaignProduct, CampaignType, DisplayType, NewCampaignInput, ProductRole } from "../../domain/types";
+import type { CampaignType, NewCampaignInput } from "../../domain/types";
 import { validateCampaign } from "../../domain/rules";
 import { usePlatform } from "../../services/PlatformProvider";
-import { Button, Card, Field, PageHeader, inputClass } from "../../components/ui";
+import { Button, Card, DataState, Field, PageHeader, inputClass } from "../../components/ui";
 import { mockBusinessClock } from "../../services/clock";
+import { ProductIntakeWorkspace } from "./ProductIntakeWorkspace";
 
-const newProduct = (): CampaignProduct => ({ id: crypto.randomUUID(), sku: "", name: "", category: "", role: "Feature", required: true, minimumQuantity: 1, minimumFacings: 1 });
 const defaultCampaignStart = mockBusinessClock.today();
 const defaultCampaignEnd = (() => { const date = new Date(`${defaultCampaignStart}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 30); return date.toISOString().slice(0, 10); })();
 
 export function CampaignBuilderPage() {
   const navigate = useNavigate();
-  const { createCampaign } = usePlatform();
+  const { data, loading, error, createCampaign, searchProducts, createPendingProduct } = usePlatform();
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string>();
   const [input, setInput] = useState<NewCampaignInput>({
     name: "", type: "Monthly flyer", description: "", startDate: defaultCampaignStart, endDate: defaultCampaignEnd,
-    owner: "Merchandising Team", supplier: "", products: [newProduct()],
-    requirement: { displayType: "endcap", priority: "standard", signage: "", minimumSpace: "One full display area", executionNotes: "", prescriptive: false },
+    owner: "Merchandising Team", supplier: "", products: [],
   });
   const set = <K extends keyof NewCampaignInput>(key: K, value: NewCampaignInput[K]) => setInput((current) => ({ ...current, [key]: value }));
-  const updateProduct = (id: string, changes: Partial<CampaignProduct>) => set("products", input.products.map((product) => product.id === id ? { ...product, ...changes } : product));
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const errors = validateCampaign(input);
     if (errors.length) { setFormError(errors.join(" ")); return; }
-    try { setSaving(true); const id = await createCampaign(input); navigate(`/campaigns/${id}`); }
-    catch (cause) { setFormError(cause instanceof Error ? cause.message : "Unable to create campaign."); }
-    finally { setSaving(false); }
+    try {
+      setSaving(true);
+      const id = await createCampaign(input);
+      navigate(`/campaigns/${id}/display`);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : "Unable to create campaign.");
+    } finally {
+      setSaving(false);
+    }
   };
-  return <form onSubmit={submit} className="space-y-6"><PageHeader eyebrow="Plan" title="New campaign" description="Create the program, required assortment, and practical display guidance." actions={<><Button type="button" variant="secondary" onClick={() => navigate("/campaigns")}>Cancel</Button><Button disabled={saving}>{saving ? "Creating..." : "Create campaign"}</Button></>} />
+
+  return <DataState loading={loading} error={error}>{data && <form onSubmit={submit} className="space-y-6">
+    <PageHeader eyebrow="Campaign details · Product intake" title="New campaign" description="Create the campaign and establish its product assortment." actions={<><Button type="button" variant="secondary" onClick={() => navigate("/campaigns")}>Cancel</Button><Button disabled={saving}><span>{saving ? "Creating..." : "Build displays"}</span>{!saving && <ArrowRight className="h-4 w-4" />}</Button></>} />
     {formError && <div role="alert" className="rounded-md border border-error/30 bg-error/5 px-4 py-3 text-sm text-error">{formError}</div>}
-    <Card><h2 className="font-semibold">Campaign details</h2><div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Field label="Campaign name"><input className={inputClass} value={input.name} onChange={(e) => set("name", e.target.value)} /></Field><Field label="Campaign type"><select className={inputClass} value={input.type} onChange={(e) => set("type", e.target.value as CampaignType)}>{["Monthly flyer", "Seasonal", "Supplier feature", "Category feature", "New product", "Clearance", "Local initiative"].map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Owner"><input className={inputClass} value={input.owner} onChange={(e) => set("owner", e.target.value)} /></Field><Field label="Start date"><input type="date" className={inputClass} value={input.startDate} onChange={(e) => set("startDate", e.target.value)} /></Field><Field label="End date"><input type="date" className={inputClass} value={input.endDate} onChange={(e) => set("endDate", e.target.value)} /></Field><Field label="Supplier / partner"><input className={inputClass} value={input.supplier} onChange={(e) => set("supplier", e.target.value)} /></Field><div className="md:col-span-2 xl:col-span-3"><Field label="Description"><textarea className={`${inputClass} min-h-24 py-2`} value={input.description} onChange={(e) => set("description", e.target.value)} /></Field></div></div></Card>
-    <Card><div className="flex items-center justify-between"><div><h2 className="font-semibold">Products</h2><p className="mt-1 text-sm text-text-muted">Mark requirements explicitly so store teams can distinguish them from recommendations.</p></div><Button type="button" variant="secondary" onClick={() => set("products", [...input.products, newProduct()])}><Plus className="h-4 w-4" />Add product</Button></div><div className="mt-4 space-y-3">{input.products.map((product, index) => <div key={product.id} className="grid gap-3 rounded-md border border-border bg-page-canvas p-3 md:grid-cols-2 xl:grid-cols-8"><Field label="SKU"><input className={inputClass} value={product.sku} onChange={(e) => updateProduct(product.id, { sku: e.target.value })} /></Field><div className="xl:col-span-2"><Field label="Product name"><input className={inputClass} value={product.name} onChange={(e) => updateProduct(product.id, { name: e.target.value })} /></Field></div><Field label="Category"><input className={inputClass} value={product.category} onChange={(e) => updateProduct(product.id, { category: e.target.value })} /></Field><Field label="Role"><select className={inputClass} value={product.role} onChange={(e) => updateProduct(product.id, { role: e.target.value as ProductRole })}>{["Feature", "Core", "Supporting", "Optional"].map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Min. quantity"><input type="number" min="0" className={inputClass} value={product.minimumQuantity} onChange={(e) => updateProduct(product.id, { minimumQuantity: Number(e.target.value) })} /></Field><Field label="Min. facings"><input type="number" min="0" className={inputClass} value={product.minimumFacings} onChange={(e) => updateProduct(product.id, { minimumFacings: Number(e.target.value) })} /></Field><div className="flex items-end gap-2"><label className="flex min-h-10 flex-1 items-center gap-2 rounded-md border border-input bg-surface px-3 text-sm"><input type="checkbox" checked={product.required} onChange={(e) => updateProduct(product.id, { required: e.target.checked })} />Required</label><button type="button" aria-label={`Remove product ${index + 1}`} className="grid h-10 w-10 place-items-center rounded-md border border-border text-error disabled:opacity-30" disabled={input.products.length === 1} onClick={() => set("products", input.products.filter((item) => item.id !== product.id))}><Trash2 className="h-4 w-4" /></button></div></div>)}</div></Card>
-    <Card><h2 className="font-semibold">Display requirements</h2><div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Field label="Display type"><select className={inputClass} value={input.requirement.displayType} onChange={(e) => set("requirement", { ...input.requirement, displayType: e.target.value as DisplayType })}><option value="endcap">Endcap</option><option value="cooler_doors">Cooler-door group</option><option value="feature_table">Feature table</option><option value="floor_display">Floor display</option><option value="seasonal_area">Seasonal area</option></select></Field><Field label="Priority"><select className={inputClass} value={input.requirement.priority} onChange={(e) => set("requirement", { ...input.requirement, priority: e.target.value as "standard" | "high" | "critical" })}><option value="standard">Standard</option><option value="high">High</option><option value="critical">Critical</option></select></Field><Field label="Minimum space"><input className={inputClass} value={input.requirement.minimumSpace} onChange={(e) => set("requirement", { ...input.requirement, minimumSpace: e.target.value })} /></Field><Field label="Signage"><input className={inputClass} value={input.requirement.signage} onChange={(e) => set("requirement", { ...input.requirement, signage: e.target.value })} /></Field><div className="md:col-span-2"><Field label="Execution notes"><textarea className={`${inputClass} min-h-20 py-2`} value={input.requirement.executionNotes} onChange={(e) => set("requirement", { ...input.requirement, executionNotes: e.target.value })} /></Field></div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={input.requirement.prescriptive} onChange={(e) => set("requirement", { ...input.requirement, prescriptive: e.target.checked })} />This display is prescriptive</label></div></Card>
-  </form>;
+    <Card><h2 className="font-semibold">Campaign details</h2><div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3"><Field label="Campaign name"><input className={inputClass} value={input.name} onChange={(event) => set("name", event.target.value)} required /></Field><Field label="Campaign type"><select className={inputClass} value={input.type} onChange={(event) => set("type", event.target.value as CampaignType)}>{["Monthly flyer", "Seasonal", "Supplier feature", "Category feature", "New product", "Clearance", "Local initiative"].map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Owner"><input className={inputClass} value={input.owner} onChange={(event) => set("owner", event.target.value)} required /></Field><Field label="Start date"><input type="date" className={inputClass} value={input.startDate} onChange={(event) => set("startDate", event.target.value)} required /></Field><Field label="End date"><input type="date" className={inputClass} value={input.endDate} onChange={(event) => set("endDate", event.target.value)} required /></Field><Field label="Supplier / partner"><input className={inputClass} value={input.supplier} onChange={(event) => set("supplier", event.target.value)} /></Field><div className="md:col-span-2 xl:col-span-3"><Field label="Description"><textarea className={`${inputClass} min-h-24 py-2`} value={input.description} onChange={(event) => set("description", event.target.value)} /></Field></div></div></Card>
+    <ProductIntakeWorkspace products={data.products} assortment={input.products} onChange={(products) => set("products", products)} searchProducts={searchProducts} createPendingProduct={createPendingProduct} />
+  </form>}</DataState>;
 }
