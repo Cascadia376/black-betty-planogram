@@ -15,6 +15,10 @@ export class SupabaseMerchandisingRepository implements MerchandisingRepository 
   async searchProducts(): Promise<never> { return this.unavailable(); }
   async createPendingProduct(): Promise<never> { return this.unavailable(); }
   async createCampaign(): Promise<UUID> { return this.unavailable(); }
+  async updateCampaignProducts(): Promise<never> { return this.unavailable(); }
+  async saveCampaignDisplays(): Promise<never> { return this.unavailable(); }
+  async saveCampaignDisplayPlacements(): Promise<never> { return this.unavailable(); }
+  async publishCampaign(): Promise<never> { return this.unavailable(); }
   async assignCampaign(): Promise<never> { return this.unavailable(); }
   async createDisplayAssignment(): Promise<never> { return this.unavailable(); }
   async updateDisplayAssignment(): Promise<never> { return this.unavailable(); }

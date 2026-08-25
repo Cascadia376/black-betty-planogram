@@ -26,6 +26,14 @@ export function validateGeometry(geometry: Geometry): string[] {
 }
 
 export function validateCampaign(input: NewCampaignInput): string[] {
+  const errors = validateCampaignDetails(input);
+  if (input.products.length === 0) errors.push("Add at least one campaign product.");
+  if (new Set(input.products.map((product) => product.productId)).size !== input.products.length) errors.push("Campaign products cannot be duplicated.");
+  if (input.products.some((product) => !product.productId)) errors.push("Every campaign product must reference Product Master.");
+  return errors;
+}
+
+export function validateCampaignDetails(input: Pick<NewCampaignInput, "name" | "owner" | "startDate" | "endDate">): string[] {
   const errors: string[] = [];
   if (!input.name.trim()) errors.push("Campaign name is required.");
   if (!input.owner.trim()) errors.push("Campaign owner is required.");
@@ -33,9 +41,6 @@ export function validateCampaign(input: NewCampaignInput): string[] {
   if (input.startDate && input.endDate && input.endDate < input.startDate) {
     errors.push("End date must be on or after start date.");
   }
-  if (input.products.length === 0) errors.push("Add at least one campaign product.");
-  if (new Set(input.products.map((product) => product.productId)).size !== input.products.length) errors.push("Campaign products cannot be duplicated.");
-  if (input.products.some((product) => !product.productId)) errors.push("Every campaign product must reference Product Master.");
   return errors;
 }
 

@@ -1,7 +1,6 @@
 import {
   BarChart3,
   Building2,
-  CalendarRange,
   ClipboardCheck,
   LayoutDashboard,
   Layers3,
@@ -30,7 +29,6 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
   const reviewRoles: UserRole[] = ["admin", "merchandising", "operations", "read_only"];
   const items = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/", roles: undefined },
-    ...(program ? [{ to: `/programs/${program.id}`, label: "OND Program", icon: CalendarRange, matches: (path: string) => path.startsWith("/programs"), roles: reviewRoles }] : []),
     { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns"), roles: planningRoles },
     ...(store ? [
       { to: `/stores/${store.id}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas"), roles: undefined },

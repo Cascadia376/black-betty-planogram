@@ -217,6 +217,8 @@ export const seedSnapshot: PlatformSnapshot = {
       requirement: { displayType: "endcap", priority: "high", signage: "Summer Refresh header", minimumSpace: "One full endcap", executionNotes: "Keep product chilled where possible.", prescriptive: false },
     },
   ],
+  campaignDisplays: [],
+  campaignDisplayPlacements: [],
   assignments: [
     { id: IDS.beerAssignment, campaignId: IDS.beerCampaign, storeId: IDS.store, displayAreaId: IDS.endcapA, effectiveDate: "2026-08-20", compatibility: "compatible", notes: "Pilot execution at Crown Isle." },
     { id: IDS.seasonalAssignment, campaignId: IDS.seasonalCampaign, storeId: IDS.store, displayAreaId: IDS.feature1, effectiveDate: "2026-10-01", compatibility: "compatible", notes: "Prepare after September feature changeover." },

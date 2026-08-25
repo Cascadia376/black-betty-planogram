@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
   ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateOrderRecommendationInput,
+  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SaveCampaignDisplayPlacementsInput, SaveCampaignDisplaysInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignProductsInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
 import type { NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
 
@@ -19,6 +19,10 @@ interface PlatformContextValue {
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
+  updateCampaignProducts(input: UpdateCampaignProductsInput): Promise<void>;
+  saveCampaignDisplays(input: SaveCampaignDisplaysInput): Promise<void>;
+  saveCampaignDisplayPlacements(input: SaveCampaignDisplayPlacementsInput): Promise<void>;
+  publishCampaign(campaignId: UUID): Promise<void>;
   assignCampaign(input: AssignCampaignInput): Promise<void>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<void>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<void>;
@@ -82,6 +86,10 @@ export function PlatformProvider({ children, adapter = repository }: { children:
       await mutate(async () => { id = await adapter.createCampaign(input); });
       return id;
     },
+    updateCampaignProducts: (input) => mutate(() => adapter.updateCampaignProducts(input)).then(() => undefined),
+    saveCampaignDisplays: (input) => mutate(() => adapter.saveCampaignDisplays(input)).then(() => undefined),
+    saveCampaignDisplayPlacements: (input) => mutate(() => adapter.saveCampaignDisplayPlacements(input)).then(() => undefined),
+    publishCampaign: (campaignId) => mutate(() => adapter.publishCampaign(campaignId)).then(() => undefined),
     assignCampaign: (input) => mutate(() => adapter.assignCampaign(input)).then(() => undefined),
     createDisplayAssignment: (input) => mutate(() => adapter.createDisplayAssignment(input)).then(() => undefined),
     updateDisplayAssignment: (id, input) => mutate(() => adapter.updateDisplayAssignment(id, input)).then(() => undefined),

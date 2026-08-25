@@ -39,6 +39,7 @@ export type DisplayType =
   | "floor_display"
   | "seasonal_area";
 export type ProductRole = "Feature" | "Core" | "Supporting" | "Optional";
+export type CampaignPlacementMode = "STANDARD" | "STORE_SPECIFIC";
 export type ExecutionStatus = "not_started" | "in_progress" | "completed" | "issue";
 export type Compatibility = "compatible" | "requires_review" | "incompatible";
 export type ReviewDecision = "approved" | "fix_requested" | "local_variation";
@@ -125,6 +126,39 @@ export interface DisplayRequirement {
   prescriptive: boolean;
 }
 
+export interface CampaignDisplayProduct {
+  id: UUID;
+  campaignProductId: UUID;
+  required: boolean;
+  minimumFacings?: number;
+  minimumQuantity?: number;
+  note?: string;
+  sortOrder?: number;
+}
+
+export interface CampaignDisplay {
+  id: UUID;
+  campaignId: UUID;
+  name: string;
+  displayType: DisplayType;
+  placementMode: CampaignPlacementMode;
+  signage: string;
+  minimumSpace: string;
+  prescriptive: boolean;
+  executionNotes: string;
+  products: CampaignDisplayProduct[];
+}
+
+export interface CampaignDisplayPlacement {
+  id: UUID;
+  campaignId: UUID;
+  campaignDisplayId: UUID;
+  storeId: UUID;
+  displayAreaId?: UUID;
+  status: "suggested" | "assigned" | "needs_location";
+  notes?: string;
+}
+
 export interface Campaign {
   id: UUID;
   programId?: UUID;
@@ -139,6 +173,7 @@ export interface Campaign {
   status: CampaignStatus;
   products: CampaignProduct[];
   requirement: DisplayRequirement;
+  shelfSupportedProductIds?: UUID[];
 }
 
 export interface MerchandisingProgram {
@@ -450,6 +485,8 @@ export interface PlatformSnapshot {
   bridgeStrategies: BridgeStrategy[];
   residualDemandInputs: ResidualDemandInput[];
   campaigns: Campaign[];
+  campaignDisplays: CampaignDisplay[];
+  campaignDisplayPlacements: CampaignDisplayPlacement[];
   assignments: CampaignAssignment[];
   executions: ExecutionTask[];
   complianceReviews: ComplianceReview[];
