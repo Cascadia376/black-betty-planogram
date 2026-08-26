@@ -1,9 +1,10 @@
-import { ClipboardList, Plus, Search, Trash2, X } from "lucide-react";
+import { ClipboardList, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CampaignProduct, Product, ProductRole } from "../../domain/types";
-import type { CreatePendingProductInput } from "../../domain/repositories";
+import type { ApplyCampaignProductImportInput, CreatePendingProductInput } from "../../domain/repositories";
 import { productMasterStatusLabel } from "../../domain/productMaster";
 import { reviewSkus, type BulkSkuReview } from "./productIntake";
+import { CampaignProductImportDialog } from "./CampaignProductImportDialog";
 import { Badge, Button, Card, EmptyState, inputClass } from "../../components/ui";
 
 interface ProductIntakeWorkspaceProps {
@@ -15,12 +16,14 @@ interface ProductIntakeWorkspaceProps {
   onRemove(campaignProductId: string): Promise<void>;
   searchProducts(query: string): Promise<Product[]>;
   onCreatePendingProduct(input: CreatePendingProductInput): Promise<Product>;
+  onApplyImport(products: ApplyCampaignProductImportInput["products"]): Promise<void>;
 }
 
 export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
-  const { products, assortment, saving = false, onAdd, onUpdate, onRemove, searchProducts, onCreatePendingProduct } = props;
+  const { products, assortment, saving = false, onAdd, onUpdate, onRemove, searchProducts, onCreatePendingProduct, onApplyImport } = props;
   const [searchOpen, setSearchOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
   const verified = assortment.filter((item) => {
     const product = productById.get(item.productId);
@@ -35,6 +38,7 @@ export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
         <p className="mt-1 text-sm text-text-muted">Add existing Product Master records to this campaign.</p>
       </div>
       <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Upload spreadsheet</Button>
         <Button type="button" variant="secondary" onClick={() => setBulkOpen(true)}><ClipboardList className="h-4 w-4" />Bulk add SKUs</Button>
         <Button type="button" onClick={() => setSearchOpen(true)}><Plus className="h-4 w-4" />Add products</Button>
       </div>
@@ -112,6 +116,7 @@ export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
 
     {searchOpen && <ProductSearchDialog assortment={assortment} searchProducts={searchProducts} onAdd={async (productIds) => { await onAdd(productIds); setSearchOpen(false); }} onClose={() => setSearchOpen(false)} />}
     {bulkOpen && <BulkSkuDialog products={products} assortment={assortment} onAdd={onAdd} onCreatePendingProduct={onCreatePendingProduct} onClose={() => setBulkOpen(false)} />}
+    {importOpen && <CampaignProductImportDialog products={products} assortment={assortment} onCreatePendingProduct={onCreatePendingProduct} onApply={onApplyImport} onClose={() => setImportOpen(false)} />}
   </Card>;
 }
 

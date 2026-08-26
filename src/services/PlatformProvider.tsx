@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
-  AddCampaignProductsInput, ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
   PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
 import type { CampaignProduct, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
@@ -20,6 +20,7 @@ interface PlatformContextValue {
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
+  applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
   removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
   assignCampaign(input: AssignCampaignInput): Promise<void>;
@@ -88,6 +89,11 @@ export function PlatformProvider({ children, adapter = repository }: { children:
     addCampaignProducts: async (input) => {
       let products: CampaignProduct[] | undefined;
       await mutate(async () => { products = await adapter.addCampaignProducts(input); });
+      return products ?? [];
+    },
+    applyCampaignProductImport: async (input) => {
+      let products: CampaignProduct[] | undefined;
+      await mutate(async () => { products = await adapter.applyCampaignProductImport(input); });
       return products ?? [];
     },
     updateCampaignProduct: async (input) => {

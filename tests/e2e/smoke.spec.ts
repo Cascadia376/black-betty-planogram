@@ -132,7 +132,7 @@ test("creates campaign metadata and continues to the Product Master workspace", 
   await expect(page.getByRole("navigation", { name: "Campaign planning steps" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add products" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Upload spreadsheet" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Upload spreadsheet" })).toBeEnabled();
   await expect(page.getByText("Total products", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Continue to Displays" })).toHaveAttribute("href", /\/campaigns\/[^/]+\/display/);
 });
@@ -224,6 +224,36 @@ test("reviews bulk SKUs and creates a pending campaign product", async ({ page }
   await page.getByRole("link", { name: "Continue to Displays" }).click();
   await expect(page).toHaveURL(/\/campaigns\/[^/]+\/display$/);
   await expect(page.getByRole("heading", { name: "Bulk SKU Intake Test display" })).toBeVisible();
+});
+
+test("validates and applies campaign product spreadsheets in the Products workflow", async ({ page }) => {
+  await page.goto("/campaigns/new");
+  await page.getByLabel("Campaign name").fill("Campaign Product Import Test");
+  await page.getByRole("button", { name: "Create campaign and continue" }).click();
+  await page.getByRole("button", { name: "Upload spreadsheet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Upload campaign products" });
+  await dialog.locator('input[type="file"]').setInputFiles({ name: "campaign-products.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(createCascadiaOndWorkbook([[
+    "SKU", "Role", "Required", "Notes"], ["MOCK-1001", "Feature", "Yes", "Imported feature"], ["001234", "Core", "No", ""], ["ABC???", "Feature", "Yes", ""]])) as never });
+  await expect(dialog.getByText("Matched", { exact: true }).locator("xpath=following-sibling::p")).toHaveText("1");
+  await expect(dialog.getByText("Pending new", { exact: true }).locator("xpath=following-sibling::p")).toHaveText("1");
+  await expect(dialog.getByText("Invalid", { exact: true }).locator("xpath=following-sibling::p")).toHaveText("1");
+  await expect(page.getByRole("row", { name: /MOCK-1001/ })).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: "Resolve pending" }).click();
+  const pending = page.getByRole("dialog", { name: "Resolve pending product" });
+  await pending.getByLabel("Pending import product name").fill("Imported Pending Product");
+  await pending.getByLabel("Pending import category").fill("Wine");
+  await pending.getByRole("button", { name: "Create pending product" }).click();
+  await dialog.getByRole("button", { name: "Omit row 4" }).click();
+  await dialog.getByRole("button", { name: "Apply approved products" }).click();
+  await expect(page.getByRole("row", { name: /MOCK-1001.*Feature/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /001234.*Imported Pending Product.*New.*Needs Product Master Review/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Upload spreadsheet" }).click();
+  const duplicate = page.getByRole("dialog", { name: "Upload campaign products" });
+  await duplicate.locator('input[type="file"]').setInputFiles({ name: "campaign-products-duplicate.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(createCascadiaOndWorkbook([[
+    "SKU", "Role", "Required", "Notes"], ["MOCK-1001", "Feature", "Yes", ""]])) as never });
+  await expect(duplicate.getByText("Duplicate", { exact: true }).locator("xpath=following-sibling::p")).toHaveText("1");
 });
 
 test("reviews and applies the known Cascadia OND workbook", async ({ page }, testInfo) => {

@@ -16,7 +16,7 @@ function useCampaign() {
 }
 
 export function CampaignProductsPage() {
-  const { campaign, data, loading, error, searchProducts, createPendingProduct, addCampaignProducts, updateCampaignProduct, removeCampaignProduct } = useCampaign();
+  const { campaign, data, loading, error, searchProducts, createPendingProduct, addCampaignProducts, applyCampaignProductImport, updateCampaignProduct, removeCampaignProduct } = useCampaign();
   const [saving, setSaving] = useState(false);
   const [mutationError, setMutationError] = useState<string>();
   const mutateProducts = async (operation: () => Promise<void>) => {
@@ -41,6 +41,7 @@ export function CampaignProductsPage() {
       saving={saving}
       searchProducts={searchProducts}
       onCreatePendingProduct={(input) => createPendingProduct(input)}
+      onApplyImport={(products) => mutateProducts(async () => { await applyCampaignProductImport({ campaignId: campaign.id, products }); })}
       onAdd={(productIds) => mutateProducts(async () => { await addCampaignProducts({ campaignId: campaign.id, productIds }); })}
       onUpdate={(campaignProductId, patch) => mutateProducts(async () => { await updateCampaignProduct({ campaignId: campaign.id, campaignProductId, patch }); })}
       onRemove={(campaignProductId) => mutateProducts(async () => { await removeCampaignProduct(campaign.id, campaignProductId); })}

@@ -1,5 +1,5 @@
 import type {
-  AddCampaignProductsInput, ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
   PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
@@ -178,6 +178,20 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
         role: "Supporting",
         required: true,
       }));
+    campaign.products.push(...created);
+    this.persist();
+    return structuredClone(created);
+  }
+
+  async applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]> {
+    const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
+    if (!campaign) throw new Error("Campaign was not found.");
+    const importedProductIds = input.products.map((product) => product.productId);
+    if (new Set(importedProductIds).size !== importedProductIds.length) throw new Error("The import contains duplicate product identities.");
+    if (input.products.some((product) => !this.state.products.some((master) => master.id === product.productId))) throw new Error("One or more imported products were not found in Product Master.");
+    const existing = new Set(campaign.products.map((product) => product.productId));
+    if (importedProductIds.some((productId) => existing.has(productId))) throw new Error("One or more imported products already belong to this campaign.");
+    const created = input.products.map((product): CampaignProduct => ({ id: crypto.randomUUID(), campaignId: campaign.id, ...product }));
     campaign.products.push(...created);
     this.persist();
     return structuredClone(created);

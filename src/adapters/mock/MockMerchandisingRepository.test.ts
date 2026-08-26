@@ -104,6 +104,15 @@ describe("mock merchandising workflow", () => {
     expect((await repository.load()).products.find((product) => product.id === IDS.coastalLagerProduct)).toEqual(expect.objectContaining({ name: "Coastal Lager 12 Pack", category: "Beer" }));
   });
 
+  it("does not write campaign import rows until an approved batch is applied", async () => {
+    const repository = new MockMerchandisingRepository();
+    const campaignId = await repository.createCampaign({ name: "Import Approval Test", type: "OND", description: "", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Test owner", supplier: "", products: [] });
+    expect((await repository.load()).campaigns.find((campaign) => campaign.id === campaignId)?.products).toEqual([]);
+    const imported = await repository.applyCampaignProductImport({ campaignId, products: [{ productId: IDS.coastalLagerProduct, role: "Feature", required: false, note: "Imported note" }] });
+    expect(imported).toEqual([expect.objectContaining({ productId: IDS.coastalLagerProduct, role: "Feature", required: false, note: "Imported note" })]);
+    await expect(repository.applyCampaignProductImport({ campaignId, products: [{ productId: IDS.coastalLagerProduct, role: "Core", required: true }] })).rejects.toThrow("already belong");
+  });
+
   it("rejects an incompatible campaign assignment", async () => {
     const repository = new MockMerchandisingRepository();
     await expect(repository.assignCampaign({ campaignId: IDS.beerCampaign, storeId: IDS.store, displayAreaId: IDS.cooler14, effectiveDate: "2026-09-01", notes: "" })).rejects.toThrow("incompatible");

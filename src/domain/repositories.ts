@@ -41,6 +41,11 @@ export interface AddCampaignProductsInput {
   productIds: UUID[];
 }
 
+export interface ApplyCampaignProductImportInput {
+  campaignId: UUID;
+  products: Array<Pick<CampaignProduct, "productId" | "role" | "required" | "note">>;
+}
+
 export interface UpdateCampaignProductInput {
   campaignId: UUID;
   campaignProductId: UUID;
@@ -118,6 +123,7 @@ export interface MerchandisingRepository {
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
+  applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
   removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
