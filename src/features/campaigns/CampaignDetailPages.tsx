@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, FileSpreadsheet, ListPlus, MapPin, MoveRight, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, MapPin, MoveRight } from "lucide-react";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getAssignmentCompatibility } from "../../domain/rules";
@@ -7,6 +7,7 @@ import { usePlatform } from "../../services/PlatformProvider";
 import { Badge, Button, Card, DataState, EmptyState, Field, PageHeader, formatDate, humanize, inputClass } from "../../components/ui";
 import { mockBusinessClock } from "../../services/clock";
 import { CampaignWorkflowStepper } from "./campaignWorkflow";
+import { ProductIntakeWorkspace } from "./ProductIntakeWorkspace";
 
 function useCampaign() {
   const { campaignId } = useParams();
@@ -15,24 +16,34 @@ function useCampaign() {
 }
 
 export function CampaignProductsPage() {
-  const { campaign, data, loading, error } = useCampaign();
+  const { campaign, data, loading, error, searchProducts, addCampaignProducts, updateCampaignProduct, removeCampaignProduct } = useCampaign();
+  const [saving, setSaving] = useState(false);
+  const [mutationError, setMutationError] = useState<string>();
+  const mutateProducts = async (operation: () => Promise<void>) => {
+    setSaving(true);
+    setMutationError(undefined);
+    try {
+      await operation();
+    } catch (cause) {
+      setMutationError(cause instanceof Error ? cause.message : "Campaign products could not be updated.");
+      throw cause;
+    } finally {
+      setSaving(false);
+    }
+  };
   return <DataState loading={loading} error={error}>{!campaign || !data ? <EmptyState title="Campaign not found" message="Unable to open this campaign product workspace." /> : <div className="space-y-6">
     <PageHeader eyebrow="Products" title={campaign.name} description={`${formatDate(campaign.startDate)} to ${formatDate(campaign.endDate)}`} actions={<LinkButton to={`/campaigns/${campaign.id}/display`} primary>Continue to Displays<ArrowRight className="h-4 w-4" /></LinkButton>} />
     <CampaignWorkflowStepper campaign={campaign} data={data} current="products" />
-    <Card>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="font-semibold">Campaign products</h2>
-          <p className="mt-1 text-sm text-text-muted">Product planning tools will be added in a later phase.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" disabled><Plus className="h-4 w-4" />Add products</Button>
-          <Button type="button" variant="secondary" disabled><ListPlus className="h-4 w-4" />Bulk add SKUs</Button>
-          <Button type="button" variant="secondary" disabled><FileSpreadsheet className="h-4 w-4" />Upload spreadsheet</Button>
-        </div>
-      </div>
-    </Card>
-    {campaign.products.length ? <ProductTable campaign={campaign} products={data.products} /> : <EmptyState title="No campaign products yet" message="Product entry is not available in this Phase 1 workspace shell." />}
+    {mutationError && <div role="alert" className="rounded-md border border-error/30 bg-error-subtle p-3 text-sm text-error">{mutationError}</div>}
+    <ProductIntakeWorkspace
+      products={data.products}
+      assortment={campaign.products}
+      saving={saving}
+      searchProducts={searchProducts}
+      onAdd={(productIds) => mutateProducts(async () => { await addCampaignProducts({ campaignId: campaign.id, productIds }); })}
+      onUpdate={(campaignProductId, patch) => mutateProducts(async () => { await updateCampaignProduct({ campaignId: campaign.id, campaignProductId, patch }); })}
+      onRemove={(campaignProductId) => mutateProducts(async () => { await removeCampaignProduct(campaign.id, campaignProductId); })}
+    />
   </div>}</DataState>;
 }
 

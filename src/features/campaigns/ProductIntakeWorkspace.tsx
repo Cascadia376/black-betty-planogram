@@ -36,11 +36,11 @@ export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
       </Button>
     </div>
 
-    <div className="grid gap-3 border-b border-border bg-subtle/40 px-4 py-3 text-sm sm:grid-cols-3">
+    <dl className="grid gap-3 border-b border-border bg-subtle/40 px-4 py-3 text-sm sm:grid-cols-3">
       <Count label="Total products" value={assortment.length} />
       <Count label="Verified" value={verified} />
       <Count label="Needs review" value={needsReview} warning={needsReview > 0} />
-    </div>
+    </dl>
 
     {assortment.length === 0 ? <div className="p-4">
       <EmptyState title="No campaign products yet" message="Search Product Master to add verified products to this campaign." />
@@ -80,6 +80,7 @@ export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
                 <label className="inline-flex items-center gap-2">
                   <input
                     type="checkbox"
+                    aria-label={`Required ${productLabel}`}
                     checked={item.required}
                     disabled={saving}
                     onChange={(event) => void onUpdate(item.id, { role: item.role, required: event.target.checked })}

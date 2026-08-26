@@ -81,6 +81,29 @@ describe("mock merchandising workflow", () => {
     expect(campaign?.requirement).toEqual(expect.objectContaining({ displayType: "flex", prescriptive: false }));
   });
 
+  it("manages Product Master campaign membership without duplicating product details", async () => {
+    const repository = new MockMerchandisingRepository();
+    await expect(repository.searchProducts("MOCK-1001")).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ name: "Coastal Lager 12 Pack" })]));
+    await expect(repository.searchProducts("Harvest Red")).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ sku: "MOCK-2001" })]));
+    await expect(repository.searchProducts("Gifts")).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ sku: "MOCK-OLD-9001", active: false })]));
+
+    const campaignId = await repository.createCampaign({
+      name: "Product Master Test", type: "OND", description: "", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Test owner", supplier: "", products: [],
+    });
+    const added = await repository.addCampaignProducts({ campaignId, productIds: [IDS.coastalLagerProduct, IDS.harvestRedProduct, IDS.coastalLagerProduct] });
+    expect(added).toHaveLength(2);
+    expect(added.map((item) => item.productId)).toEqual([IDS.coastalLagerProduct, IDS.harvestRedProduct]);
+    await expect(repository.addCampaignProducts({ campaignId, productIds: [IDS.coastalLagerProduct] })).resolves.toEqual([]);
+
+    const updated = await repository.updateCampaignProduct({ campaignId, campaignProductId: added[0].id, patch: { role: "Optional", required: false } });
+    expect(updated).toEqual(expect.objectContaining({ productId: IDS.coastalLagerProduct, role: "Optional", required: false }));
+    await repository.removeCampaignProduct(campaignId, added[1].id);
+
+    const campaign = (await repository.load()).campaigns.find((item) => item.id === campaignId);
+    expect(campaign?.products).toEqual([expect.objectContaining({ productId: IDS.coastalLagerProduct, role: "Optional", required: false })]);
+    expect((await repository.load()).products.find((product) => product.id === IDS.coastalLagerProduct)).toEqual(expect.objectContaining({ name: "Coastal Lager 12 Pack", category: "Beer" }));
+  });
+
   it("rejects an incompatible campaign assignment", async () => {
     const repository = new MockMerchandisingRepository();
     await expect(repository.assignCampaign({ campaignId: IDS.beerCampaign, storeId: IDS.store, displayAreaId: IDS.cooler14, effectiveDate: "2026-09-01", notes: "" })).rejects.toThrow("incompatible");

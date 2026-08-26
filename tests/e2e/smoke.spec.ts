@@ -112,7 +112,7 @@ test("links to available spreadsheet upload workflows", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "OND 2026 legacy allocation import" })).toBeVisible();
 });
 
-test("creates campaign metadata and continues to the products workspace shell", async ({ page }) => {
+test("creates campaign metadata and continues to the Product Master workspace", async ({ page }) => {
   await page.goto("/campaigns/new");
   await expect(page.getByRole("heading", { name: "New campaign" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Campaign planning steps" })).toBeVisible();
@@ -130,10 +130,60 @@ test("creates campaign metadata and continues to the products workspace shell", 
   await expect(page).toHaveURL(/\/campaigns\/[^/]+\/products$/);
   await expect(page.getByRole("heading", { name: "Synthetic Phase 1 Campaign" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Campaign planning steps" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add products" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Upload spreadsheet" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add products" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Upload spreadsheet" })).toHaveCount(0);
+  await expect(page.getByText("Total products", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Continue to Displays" })).toHaveAttribute("href", /\/campaigns\/[^/]+\/display/);
+});
+
+test("adds and manages Product Master campaign products", async ({ page }) => {
+  await page.goto("/campaigns/new");
+  await page.getByLabel("Campaign name").fill("Product Master Intake Test");
+  await page.getByRole("button", { name: "Create campaign and continue" }).click();
+  await expect(page).toHaveURL(/\/campaigns\/[^/]+\/products$/);
+
+  await page.getByRole("button", { name: "Add products" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add products" });
+  const search = dialog.getByLabel("Search Product Master");
+  await search.fill("MOCK-1001");
+  await expect(dialog.getByText("Coastal Lager 12 Pack", { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/Case pack: 2/)).toBeVisible();
+  await search.fill("Harvest Red");
+  await expect(dialog.getByText("MOCK-2001", { exact: true })).toBeVisible();
+  await search.fill("MOCK-");
+  await dialog.locator("label").filter({ hasText: "MOCK-1001" }).getByRole("checkbox").check();
+  await dialog.locator("label").filter({ hasText: "MOCK-2001" }).getByRole("checkbox").check();
+  await dialog.getByRole("button", { name: "Add selected products" }).click();
+
+  await expect(page.getByRole("row", { name: /MOCK-1001.*Coastal Lager 12 Pack.*Beer/ })).toBeVisible();
+  const coastalRow = page.getByRole("row", { name: /MOCK-1001/ });
+  await coastalRow.getByLabel("Role for MOCK-1001").selectOption("Optional");
+  await coastalRow.getByLabel("Required MOCK-1001").uncheck();
+  await expect(coastalRow).toContainText("Optional");
+
+  await page.getByRole("button", { name: "Add products" }).click();
+  const inactiveDialog = page.getByRole("dialog", { name: "Add products" });
+  await inactiveDialog.getByLabel("Search Product Master").fill("MOCK-OLD-9001");
+  await expect(inactiveDialog.getByText("Inactive · Review", { exact: true })).toBeVisible();
+  await inactiveDialog.locator("label").filter({ hasText: "MOCK-OLD-9001" }).getByRole("checkbox").check();
+  await inactiveDialog.getByRole("button", { name: "Add selected products" }).click();
+  await expect(page.getByRole("row", { name: /MOCK-OLD-9001.*Inactive.*Review/ })).toBeVisible();
+  await expect(page.getByText("Needs review", { exact: true }).locator("xpath=following-sibling::dd")).toHaveText("1");
+
+  await page.getByRole("button", { name: "Add products" }).click();
+  const duplicateDialog = page.getByRole("dialog", { name: "Add products" });
+  await duplicateDialog.getByLabel("Search Product Master").fill("MOCK-1001");
+  await expect(duplicateDialog.getByText("Already added", { exact: true })).toBeVisible();
+  await expect(duplicateDialog.locator("label").filter({ hasText: "MOCK-1001" }).getByRole("checkbox")).toBeDisabled();
+  await duplicateDialog.getByRole("button", { name: "Close" }).click();
+
+  await page.getByRole("row", { name: /MOCK-2001/ }).getByRole("button", { name: "Remove MOCK-2001" }).click();
+  await expect(page.getByRole("row", { name: /MOCK-2001/ })).toHaveCount(0);
+
+  const campaignUrl = page.url().replace(/\/products$/, "");
+  await page.goto(campaignUrl);
+  await expect(page.getByRole("navigation", { name: "Campaign planning steps" }).getByRole("link", { name: /Products.*complete/ })).toBeVisible();
 });
 
 test("reviews and applies the known Cascadia OND workbook", async ({ page }, testInfo) => {

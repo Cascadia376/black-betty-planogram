@@ -34,9 +34,11 @@ export function campaignStepStatuses(campaign: Campaign | undefined, data: Platf
     review: "not_started",
   };
   if (campaign) {
+    const validProductIds = new Set(data?.products.filter((product) => product.active && product.masterStatus === "verified").map((product) => product.id));
+    const hasValidProducts = campaign.products.some((product) => validProductIds.has(product.productId));
     statuses.campaign = campaign.name && campaign.owner && campaign.startDate && campaign.endDate ? "complete" : "blocked";
-    statuses.products = campaign.products.length > 0 ? "complete" : "warning";
-    const hasDisplayGuidance = campaign.products.length > 0 && campaign.requirement.minimumSpace !== "To be defined during display building";
+    statuses.products = hasValidProducts ? "complete" : "warning";
+    const hasDisplayGuidance = hasValidProducts && campaign.requirement.minimumSpace !== "To be defined during display building";
     statuses.displays = hasDisplayGuidance ? "complete" : "not_started";
     statuses.stores = data?.assignments.some((assignment) => assignment.campaignId === campaign.id) ? "complete" : "not_started";
   }
