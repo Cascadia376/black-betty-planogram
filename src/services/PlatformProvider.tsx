@@ -2,10 +2,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
-  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateOrderRecommendationInput,
+  AddCampaignProductsInput, ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
-import type { NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
+import type { CampaignProduct, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
 
 const repository = new MockMerchandisingRepository();
 
@@ -19,6 +19,9 @@ interface PlatformContextValue {
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
+  addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
+  updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
+  removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
   assignCampaign(input: AssignCampaignInput): Promise<void>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<void>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<void>;
@@ -82,6 +85,18 @@ export function PlatformProvider({ children, adapter = repository }: { children:
       await mutate(async () => { id = await adapter.createCampaign(input); });
       return id;
     },
+    addCampaignProducts: async (input) => {
+      let products: CampaignProduct[] | undefined;
+      await mutate(async () => { products = await adapter.addCampaignProducts(input); });
+      return products ?? [];
+    },
+    updateCampaignProduct: async (input) => {
+      let product: CampaignProduct | undefined;
+      await mutate(async () => { product = await adapter.updateCampaignProduct(input); });
+      if (!product) throw new Error("Campaign product update did not return a product.");
+      return product;
+    },
+    removeCampaignProduct: (campaignId, campaignProductId) => mutate(() => adapter.removeCampaignProduct(campaignId, campaignProductId)).then(() => undefined),
     assignCampaign: (input) => mutate(() => adapter.assignCampaign(input)).then(() => undefined),
     createDisplayAssignment: (input) => mutate(() => adapter.createDisplayAssignment(input)).then(() => undefined),
     updateDisplayAssignment: (id, input) => mutate(() => adapter.updateDisplayAssignment(id, input)).then(() => undefined),

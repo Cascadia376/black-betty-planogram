@@ -520,6 +520,7 @@ test("navigates the Crown Isle merchandising workflow", async ({ page }) => {
 const directRoutes = [
   { path: "/campaigns", heading: "Campaigns" },
   { path: "/campaigns/50000000-0000-4000-8000-000000000001", heading: "September Beer Feature" },
+  { path: "/campaigns/50000000-0000-4000-8000-000000000001/products", heading: "September Beer Feature" },
   { path: "/imports", heading: "Spreadsheet imports" },
   { path: ondProgram, heading: "OND 2026" },
   { path: ondAllocations, heading: "OND 2026 allocations" },

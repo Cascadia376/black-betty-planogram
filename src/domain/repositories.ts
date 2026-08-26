@@ -1,6 +1,7 @@
 import type {
   BridgeStrategy,
   CampaignAssignment,
+  CampaignProduct,
   ComplianceCheck,
   DisplayAssignment,
   DisplayAssignmentProduct,
@@ -33,6 +34,17 @@ export interface AssignCampaignInput {
   displayAreaId: UUID;
   effectiveDate: string;
   notes: string;
+}
+
+export interface AddCampaignProductsInput {
+  campaignId: UUID;
+  productIds: UUID[];
+}
+
+export interface UpdateCampaignProductInput {
+  campaignId: UUID;
+  campaignProductId: UUID;
+  patch: Pick<CampaignProduct, "role" | "required">;
 }
 
 export interface CompleteExecutionInput {
@@ -105,6 +117,9 @@ export interface MerchandisingRepository {
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
+  addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
+  updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
+  removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;

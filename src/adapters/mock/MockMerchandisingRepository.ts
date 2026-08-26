@@ -1,6 +1,6 @@
 import type {
-  ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateOrderRecommendationInput,
+  AddCampaignProductsInput, ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -122,7 +122,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
   async searchProducts(query: string): Promise<Product[]> {
     const normalized = query.trim().toLocaleLowerCase();
     const matches = normalized
-      ? this.state.products.filter((product) => [product.sku, product.name, product.brand, product.category].some((value) => value?.toLocaleLowerCase().includes(normalized)))
+      ? this.state.products.filter((product) => [product.sku, product.name, product.category].some((value) => value?.toLocaleLowerCase().includes(normalized)))
       : this.state.products;
     return structuredClone(matches.slice(0, 50));
   }
@@ -157,6 +157,49 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     this.state.campaigns.unshift({ ...input, products, requirement: input.requirement ?? structuredClone(defaultDisplayRequirement), id, status: "draft" });
     this.persist();
     return id;
+  }
+
+  async addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]> {
+    const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
+    if (!campaign) throw new Error("Campaign was not found.");
+    if (!input.productIds.length) return [];
+
+    const uniqueIds = [...new Set(input.productIds)];
+    const missing = uniqueIds.filter((productId) => !this.state.products.some((product) => product.id === productId));
+    if (missing.length) throw new Error("One or more selected products were not found in Product Master.");
+
+    const existing = new Set(campaign.products.map((product) => product.productId));
+    const created = uniqueIds
+      .filter((productId) => !existing.has(productId))
+      .map((productId): CampaignProduct => ({
+        id: crypto.randomUUID(),
+        campaignId: campaign.id,
+        productId,
+        role: "Supporting",
+        required: true,
+      }));
+    campaign.products.push(...created);
+    this.persist();
+    return structuredClone(created);
+  }
+
+  async updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct> {
+    const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
+    const campaignProduct = campaign?.products.find((product) => product.id === input.campaignProductId);
+    if (!campaign || !campaignProduct) throw new Error("Campaign product was not found.");
+    campaignProduct.role = input.patch.role;
+    campaignProduct.required = input.patch.required;
+    this.persist();
+    return structuredClone(campaignProduct);
+  }
+
+  async removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void> {
+    const campaign = this.state.campaigns.find((item) => item.id === campaignId);
+    if (!campaign) throw new Error("Campaign was not found.");
+    const before = campaign.products.length;
+    campaign.products = campaign.products.filter((product) => product.id !== campaignProductId);
+    if (campaign.products.length === before) throw new Error("Campaign product was not found.");
+    this.persist();
   }
 
   async assignCampaign(input: AssignCampaignInput) {
