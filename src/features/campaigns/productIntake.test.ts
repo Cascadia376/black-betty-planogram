@@ -3,8 +3,12 @@ import { IDS, seedSnapshot } from "../../adapters/mock/seed";
 import { extractSkuColumn, parseSkuInput, reviewSkus } from "./productIntake";
 
 describe("campaign product intake", () => {
-  it("parses pasted SKUs without losing leading zeros and removes exact duplicates", () => {
-    expect(parseSkuInput("001234\nMOCK-1001, MOCK-1001\tMOCK-1002")).toEqual(["001234", "MOCK-1001", "MOCK-1002"]);
+  it("parses newline-separated SKUs without losing leading zeros", () => {
+    expect(parseSkuInput("001234\nMOCK-1001\nMOCK-1002")).toEqual(["001234", "MOCK-1001", "MOCK-1002"]);
+  });
+
+  it("parses comma and Excel tab-separated SKUs while removing exact duplicates", () => {
+    expect(parseSkuInput("MOCK-1001, MOCK-1002\tMOCK-1001")).toEqual(["MOCK-1001", "MOCK-1002"]);
   });
 
   it("distinguishes matched, already-added, unknown, and invalid SKUs", () => {

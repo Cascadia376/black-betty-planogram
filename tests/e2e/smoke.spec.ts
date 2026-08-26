@@ -131,7 +131,7 @@ test("creates campaign metadata and continues to the Product Master workspace", 
   await expect(page.getByRole("heading", { name: "Synthetic Phase 1 Campaign" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Campaign planning steps" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add products" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Upload spreadsheet" })).toHaveCount(0);
   await expect(page.getByText("Total products", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Continue to Displays" })).toHaveAttribute("href", /\/campaigns\/[^/]+\/display/);
@@ -184,6 +184,46 @@ test("adds and manages Product Master campaign products", async ({ page }) => {
   const campaignUrl = page.url().replace(/\/products$/, "");
   await page.goto(campaignUrl);
   await expect(page.getByRole("navigation", { name: "Campaign planning steps" }).getByRole("link", { name: /Products.*complete/ })).toBeVisible();
+});
+
+test("reviews bulk SKUs and creates a pending campaign product", async ({ page }) => {
+  await page.goto("/campaigns/new");
+  await page.getByLabel("Campaign name").fill("Bulk SKU Intake Test");
+  await page.getByRole("button", { name: "Create campaign and continue" }).click();
+
+  await page.getByRole("button", { name: "Bulk add SKUs" }).click();
+  const bulkDialog = page.getByRole("dialog", { name: "Bulk add SKUs" });
+  await bulkDialog.getByLabel("Paste SKUs").fill("MOCK-1001\nMOCK-1002, 001234\tMOCK-1001\nABC???");
+  await bulkDialog.getByRole("button", { name: "Review SKUs" }).click();
+  await expect(bulkDialog.getByText("MATCHED", { exact: true })).toBeVisible();
+  await expect(bulkDialog.getByText("NEW / UNKNOWN", { exact: true })).toBeVisible();
+  await expect(bulkDialog.getByText("INVALID", { exact: true })).toBeVisible();
+  await expect(bulkDialog.getByText("Submitted", { exact: true }).locator("xpath=following-sibling::p")).toHaveText("4");
+  await expect(bulkDialog.getByText("001234", { exact: true })).toBeVisible();
+  await expect(bulkDialog.getByText("ABC???", { exact: true })).toBeVisible();
+
+  await bulkDialog.getByRole("button", { name: "Resolve new products" }).click();
+  const pendingDialog = page.getByRole("dialog", { name: "Create pending product" });
+  await expect(pendingDialog.getByLabel("Pending product SKU")).toHaveValue("001234");
+  await pendingDialog.getByLabel("Pending product name").fill("Synthetic Bulk Product");
+  await pendingDialog.getByLabel("Pending product category").fill("Wine");
+  await pendingDialog.getByLabel("Pending product brand").fill("Synthetic Estate");
+  await pendingDialog.getByLabel("Pending product case pack").fill("6");
+  await pendingDialog.getByRole("button", { name: "Create pending product" }).click();
+
+  await bulkDialog.getByRole("button", { name: "Add matched products" }).click();
+  await expect(page.getByRole("row", { name: /001234.*Synthetic Bulk Product.*New.*Needs Product Master Review/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Bulk add SKUs" }).click();
+  const duplicateDialog = page.getByRole("dialog", { name: "Bulk add SKUs" });
+  await duplicateDialog.getByLabel("Paste SKUs").fill("MOCK-1001");
+  await duplicateDialog.getByRole("button", { name: "Review SKUs" }).click();
+  await expect(duplicateDialog.getByText("ALREADY ADDED", { exact: true })).toBeVisible();
+  await expect(duplicateDialog.getByText("MOCK-1001 · Coastal Lager 12 Pack", { exact: true })).toBeVisible();
+  await duplicateDialog.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("link", { name: "Continue to Displays" }).click();
+  await expect(page).toHaveURL(/\/campaigns\/[^/]+\/display$/);
+  await expect(page.getByRole("heading", { name: "Bulk SKU Intake Test display" })).toBeVisible();
 });
 
 test("reviews and applies the known Cascadia OND workbook", async ({ page }, testInfo) => {

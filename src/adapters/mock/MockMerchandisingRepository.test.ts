@@ -46,8 +46,8 @@ describe("mock merchandising workflow", () => {
     const results = await repository.searchProducts("Coastal Lager");
     expect(results.map((product) => product.sku)).toContain("MOCK-1001");
 
-    const pending = await repository.createPendingProduct({ sku: "001234", name: "Synthetic New Product", category: "Wine" });
-    expect(pending).toEqual(expect.objectContaining({ sku: "001234", masterStatus: "pending", active: true }));
+    const pending = await repository.createPendingProduct({ sku: "001234", name: "Synthetic New Product", category: "Wine", brand: "Synthetic Estate", packageSize: "750 mL", casePack: 6, supplierName: "Synthetic Supplier", notes: "Pending review" });
+    expect(pending).toEqual(expect.objectContaining({ sku: "001234", masterStatus: "pending", active: true, brand: "Synthetic Estate", casePack: 6 }));
     await expect(repository.createPendingProduct({ sku: "001234", name: "Duplicate", category: "Wine" })).rejects.toThrow("already exists");
   });
 

@@ -7,6 +7,6 @@ export function resolveCampaignProduct(campaignProduct: CampaignProduct, product
 export function productMasterStatusLabel(product?: Product): string {
   if (!product || product.masterStatus === "unresolved") return "Unresolved";
   if (!product.active) return "Inactive · Review";
-  if (product.masterStatus === "pending") return "New · Needs product-master review";
+  if (product.masterStatus === "pending") return "New · Needs Product Master Review";
   return "Verified";
 }

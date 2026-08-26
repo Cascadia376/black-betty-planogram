@@ -16,7 +16,7 @@ function useCampaign() {
 }
 
 export function CampaignProductsPage() {
-  const { campaign, data, loading, error, searchProducts, addCampaignProducts, updateCampaignProduct, removeCampaignProduct } = useCampaign();
+  const { campaign, data, loading, error, searchProducts, createPendingProduct, addCampaignProducts, updateCampaignProduct, removeCampaignProduct } = useCampaign();
   const [saving, setSaving] = useState(false);
   const [mutationError, setMutationError] = useState<string>();
   const mutateProducts = async (operation: () => Promise<void>) => {
@@ -40,6 +40,7 @@ export function CampaignProductsPage() {
       assortment={campaign.products}
       saving={saving}
       searchProducts={searchProducts}
+      onCreatePendingProduct={(input) => createPendingProduct(input)}
       onAdd={(productIds) => mutateProducts(async () => { await addCampaignProducts({ campaignId: campaign.id, productIds }); })}
       onUpdate={(campaignProductId, patch) => mutateProducts(async () => { await updateCampaignProduct({ campaignId: campaign.id, campaignProductId, patch }); })}
       onRemove={(campaignProductId) => mutateProducts(async () => { await removeCampaignProduct(campaign.id, campaignProductId); })}
