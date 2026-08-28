@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { clsx } from "clsx";
 import type { Campaign, PlatformSnapshot, UUID } from "../../domain/types";
 import { Badge } from "../../components/ui";
+import { evaluateCampaignPublishReadiness } from "../../domain/campaignPublishReadiness";
 
 export type CampaignWorkflowStep = "campaign" | "products" | "displays" | "stores" | "review";
 export type CampaignStepStatus = "complete" | "current" | "warning" | "blocked" | "not_started";
@@ -100,6 +101,7 @@ export function campaignStepPath(campaignId: UUID | undefined, step: CampaignWor
   if (step === "products") return `/campaigns/${campaignId}/products`;
   if (step === "displays") return `/campaigns/${campaignId}/display`;
   if (step === "stores") return `/campaigns/${campaignId}/assign`;
+  if (step === "review") return `/campaigns/${campaignId}/review`;
   return undefined;
 }
 
@@ -144,6 +146,9 @@ export function campaignStepStatuses(campaign: Campaign | undefined, data: Platf
     const storeReadiness = campaignStoreReadiness(campaign, data);
     const hasNewAllocations = data?.campaignStores.some((item) => item.campaignId === campaign.id) || data?.campaignDisplayAssignments.some((item) => item.campaignId === campaign.id);
     statuses.stores = hasNewAllocations ? storeReadiness.complete ? "complete" : storeReadiness.included ? "warning" : "not_started" : data?.assignments.some((assignment) => assignment.campaignId === campaign.id) ? "complete" : "not_started";
+    const release = data?.campaignReleases.filter((item) => item.campaignId === campaign.id).sort((a, b) => b.version - a.version)[0];
+    const publishReadiness = evaluateCampaignPublishReadiness(campaign, data);
+    statuses.review = release ? "complete" : publishReadiness.state === "BLOCKED" ? "blocked" : publishReadiness.state === "WARNING" ? "warning" : "not_started";
   }
 
   statuses[current] = "current";
