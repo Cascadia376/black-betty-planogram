@@ -40,6 +40,9 @@ export type DisplayType =
   | "floor_display"
   | "seasonal_area";
 export type ProductRole = "Feature" | "Core" | "Supporting" | "Optional";
+export type CampaignProductMerchandisingState = "UNASSIGNED" | "DISPLAY_ASSIGNED" | "SHELF_SUPPORTED";
+export type CampaignDisplayPlacementMode = "STANDARD" | "STORE_SPECIFIC";
+export type CampaignDisplayProductRole = "Hero" | "Supporting";
 export type ExecutionStatus = "not_started" | "in_progress" | "completed" | "issue";
 export type Compatibility = "compatible" | "requires_review" | "incompatible";
 export type ReviewDecision = "approved" | "fix_requested" | "local_variation";
@@ -114,6 +117,36 @@ export interface CampaignProduct {
   productId: UUID;
   role: ProductRole;
   required: boolean;
+  note?: string;
+  merchandisingState?: CampaignProductMerchandisingState;
+}
+
+/** A reusable campaign merchandising concept; it is not a physical store DisplayArea. */
+export interface CampaignDisplay {
+  id: UUID;
+  campaignId: UUID;
+  name: string;
+  displayType: DisplayType;
+  placementMode: CampaignDisplayPlacementMode;
+  description?: string;
+  signage?: string;
+  minimumSpace?: string;
+  prescriptive: boolean;
+  executionNotes?: string;
+  sortOrder: number;
+  status?: "draft" | "ready";
+}
+
+export interface CampaignDisplayProduct {
+  id: UUID;
+  campaignDisplayId: UUID;
+  campaignProductId: UUID;
+  productId: UUID;
+  role: CampaignDisplayProductRole;
+  required: boolean;
+  minimumFacings?: number;
+  minimumQuantity?: number;
+  sortOrder: number;
   note?: string;
 }
 
@@ -451,6 +484,8 @@ export interface PlatformSnapshot {
   bridgeStrategies: BridgeStrategy[];
   residualDemandInputs: ResidualDemandInput[];
   campaigns: Campaign[];
+  campaignDisplays: CampaignDisplay[];
+  campaignDisplayProducts: CampaignDisplayProduct[];
   assignments: CampaignAssignment[];
   executions: ExecutionTask[];
   complianceReviews: ComplianceReview[];

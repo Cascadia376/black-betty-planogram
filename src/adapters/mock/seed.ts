@@ -52,6 +52,7 @@ export const IDS = {
   beerCampaign: "50000000-0000-4000-8000-000000000001",
   seasonalCampaign: "50000000-0000-4000-8000-000000000002",
   summerCampaign: "50000000-0000-4000-8000-000000000003",
+  octoberCampaign: "50000000-0000-4000-8000-000000000004",
   beerAssignment: "60000000-0000-4000-8000-000000000001",
   seasonalAssignment: "60000000-0000-4000-8000-000000000002",
   summerAssignment: "60000000-0000-4000-8000-000000000003",
@@ -191,6 +192,18 @@ export const seedSnapshot: PlatformSnapshot = {
   ],
   campaigns: [
     {
+      id: IDS.octoberCampaign, name: "October Flyer", type: "Monthly flyer",
+      description: "Synthetic Phase 2 display-planning example across Beer, Wine, RTD, and Spirits.", startDate: "2026-10-01", endDate: "2026-10-31",
+      owner: "Buying Team", supplier: "Multiple suppliers", status: "scheduled",
+      products: [
+        { id: "54000000-0000-4000-8000-000000000001", campaignId: IDS.octoberCampaign, productId: IDS.coastalLagerProduct, role: "Feature", required: true, merchandisingState: "DISPLAY_ASSIGNED" },
+        { id: "54000000-0000-4000-8000-000000000002", campaignId: IDS.octoberCampaign, productId: IDS.harvestRedProduct, role: "Core", required: true, merchandisingState: "DISPLAY_ASSIGNED" },
+        { id: "54000000-0000-4000-8000-000000000003", campaignId: IDS.octoberCampaign, productId: IDS.citrusCoolerProduct, role: "Feature", required: true, merchandisingState: "SHELF_SUPPORTED" },
+        { id: "54000000-0000-4000-8000-000000000004", campaignId: IDS.octoberCampaign, productId: IDS.ondHolidayProduct, role: "Supporting", required: false, merchandisingState: "UNASSIGNED" },
+      ],
+      requirement: { displayType: "flex", priority: "standard", signage: "", minimumSpace: "To be defined during display building", executionNotes: "", prescriptive: false },
+    },
+    {
       id: IDS.beerCampaign, name: "September Beer Feature", type: "Monthly flyer",
       description: "Mock monthly feature highlighting local and import beer packs.", startDate: "2026-08-20", endDate: "2026-09-30",
       owner: "Merchandising Team", supplier: "Multiple suppliers", status: "active",
@@ -216,6 +229,15 @@ export const seedSnapshot: PlatformSnapshot = {
       products: [{ id: "53000000-0000-4000-8000-000000000001", campaignId: IDS.summerCampaign, productId: IDS.citrusCoolerProduct, role: "Feature", required: true }],
       requirement: { displayType: "endcap", priority: "high", signage: "Summer Refresh header", minimumSpace: "One full endcap", executionNotes: "Keep product chilled where possible.", prescriptive: false },
     },
+  ],
+  campaignDisplays: [
+    { id: "55000000-0000-4000-8000-000000000001", campaignId: IDS.octoberCampaign, name: "Feature Display", displayType: "feature_display", placementMode: "STANDARD", signage: "October feature header", minimumSpace: "One feature table", prescriptive: false, executionNotes: "Keep hero at eye level.", sortOrder: 0 },
+    { id: "55000000-0000-4000-8000-000000000002", campaignId: IDS.octoberCampaign, name: "RTD Endcap", displayType: "endcap", placementMode: "STANDARD", prescriptive: false, sortOrder: 1 },
+    { id: "55000000-0000-4000-8000-000000000003", campaignId: IDS.octoberCampaign, name: "October Irish Cream", displayType: "floor_stack", placementMode: "STORE_SPECIFIC", prescriptive: true, sortOrder: 2 },
+  ],
+  campaignDisplayProducts: [
+    { id: "56000000-0000-4000-8000-000000000001", campaignDisplayId: "55000000-0000-4000-8000-000000000001", campaignProductId: "54000000-0000-4000-8000-000000000001", productId: IDS.coastalLagerProduct, role: "Hero", required: true, minimumFacings: 3, minimumQuantity: 6, sortOrder: 0 },
+    { id: "56000000-0000-4000-8000-000000000002", campaignDisplayId: "55000000-0000-4000-8000-000000000001", campaignProductId: "54000000-0000-4000-8000-000000000002", productId: IDS.harvestRedProduct, role: "Supporting", required: true, sortOrder: 1 },
   ],
   assignments: [
     { id: IDS.beerAssignment, campaignId: IDS.beerCampaign, storeId: IDS.store, displayAreaId: IDS.endcapA, effectiveDate: "2026-08-20", compatibility: "compatible", notes: "Pilot execution at Crown Isle." },

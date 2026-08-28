@@ -5,6 +5,7 @@ import type { ApplyCampaignProductImportInput, CreatePendingProductInput } from 
 import { productMasterStatusLabel } from "../../domain/productMaster";
 import { reviewSkus, type BulkSkuReview } from "./productIntake";
 import { CampaignProductImportDialog } from "./CampaignProductImportDialog";
+import { campaignProductSummary } from "./campaignWorkflow";
 import { Badge, Button, Card, EmptyState, inputClass } from "../../components/ui";
 
 interface ProductIntakeWorkspaceProps {
@@ -25,11 +26,7 @@ export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const productById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
-  const verified = assortment.filter((item) => {
-    const product = productById.get(item.productId);
-    return product?.active && product.masterStatus === "verified";
-  }).length;
-  const needsReview = assortment.length - verified;
+  const summary = campaignProductSummary({ products: assortment }, { products });
 
   return <Card className="overflow-hidden p-0">
     <div className="flex flex-col gap-3 border-b border-border px-4 py-4 md:flex-row md:items-center md:justify-between">
@@ -44,10 +41,11 @@ export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
       </div>
     </div>
 
-    <dl className="grid gap-3 border-b border-border bg-subtle/40 px-4 py-3 text-sm sm:grid-cols-3">
-      <Count label="Total products" value={assortment.length} />
-      <Count label="Verified" value={verified} />
-      <Count label="Needs review" value={needsReview} warning={needsReview > 0} />
+    <dl className="grid gap-3 border-b border-border bg-subtle/40 px-4 py-3 text-sm sm:grid-cols-4">
+      <Count label="Total products" value={summary.total} />
+      <Count label="Verified" value={summary.verified} />
+      <Count label="Pending" value={summary.pending} warning={summary.pending > 0} />
+      <Count label="Review required" value={summary.reviewRequired} warning={summary.reviewRequired > 0} />
     </dl>
 
     {assortment.length === 0 ? <div className="p-4">

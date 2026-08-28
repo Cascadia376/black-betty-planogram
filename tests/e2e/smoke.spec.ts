@@ -26,8 +26,8 @@ test("presents the merchandising dashboard priorities and actions", async ({ pag
   await expect(page.getByText("Recommendations requiring attention", { exact: true })).toBeVisible();
 
   await expect(page.getByRole("link", { name: "New campaign" }).first()).toHaveAttribute("href", "/campaigns/new");
-  await expect(page.getByRole("link", { name: "Open OND 2026" })).toHaveAttribute("href", ondProgram);
-  await expect(page.getByRole("link", { name: "Upload spreadsheets" })).toHaveAttribute("href", "/imports");
+  await expect(page.getByRole("link", { name: "Open OND 2026" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Upload spreadsheets" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "View campaigns" }).first()).toHaveAttribute("href", "/campaigns");
   await expect(page.getByRole("link", { name: "Review compliance" }).first()).toHaveAttribute("href", /\/compliance\//);
   await expect(page.getByRole("link", { name: "View performance" }).first()).toHaveAttribute("href", "/performance");
@@ -134,7 +134,9 @@ test("creates campaign metadata and continues to the Product Master workspace", 
   await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Upload spreadsheet" })).toBeEnabled();
   await expect(page.getByText("Total products", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Continue to Displays" })).toHaveAttribute("href", /\/campaigns\/[^/]+\/display/);
+  await expect(page.getByText("Pending", { exact: true })).toBeVisible();
+  await expect(page.getByText("Review required", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue to Displays" })).toBeDisabled();
 });
 
 test("adds and manages Product Master campaign products", async ({ page }) => {
@@ -169,7 +171,7 @@ test("adds and manages Product Master campaign products", async ({ page }) => {
   await inactiveDialog.locator("label").filter({ hasText: "MOCK-OLD-9001" }).getByRole("checkbox").check();
   await inactiveDialog.getByRole("button", { name: "Add selected products" }).click();
   await expect(page.getByRole("row", { name: /MOCK-OLD-9001.*Inactive.*Review/ })).toBeVisible();
-  await expect(page.getByText("Needs review", { exact: true }).locator("xpath=following-sibling::dd")).toHaveText("1");
+  await expect(page.getByText("Review required", { exact: true }).locator("xpath=following-sibling::dd")).toHaveText("1");
 
   await page.getByRole("button", { name: "Add products" }).click();
   const duplicateDialog = page.getByRole("dialog", { name: "Add products" });
@@ -183,7 +185,7 @@ test("adds and manages Product Master campaign products", async ({ page }) => {
 
   const campaignUrl = page.url().replace(/\/products$/, "");
   await page.goto(campaignUrl);
-  await expect(page.getByRole("navigation", { name: "Campaign planning steps" }).getByRole("link", { name: /Products.*complete/ })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Campaign planning steps" }).getByRole("link", { name: /Products.*warning/ })).toBeVisible();
 });
 
 test("reviews bulk SKUs and creates a pending campaign product", async ({ page }) => {
@@ -213,6 +215,7 @@ test("reviews bulk SKUs and creates a pending campaign product", async ({ page }
 
   await bulkDialog.getByRole("button", { name: "Add matched products" }).click();
   await expect(page.getByRole("row", { name: /001234.*Synthetic Bulk Product.*New.*Needs Product Master Review/ })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("pending product");
 
   await page.getByRole("button", { name: "Bulk add SKUs" }).click();
   const duplicateDialog = page.getByRole("dialog", { name: "Bulk add SKUs" });
@@ -224,6 +227,17 @@ test("reviews bulk SKUs and creates a pending campaign product", async ({ page }
   await page.getByRole("link", { name: "Continue to Displays" }).click();
   await expect(page).toHaveURL(/\/campaigns\/[^/]+\/display$/);
   await expect(page.getByRole("heading", { name: "Bulk SKU Intake Test display" })).toBeVisible();
+});
+
+test("summarizes campaign workflow status without legacy display requirements", async ({ page }) => {
+  await page.goto("/campaigns/50000000-0000-4000-8000-000000000001");
+  await expect(page.getByText("Campaign status", { exact: true })).toBeVisible();
+  await expect(page.getByText("Product totals", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pending products", { exact: true })).toBeVisible();
+  await expect(page.getByText("Display status", { exact: true })).toBeVisible();
+  await expect(page.getByText("Store assignment status", { exact: true })).toBeVisible();
+  await expect(page.getByText("Display type", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Review & Publish" })).toBeDisabled();
 });
 
 test("validates and applies campaign product spreadsheets in the Products workflow", async ({ page }) => {

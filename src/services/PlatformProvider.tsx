@@ -2,10 +2,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
-  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, CompleteExecutionInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
-import type { CampaignProduct, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
+import type { CampaignDisplay, CampaignDisplayProduct, CampaignProduct, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
 
 const repository = new MockMerchandisingRepository();
 
@@ -23,6 +23,14 @@ interface PlatformContextValue {
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
   removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
+  createCampaignDisplay(input: CreateCampaignDisplayInput): Promise<CampaignDisplay>;
+  updateCampaignDisplay(input: UpdateCampaignDisplayInput): Promise<CampaignDisplay>;
+  removeCampaignDisplay(campaignDisplayId: UUID): Promise<void>;
+  assignCampaignProductsToDisplay(input: AssignCampaignProductsToDisplayInput): Promise<CampaignDisplayProduct[]>;
+  removeCampaignProductFromDisplay(campaignDisplayProductId: UUID): Promise<void>;
+  setCampaignProductShelfSupport(campaignId: UUID, campaignProductIds: UUID[]): Promise<void>;
+  setCampaignProductUnassigned(campaignId: UUID, campaignProductIds: UUID[]): Promise<void>;
+  updateCampaignDisplayProduct(input: UpdateCampaignDisplayProductInput): Promise<CampaignDisplayProduct>;
   assignCampaign(input: AssignCampaignInput): Promise<void>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<void>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<void>;
@@ -103,6 +111,14 @@ export function PlatformProvider({ children, adapter = repository }: { children:
       return product;
     },
     removeCampaignProduct: (campaignId, campaignProductId) => mutate(() => adapter.removeCampaignProduct(campaignId, campaignProductId)).then(() => undefined),
+    createCampaignDisplay: async (input) => { let display: CampaignDisplay | undefined; await mutate(async () => { display = await adapter.createCampaignDisplay(input); }); if (!display) throw new Error("Campaign display creation did not return a display."); return display; },
+    updateCampaignDisplay: async (input) => { let display: CampaignDisplay | undefined; await mutate(async () => { display = await adapter.updateCampaignDisplay(input); }); if (!display) throw new Error("Campaign display update did not return a display."); return display; },
+    removeCampaignDisplay: (id) => mutate(() => adapter.removeCampaignDisplay(id)).then(() => undefined),
+    assignCampaignProductsToDisplay: async (input) => { let products: CampaignDisplayProduct[] | undefined; await mutate(async () => { products = await adapter.assignCampaignProductsToDisplay(input); }); return products ?? []; },
+    removeCampaignProductFromDisplay: (id) => mutate(() => adapter.removeCampaignProductFromDisplay(id)).then(() => undefined),
+    setCampaignProductShelfSupport: (campaignId, ids) => mutate(() => adapter.setCampaignProductShelfSupport(campaignId, ids)).then(() => undefined),
+    setCampaignProductUnassigned: (campaignId, ids) => mutate(() => adapter.setCampaignProductUnassigned(campaignId, ids)).then(() => undefined),
+    updateCampaignDisplayProduct: async (input) => { let product: CampaignDisplayProduct | undefined; await mutate(async () => { product = await adapter.updateCampaignDisplayProduct(input); }); if (!product) throw new Error("Display product update did not return a product."); return product; },
     assignCampaign: (input) => mutate(() => adapter.assignCampaign(input)).then(() => undefined),
     createDisplayAssignment: (input) => mutate(() => adapter.createDisplayAssignment(input)).then(() => undefined),
     updateDisplayAssignment: (id, input) => mutate(() => adapter.updateDisplayAssignment(id, input)).then(() => undefined),

@@ -4,7 +4,7 @@ import { Badge, Card, DataState, EmptyState, PageHeader, formatDate } from "../.
 import type { Campaign, PlatformSnapshot } from "../../domain/types";
 import { productMasterStatusLabel, resolveCampaignProduct } from "../../domain/productMaster";
 import { usePlatform } from "../../services/PlatformProvider";
-import { CampaignWorkflowStepper, campaignProductReadiness } from "./campaignWorkflow";
+import { CampaignWorkflowStepper, campaignDisplayReadiness, campaignProductReadiness } from "./campaignWorkflow";
 
 export function CampaignOverviewPage() {
   const { campaignId } = useParams();
@@ -31,6 +31,7 @@ export function CampaignOverviewPage() {
 
 function CampaignSummary({ campaign, data }: { campaign: Campaign; data: PlatformSnapshot }) {
   const readiness = campaignProductReadiness(campaign, data);
+  const displayReadiness = campaignDisplayReadiness(campaign, data);
   const assignments = data.assignments.filter((item) => item.campaignId === campaign.id).length;
   return <div className="grid gap-4 lg:grid-cols-3">
     <Card className="lg:col-span-2">
@@ -51,6 +52,16 @@ function CampaignSummary({ campaign, data }: { campaign: Campaign; data: Platfor
         <Detail label="Needs review" value={String(readiness.needsReview)} />
       </dl>
       <div className="mt-4"><WorkflowLink to={`/campaigns/${campaign.id}/products`}>{readiness.total ? "Review products" : "Add products"}</WorkflowLink></div>
+    </Card>
+    <Card>
+      <h2 className="font-semibold">Display planning</h2>
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <Detail label="Displays" value={String(displayReadiness.displays)} />
+        <Detail label="Display assigned" value={String(displayReadiness.assigned)} />
+        <Detail label="Shelf supported" value={String(displayReadiness.shelfSupported)} />
+        <Detail label="Unassigned" value={String(displayReadiness.unassigned)} />
+      </dl>
+      <div className="mt-4"><WorkflowLink to={`/campaigns/${campaign.id}/display`}>{displayReadiness.status === "complete" ? "Review displays" : "Build displays"}</WorkflowLink></div>
     </Card>
   </div>;
 }

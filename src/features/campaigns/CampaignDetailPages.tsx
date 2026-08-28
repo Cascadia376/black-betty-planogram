@@ -6,7 +6,7 @@ import { productMasterStatusLabel, resolveCampaignProduct } from "../../domain/p
 import { usePlatform } from "../../services/PlatformProvider";
 import { Badge, Button, Card, DataState, EmptyState, Field, PageHeader, formatDate, humanize, inputClass } from "../../components/ui";
 import { mockBusinessClock } from "../../services/clock";
-import { CampaignWorkflowStepper } from "./campaignWorkflow";
+import { campaignProductSummary, campaignStepStatuses, CampaignWorkflowStepper } from "./campaignWorkflow";
 import { ProductIntakeWorkspace } from "./ProductIntakeWorkspace";
 
 function useCampaign() {
@@ -31,9 +31,11 @@ export function CampaignProductsPage() {
       setSaving(false);
     }
   };
+  const productSummary = campaignProductSummary(campaign, data);
   return <DataState loading={loading} error={error}>{!campaign || !data ? <EmptyState title="Campaign not found" message="Unable to open this campaign product workspace." /> : <div className="space-y-6">
-    <PageHeader eyebrow="Products" title={campaign.name} description={`${formatDate(campaign.startDate)} to ${formatDate(campaign.endDate)}`} actions={<LinkButton to={`/campaigns/${campaign.id}/display`} primary>Continue to Displays<ArrowRight className="h-4 w-4" /></LinkButton>} />
+    <PageHeader eyebrow="Products" title={campaign.name} description={`${formatDate(campaign.startDate)} to ${formatDate(campaign.endDate)}`} actions={productSummary.total > 0 ? <LinkButton to={`/campaigns/${campaign.id}/display`} primary>Continue to Displays<ArrowRight className="h-4 w-4" /></LinkButton> : <Button disabled>Continue to Displays<ArrowRight className="h-4 w-4" /></Button>} />
     <CampaignWorkflowStepper campaign={campaign} data={data} current="products" />
+    {productSummary.reviewRequired > 0 && <div role="status" className="rounded-md border border-warning/30 bg-warning/5 p-3 text-sm text-warning">{productSummary.pending > 0 ? `${productSummary.pending} pending product${productSummary.pending === 1 ? "" : "s"} can continue through planning but remain flagged.` : "One or more campaign products require review before execution."}</div>}
     {mutationError && <div role="alert" className="rounded-md border border-error/30 bg-error-subtle p-3 text-sm text-error">{mutationError}</div>}
     <ProductIntakeWorkspace
       products={data.products}
@@ -52,10 +54,13 @@ export function CampaignProductsPage() {
 export function CampaignDetailPage() {
   const { campaign, data, loading, error, role } = useCampaign();
   const canEdit = role === "admin" || role === "merchandising";
+  const productSummary = campaignProductSummary(campaign, data);
+  const workflow = campaignStepStatuses(campaign, data, "campaign");
+  const assignmentCount = campaign && data ? data.assignments.filter((assignment) => assignment.campaignId === campaign.id).length : 0;
   return <DataState loading={loading} error={error}>{!campaign || !data ? <EmptyState title="Campaign not found" message="The requested campaign does not exist in this data adapter." /> : <div className="space-y-5">
-    <PageHeader eyebrow="Campaign overview" title={campaign.name} description={campaign.description} actions={canEdit && <><LinkButton to={`/campaigns/${campaign.id}/products`}>Products</LinkButton><LinkButton to={`/campaigns/${campaign.id}/display`}>Build displays</LinkButton><LinkButton to={`/campaigns/${campaign.id}/assign`} primary>Assign stores</LinkButton><Button type="button" variant="secondary" disabled>Review</Button></>} />
+    <PageHeader eyebrow="Campaign overview" title={campaign.name} description={campaign.description} actions={canEdit && <><LinkButton to={`/campaigns/${campaign.id}/products`}>Products</LinkButton><LinkButton to={`/campaigns/${campaign.id}/display`}>Build Displays</LinkButton><LinkButton to={`/campaigns/${campaign.id}/assign`} primary>Assign Stores</LinkButton><Button type="button" variant="secondary" disabled>Review & Publish</Button></>} />
     <CampaignWorkflowStepper campaign={campaign} data={data} current="campaign" />
-    <div className="grid gap-4 xl:grid-cols-3"><Card className="xl:col-span-2"><div className="flex items-center gap-2"><Badge tone={campaign.status === "active" ? "success" : campaign.status === "scheduled" ? "info" : "neutral"}>{campaign.status}</Badge><Badge>{campaign.type}</Badge></div><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2"><Detail label="Period" value={`${formatDate(campaign.startDate)} to ${formatDate(campaign.endDate)}`} /><Detail label="Owner" value={campaign.owner} /><Detail label="Supplier / partner" value={campaign.supplier || "Not specified"} /><Detail label="Display type" value={humanize(campaign.requirement.displayType)} /></dl></Card><Card><h2 className="font-semibold">Execution guidance</h2><dl className="mt-3 space-y-3 text-sm"><Detail label="Signage" value={campaign.requirement.signage || "None specified"} /><Detail label="Minimum space" value={campaign.requirement.minimumSpace} /><Detail label="Approach" value={campaign.requirement.prescriptive ? "Prescriptive" : "Guided local execution"} /></dl></Card></div>
+    <Card><div className="flex flex-wrap items-center gap-2"><Badge tone={campaign.status === "active" ? "success" : campaign.status === "scheduled" ? "info" : "neutral"}>{campaign.status}</Badge><Badge>{campaign.type}</Badge></div><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-5"><Detail label="Campaign status" value={humanize(campaign.status)} /><Detail label="Product totals" value={`${productSummary.total} total · ${productSummary.verified} verified`} /><Detail label="Pending products" value={String(productSummary.pending)} /><Detail label="Display status" value={humanize(workflow.displays)} /><Detail label="Store assignment status" value={assignmentCount ? `${assignmentCount} assigned` : humanize(workflow.stores)} /></dl></Card>
     <ProductTable campaign={campaign} products={data.products} />
     <Card><h2 className="font-semibold">Assignments</h2><div className="mt-3 grid gap-3 md:grid-cols-2">{data.assignments.filter((item) => item.campaignId === campaign.id).map((assignment) => { const store = data.stores.find((item) => item.id === assignment.storeId); const area = data.displayAreas.find((item) => item.id === assignment.displayAreaId); return <Link key={assignment.id} to={`/display-areas/${area?.id}`} className="flex items-center justify-between rounded-md border border-border p-3"><div><p className="font-medium">{store?.name} / {area?.name}</p><p className="text-xs text-text-muted">Effective {formatDate(assignment.effectiveDate)}</p></div><Badge tone="success">{humanize(assignment.compatibility)}</Badge></Link>; })}</div></Card>
   </div>}</DataState>;

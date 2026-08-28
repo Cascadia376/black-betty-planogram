@@ -51,9 +51,26 @@ describe("mock merchandising workflow", () => {
     await expect(repository.createPendingProduct({ sku: "001234", name: "Duplicate", category: "Wine" })).rejects.toThrow("already exists");
   });
 
+  it("creates displays, moves product membership, and records display-specific metadata", async () => {
+    const repository = new MockMerchandisingRepository();
+    const first = await repository.createCampaignDisplay({ campaignId: IDS.octoberCampaign, display: { name: "Test feature", displayType: "feature_display", placementMode: "STANDARD", prescriptive: false } });
+    const second = await repository.createCampaignDisplay({ campaignId: IDS.octoberCampaign, display: { name: "Test endcap", displayType: "endcap", placementMode: "STORE_SPECIFIC", prescriptive: true } });
+    const productId = "54000000-0000-4000-8000-000000000004";
+    const [member] = await repository.assignCampaignProductsToDisplay({ campaignId: IDS.octoberCampaign, campaignDisplayId: first.id, campaignProductIds: [productId] });
+    await repository.updateCampaignDisplayProduct({ campaignDisplayProductId: member.id, patch: { role: "Hero", minimumFacings: 3, minimumQuantity: 6 } });
+    await repository.assignCampaignProductsToDisplay({ campaignId: IDS.octoberCampaign, campaignDisplayId: second.id, campaignProductIds: [productId] });
+    let state = await repository.load();
+    expect(state.campaignDisplayProducts.filter((item) => item.campaignProductId === productId)).toHaveLength(1);
+    expect(state.campaigns.find((item) => item.id === IDS.octoberCampaign)?.products.find((item) => item.id === productId)?.merchandisingState).toBe("DISPLAY_ASSIGNED");
+    await repository.setCampaignProductShelfSupport(IDS.octoberCampaign, [productId]);
+    state = await repository.load();
+    expect(state.campaignDisplayProducts.some((item) => item.campaignProductId === productId)).toBe(false);
+    expect(state.campaigns.find((item) => item.id === IDS.octoberCampaign)?.products.find((item) => item.id === productId)?.merchandisingState).toBe("SHELF_SUPPORTED");
+  });
+
   it("creates a campaign, assignment, execution, and compliance review", async () => {
     const repository = new MockMerchandisingRepository();
-    const source = seedSnapshot.campaigns[0];
+    const source = seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!;
     const campaignId = await repository.createCampaign({
       name: "Integration Test Feature", type: source.type, description: "Test campaign", startDate: "2026-09-01",
       endDate: "2026-09-30", owner: "Test owner", supplier: "Test supplier", products: source.products,

@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
   BarChart3,
-  CalendarRange,
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
@@ -10,7 +9,6 @@ import {
   Megaphone,
   Plus,
   Store,
-  UploadCloud,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge, Card, DataState, EmptyState, PageHeader, formatDate, humanize } from "../../components/ui";
@@ -63,7 +61,6 @@ function QuickAction({ icon: Icon, label, to, primary = false }: { icon: LucideI
 
 export function DashboardPage() {
   const { data, loading, error, role } = usePlatform();
-  const ondProgram = data?.programs.find((item) => item.status === "active") ?? data?.programs.find((item) => item.name.startsWith("OND"));
   const canEdit = role === "admin" || role === "merchandising";
   const activeCampaigns = data?.campaigns.filter((campaign) => campaign.status === "active") ?? [];
   const monthlyFlyer = activeCampaigns.find((campaign) => campaign.type === "Monthly flyer");
@@ -93,8 +90,6 @@ export function DashboardPage() {
           <p className="text-xs font-semibold uppercase text-text-muted">Quick actions</p>
           <div className="mt-3 grid gap-2">
             {canEdit && <QuickAction icon={Plus} label="New campaign" to="/campaigns/new" primary />}
-            {ondProgram && <QuickAction icon={CalendarRange} label={`Open ${ondProgram.name}`} to={`/programs/${ondProgram.id}`} />}
-            <QuickAction icon={UploadCloud} label="Upload spreadsheets" to="/imports" />
             <QuickAction icon={Megaphone} label="View campaigns" to="/campaigns" />
             {complianceExecutionId && <QuickAction icon={ClipboardCheck} label="Review compliance" to={`/compliance/${complianceExecutionId}`} />}
             <QuickAction icon={BarChart3} label="View performance" to="/performance" />

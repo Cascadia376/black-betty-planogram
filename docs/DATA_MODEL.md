@@ -16,6 +16,15 @@ execution_tasks -> execution_submissions -> compliance_reviews
 purchase_orders -> purchase_order_lines -> inbound_orders
 ```
 
+Campaign planning has a separate, pre-store hierarchy:
+
+```text
+campaigns -> campaign_products -> campaign_displays -> campaign_display_products
+campaign_displays -> (Phase 3) display_areas
+```
+
+`campaign_displays` hold the intended merchandising concept, not a store location. `STANDARD` displays are reusable concepts and `STORE_SPECIFIC` displays require an explicit location later. `campaign_display_products` add display-only behavior (Hero/Supporting, optional minimum facings and quantities) without duplicating Product Master data. `SHELF_SUPPORTED` campaign products are intentionally part of the assortment but have no dedicated display.
+
 `display_areas` are persistent physical assets. Campaign changes never replace or repurpose their identity. Legacy campaign assignments remain supported, but new OND operational tasks reference `display_assignment_id` directly.
 
 ## Tables
@@ -34,6 +43,8 @@ purchase_orders -> purchase_order_lines -> inbound_orders
 | `display_assignment_products` | `id`, `assignment_id`, `product_id`, `sku`, `case_quantity`, `required`, optional supplier/facing/note fields | Case quantity is store/display specific. |
 | `campaigns` | `id`, `name`, `type`, `description`, `start_date`, `end_date`, `owner_user_id`, `supplier`, `status`, display requirement fields | Campaign dates use inclusive business dates. |
 | `campaign_products` | `id`, `campaign_id`, `product_id`, `role`, `required`, optional `note` | References Product Master identity. Names, category, brand, package, case pack, active state, and supplier options remain Product Master owned. Historical releases may retain immutable snapshots outside this planning record. |
+| `campaign_displays` | `id`, `campaign_id`, `name`, `display_type`, `placement_mode`, `prescriptive`, `sort_order`, optional execution guidance | Campaign-level merchandising concept. It must not be merged with a persistent `display_area`. |
+| `campaign_display_products` | `id`, `campaign_display_id`, `campaign_product_id`, `product_id`, `role`, `required`, optional minimums and note | Display-specific membership. MVP allows one membership per campaign product; the relationship can expand later. |
 | `campaign_assignments` | `id`, `campaign_id`, `store_id`, `display_area_id`, `effective_date`, `compatibility`, `notes` | Connects a campaign to one persistent area at one store. |
 | `execution_tasks` | `id`, optional legacy `assignment_id`, optional `display_assignment_id`, `program_release_id`, `task_type`, `due_date`, `status`, `issue` | Require exactly one assignment reference. OND publish creates initial-set and reset tasks from display assignments. |
 | `order_recommendations` | `id`, `store_id`, `product_id`, `display_assignment_id`, `supplier_id`, dates, cases, type, rationale, status, forecast metadata | Generated from assignment, demand, inventory, inbound, supplier, and Buying-owned bridge policy inputs. Keep rationale and source for auditability. |

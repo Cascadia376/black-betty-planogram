@@ -14,14 +14,14 @@ import { IDS, seedSnapshot } from "../adapters/mock/seed";
 
 describe("campaign validation", () => {
   it("requires core campaign fields and products", () => {
-    const campaign = seedSnapshot.campaigns[0];
+    const campaign = seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!;
     expect(validateCampaign({ ...campaign, name: "", products: [] })).toEqual([
       "Campaign name is required.", "Add at least one campaign product.",
     ]);
   });
 
   it("rejects an inverted date range", () => {
-    const campaign = seedSnapshot.campaigns[0];
+    const campaign = seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!;
     expect(validateCampaign({ ...campaign, startDate: "2026-10-01", endDate: "2026-09-01" })).toContain("End date must be on or after start date.");
   });
 });
@@ -38,11 +38,11 @@ describe("display-area geometry", () => {
 
 describe("assignment compatibility", () => {
   it("matches campaign and display types", () => {
-    expect(getAssignmentCompatibility(seedSnapshot.campaigns[0], seedSnapshot.displayAreas[0])).toBe("compatible");
+    expect(getAssignmentCompatibility(seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!, seedSnapshot.displayAreas[0])).toBe("compatible");
   });
 
   it("flags a flexible alternate display for review", () => {
-    expect(getAssignmentCompatibility(seedSnapshot.campaigns[0], { ...seedSnapshot.displayAreas[0], type: "floor_display" })).toBe("requires_review");
+    expect(getAssignmentCompatibility(seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!, { ...seedSnapshot.displayAreas[0], type: "floor_display" })).toBe("requires_review");
   });
 });
 

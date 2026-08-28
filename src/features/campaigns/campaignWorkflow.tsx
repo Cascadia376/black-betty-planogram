@@ -8,6 +8,13 @@ import { Badge } from "../../components/ui";
 export type CampaignWorkflowStep = "campaign" | "products" | "displays" | "stores" | "review";
 export type CampaignStepStatus = "complete" | "current" | "warning" | "blocked" | "not_started";
 
+export interface CampaignProductSummary {
+  total: number;
+  verified: number;
+  pending: number;
+  reviewRequired: number;
+}
+
 const steps: Array<{ id: CampaignWorkflowStep; label: string }> = [
   { id: "campaign", label: "Campaign" },
   { id: "products", label: "Products" },
@@ -23,6 +30,28 @@ export interface CampaignProductReadiness {
   inactive: number;
   unresolved: number;
   needsReview: number;
+}
+
+export interface CampaignDisplayReadiness {
+  total: number;
+  assigned: number;
+  shelfSupported: number;
+  unassigned: number;
+  displays: number;
+  emptyDisplays: number;
+  status: "complete" | "warning" | "not_started";
+}
+
+export function campaignDisplayReadiness(campaign: Campaign | undefined, data: PlatformSnapshot | undefined): CampaignDisplayReadiness {
+  const empty: CampaignDisplayReadiness = { total: 0, assigned: 0, shelfSupported: 0, unassigned: 0, displays: 0, emptyDisplays: 0, status: "not_started" };
+  if (!campaign || !data || !campaign.products.length) return empty;
+  const displays = data.campaignDisplays.filter((item) => item.campaignId === campaign.id);
+  const memberships = new Set(data.campaignDisplayProducts.filter((item) => displays.some((display) => display.id === item.campaignDisplayId)).map((item) => item.campaignProductId));
+  const shelfSupported = campaign.products.filter((item) => item.merchandisingState === "SHELF_SUPPORTED").length;
+  const assigned = campaign.products.filter((item) => memberships.has(item.id)).length;
+  const unassigned = campaign.products.length - assigned - shelfSupported;
+  const emptyDisplays = displays.filter((display) => !data.campaignDisplayProducts.some((item) => item.campaignDisplayId === display.id)).length;
+  return { total: campaign.products.length, assigned, shelfSupported, unassigned, displays: displays.length, emptyDisplays, status: !displays.length && !shelfSupported ? "not_started" : unassigned || emptyDisplays ? "warning" : "complete" };
 }
 
 export function campaignProductReadiness(campaign: Campaign | undefined, data: PlatformSnapshot | undefined): CampaignProductReadiness {
@@ -54,6 +83,21 @@ export function campaignStepPath(campaignId: UUID | undefined, step: CampaignWor
   return undefined;
 }
 
+export function campaignProductSummary(campaign: Pick<Campaign, "products"> | undefined, data: Pick<PlatformSnapshot, "products"> | undefined): CampaignProductSummary {
+  const productById = new Map(data?.products.map((product) => [product.id, product]));
+  const products = campaign?.products ?? [];
+  const verified = products.filter((campaignProduct) => {
+    const product = productById.get(campaignProduct.productId);
+    return product?.active && product.masterStatus === "verified";
+  }).length;
+  const pending = products.filter((campaignProduct) => productById.get(campaignProduct.productId)?.masterStatus === "pending").length;
+  const reviewRequired = products.filter((campaignProduct) => {
+    const product = productById.get(campaignProduct.productId);
+    return !product || !product.active || product.masterStatus !== "verified";
+  }).length;
+  return { total: products.length, verified, pending, reviewRequired };
+}
+
 export function campaignStepStatuses(campaign: Campaign | undefined, data: PlatformSnapshot | undefined, current: CampaignWorkflowStep): Record<CampaignWorkflowStep, CampaignStepStatus> {
   const statuses: Record<CampaignWorkflowStep, CampaignStepStatus> = {
     campaign: "not_started",
@@ -64,14 +108,19 @@ export function campaignStepStatuses(campaign: Campaign | undefined, data: Platf
   };
 
   if (campaign) {
-    const productReadiness = campaignProductReadiness(campaign, data);
+    const products = campaignProductSummary(campaign, data);
+    const displayReadiness = campaignDisplayReadiness(campaign, data);
+    const hasLegacyDisplayData = campaign.requirement.displayType !== "flex"
+      || campaign.requirement.priority !== "standard"
+      || Boolean(campaign.requirement.signage)
+      || campaign.requirement.minimumSpace !== "To be defined during display building"
+      || Boolean(campaign.requirement.executionNotes)
+      || campaign.requirement.prescriptive;
     statuses.campaign = campaign.name && campaign.owner && campaign.startDate && campaign.endDate ? "complete" : "blocked";
-    statuses.products = productReadiness.total === 0 ? "not_started" : productReadiness.needsReview > 0 ? "warning" : "complete";
-
-    // Legacy campaigns can still carry display guidance before the new CampaignDisplay
-    // workflow lands. New campaigns intentionally remain not started here.
-    const hasLegacyDisplayGuidance = productReadiness.total > 0 && campaign.requirement.minimumSpace !== "To be defined during display building";
-    statuses.displays = hasLegacyDisplayGuidance ? "complete" : "not_started";
+    statuses.products = products.reviewRequired > 0 ? "warning" : products.verified > 0 ? "complete" : "blocked";
+    statuses.displays = data?.campaignDisplays.some((display) => display.campaignId === campaign.id)
+      ? displayReadiness.status === "complete" ? "complete" : "warning"
+      : hasLegacyDisplayData ? "complete" : "not_started";
     statuses.stores = data?.assignments.some((assignment) => assignment.campaignId === campaign.id) ? "complete" : "not_started";
   }
 

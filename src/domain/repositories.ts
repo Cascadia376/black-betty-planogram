@@ -1,6 +1,8 @@
 import type {
   BridgeStrategy,
   CampaignAssignment,
+  CampaignDisplay,
+  CampaignDisplayProduct,
   CampaignProduct,
   ComplianceCheck,
   DisplayAssignment,
@@ -50,6 +52,27 @@ export interface UpdateCampaignProductInput {
   campaignId: UUID;
   campaignProductId: UUID;
   patch: Pick<CampaignProduct, "role" | "required">;
+}
+
+export interface CreateCampaignDisplayInput {
+  campaignId: UUID;
+  display: Omit<CampaignDisplay, "id" | "campaignId" | "sortOrder">;
+}
+
+export interface UpdateCampaignDisplayInput {
+  campaignDisplayId: UUID;
+  patch: Partial<Omit<CampaignDisplay, "id" | "campaignId" | "sortOrder">>;
+}
+
+export interface AssignCampaignProductsToDisplayInput {
+  campaignId: UUID;
+  campaignDisplayId: UUID;
+  campaignProductIds: UUID[];
+}
+
+export interface UpdateCampaignDisplayProductInput {
+  campaignDisplayProductId: UUID;
+  patch: Partial<Pick<CampaignDisplayProduct, "role" | "required" | "minimumFacings" | "minimumQuantity" | "note">>;
 }
 
 export interface CompleteExecutionInput {
@@ -126,6 +149,14 @@ export interface MerchandisingRepository {
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
   removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
+  createCampaignDisplay(input: CreateCampaignDisplayInput): Promise<CampaignDisplay>;
+  updateCampaignDisplay(input: UpdateCampaignDisplayInput): Promise<CampaignDisplay>;
+  removeCampaignDisplay(campaignDisplayId: UUID): Promise<void>;
+  assignCampaignProductsToDisplay(input: AssignCampaignProductsToDisplayInput): Promise<CampaignDisplayProduct[]>;
+  removeCampaignProductFromDisplay(campaignDisplayProductId: UUID): Promise<void>;
+  setCampaignProductShelfSupport(campaignId: UUID, campaignProductIds: UUID[]): Promise<void>;
+  setCampaignProductUnassigned(campaignId: UUID, campaignProductIds: UUID[]): Promise<void>;
+  updateCampaignDisplayProduct(input: UpdateCampaignDisplayProductInput): Promise<CampaignDisplayProduct>;
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;

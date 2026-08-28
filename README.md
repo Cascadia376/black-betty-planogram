@@ -12,7 +12,7 @@ Plan -> Publish -> Order -> Execute -> Verify -> Measure -> Improve
 
 Campaign planning now begins with a guided Phase 1 flow:
 
-Create Campaign -> Build Product Assortment -> Continue to Displays
+Create Campaign -> Build Product Assortment -> Build Displays -> Continue to Stores
 
 Product intake supports four paths:
 
@@ -24,6 +24,20 @@ Product intake supports four paths:
 Product Master remains authoritative for known product attributes such as SKU, name, category, case pack, and active status. Campaign records store campaign-specific metadata such as role, required/optional state, and notes. Pending products can continue through planning, but remain clearly flagged for Product Master review.
 
 Campaign product spreadsheet import is intentionally separate from OND allocation import. The campaign Products workspace accepts the documented `campaign-product-v1` format and applies rows only after review and approval.
+
+## Phase 2 Display Planning
+
+`CampaignDisplay` is a campaign-level merchandising concept (for example, a Feature Display or RTD Endcap). It is deliberately distinct from `DisplayArea`, which is a persistent physical location in a store. A display can be **STANDARD**, a reusable concept whose compatible locations are chosen later, or **STORE_SPECIFIC**, a named setup whose physical location will be selected per store in Phase 3.
+
+Campaign products are explicitly **unassigned**, **display assigned**, or **shelf supported**. Shelf-supported products remain in the campaign assortment without requiring a dedicated display. A display membership can identify a **Hero** product and supporting products, with optional display-specific minimum facings and quantity guidance. Phase 2 does not perform physical store placement; the existing assignment route remains the Phase 3 handoff point.
+
+## Phase 1 Campaign Workflow
+
+Create Campaign -> Build Product Assortment -> Continue to Displays
+
+Campaign product intake supports Product Master search, bulk SKU paste, known-format spreadsheet import, and controlled pending new-product intake. Product Master is authoritative for known SKU, name, category, case pack, and active-state details. Pending new products may continue through planning, but remain visibly flagged for Product Master review.
+
+The known campaign product workbook format is documented in `docs/campaign-product-import.md`.
 
 Routes included:
 
