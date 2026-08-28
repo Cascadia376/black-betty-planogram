@@ -2,6 +2,8 @@ import type {
   BridgeStrategy,
   CampaignAssignment,
   CampaignDisplay,
+  CampaignDisplayAssignment,
+  CampaignDisplayAssignmentProduct,
   CampaignDisplayProduct,
   CampaignProduct,
   ComplianceCheck,
@@ -63,6 +65,22 @@ export interface UpdateCampaignDisplayInput {
   campaignDisplayId: UUID;
   patch: Partial<Omit<CampaignDisplay, "id" | "campaignId" | "sortOrder">>;
 }
+
+export interface ReorderCampaignDisplayInput {
+  campaignDisplayId: UUID;
+  direction: "up" | "down";
+}
+
+export interface ReorderCampaignDisplayProductInput {
+  campaignDisplayProductId: UUID;
+  direction: "up" | "down";
+}
+
+export interface SetCampaignStoresInput { campaignId: UUID; storeIds: UUID[]; }
+export interface SuggestCampaignDisplayInput { campaignId: UUID; campaignDisplayId: UUID; storeIds?: UUID[]; }
+export interface UpdateCampaignDisplayAssignmentInput { campaignDisplayAssignmentId: UUID; status?: CampaignDisplayAssignment["status"]; displayAreaId?: UUID; note?: string; placementSource?: CampaignDisplayAssignment["placementSource"]; }
+export interface UpdateCampaignDisplayAssignmentProductInput { campaignDisplayAssignmentProductId: UUID; caseQuantity?: number; note?: string; }
+export interface ApplyCampaignDisplayQuantityInput { campaignDisplayId: UUID; campaignDisplayProductId: UUID; caseQuantity: number; }
 
 export interface AssignCampaignProductsToDisplayInput {
   campaignId: UUID;
@@ -151,12 +169,19 @@ export interface MerchandisingRepository {
   removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
   createCampaignDisplay(input: CreateCampaignDisplayInput): Promise<CampaignDisplay>;
   updateCampaignDisplay(input: UpdateCampaignDisplayInput): Promise<CampaignDisplay>;
+  reorderCampaignDisplay(input: ReorderCampaignDisplayInput): Promise<void>;
   removeCampaignDisplay(campaignDisplayId: UUID): Promise<void>;
   assignCampaignProductsToDisplay(input: AssignCampaignProductsToDisplayInput): Promise<CampaignDisplayProduct[]>;
   removeCampaignProductFromDisplay(campaignDisplayProductId: UUID): Promise<void>;
   setCampaignProductShelfSupport(campaignId: UUID, campaignProductIds: UUID[]): Promise<void>;
   setCampaignProductUnassigned(campaignId: UUID, campaignProductIds: UUID[]): Promise<void>;
   updateCampaignDisplayProduct(input: UpdateCampaignDisplayProductInput): Promise<CampaignDisplayProduct>;
+  reorderCampaignDisplayProduct(input: ReorderCampaignDisplayProductInput): Promise<void>;
+  setCampaignStores(input: SetCampaignStoresInput): Promise<void>;
+  suggestCampaignDisplay(input: SuggestCampaignDisplayInput): Promise<CampaignDisplayAssignment[]>;
+  updateCampaignDisplayAssignment(input: UpdateCampaignDisplayAssignmentInput): Promise<CampaignDisplayAssignment>;
+  updateCampaignDisplayAssignmentProduct(input: UpdateCampaignDisplayAssignmentProductInput): Promise<CampaignDisplayAssignmentProduct>;
+  applyCampaignDisplayQuantity(input: ApplyCampaignDisplayQuantityInput): Promise<void>;
   assignCampaign(input: AssignCampaignInput): Promise<CampaignAssignment>;
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;

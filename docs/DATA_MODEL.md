@@ -73,3 +73,6 @@ Future reconciliation should match a pending record to a trusted authoritative S
 - Store managers are scoped to assigned store IDs; buying, merchandising, and operations roles receive only the mutations their work requires.
 - Authorization claims come from trusted `app_metadata`, not user-editable metadata.
 - Browser code never receives a secret or service-role key.
+# Campaign store allocation planning
+
+Campaign store scope is represented by `CampaignStore`; stores can participate before a display is allocated. `CampaignDisplayAssignment` stores a planned display-to-store-to-DisplayArea relationship, its buyer approval state, suggestion provenance, and campaign dates. `CampaignDisplayAssignmentProduct` stores the final store-specific quantity while preserving the baseline recommendation and buyer override flag. These are planning entities, not replacements for the operational `DisplayAssignment` model.

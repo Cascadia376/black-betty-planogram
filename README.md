@@ -29,7 +29,13 @@ Campaign product spreadsheet import is intentionally separate from OND allocatio
 
 `CampaignDisplay` is a campaign-level merchandising concept (for example, a Feature Display or RTD Endcap). It is deliberately distinct from `DisplayArea`, which is a persistent physical location in a store. A display can be **STANDARD**, a reusable concept whose compatible locations are chosen later, or **STORE_SPECIFIC**, a named setup whose physical location will be selected per store in Phase 3.
 
-Campaign products are explicitly **unassigned**, **display assigned**, or **shelf supported**. Shelf-supported products remain in the campaign assortment without requiring a dedicated display. A display membership can identify a **Hero** product and supporting products, with optional display-specific minimum facings and quantity guidance. Phase 2 does not perform physical store placement; the existing assignment route remains the Phase 3 handoff point.
+Campaign products are explicitly **unassigned**, **display assigned**, or **shelf supported**. Shelf-supported products remain in the campaign assortment without requiring a dedicated display. A display may have zero or one **Hero** product; setting a new Hero demotes the prior Hero to Supporting. Minimum facings and quantity are display-specific guidance. Campaign display ordering represents planning priority, not shelf coordinates or physical location. Buyers may continue to Stores with unassigned-product or empty-display warnings; physical store placement remains a Phase 3 responsibility.
+
+The display-product pool supports category, campaign role, requirement, brand, package/size, and merchandising-state filters. Supplier is intentionally not exposed there yet: the current Product/SupplierProductOption data does not provide a dependable campaign-product supplier resolution rule. That remains a real-data integration decision for Phase 3.
+
+## Phase 3 Store Allocation
+
+`CampaignDisplay` describes what should be built. `DisplayArea` is the persistent physical asset in one store. `CampaignDisplayAssignment` is the planning-layer mapping between them for a participating store, and `CampaignDisplayAssignmentProduct` records store-specific product quantities and buyer overrides. A STANDARD display receives an explainable suggestion per store and must be accepted; it never assumes matching display numbers across stores. STORE_SPECIFIC displays require buyer placement per store. At Publish, approved planning allocations will be converted into canonical `DisplayAssignment` records for operational ordering and execution; that conversion remains a later phase.
 
 ## Phase 1 Campaign Workflow
 

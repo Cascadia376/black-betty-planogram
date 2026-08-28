@@ -1,6 +1,6 @@
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, SetProgramStoreInput, SubmitComplianceInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
+  ApplyCampaignDisplayQuantityInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -18,6 +18,7 @@ import { RuleBasedOndDemandService } from "../../services/demand/RuleBasedOndDem
 import { RuleBasedOrderRecommendationService } from "../../services/orders/OrderRecommendationService";
 import { calculateResidualInventory } from "../../services/orders/ResidualInventoryService";
 import { seedSnapshot } from "./seed";
+import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAllocation";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
 const defaultDisplayRequirement: DisplayRequirement = {
@@ -68,6 +69,11 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     campaigns,
     campaignDisplays: snapshot.campaignDisplays ?? [],
     campaignDisplayProducts: snapshot.campaignDisplayProducts ?? [],
+    campaignStores: snapshot.campaignStores ?? [],
+    campaignDisplayAssignments: snapshot.campaignDisplayAssignments ?? [],
+    campaignDisplayAssignmentProducts: snapshot.campaignDisplayAssignmentProducts ?? [],
+    campaignReleases: snapshot.campaignReleases ?? [],
+    storeReleaseNotices: snapshot.storeReleaseNotices ?? [],
     displayAreas: snapshot.displayAreas.map((area) => {
       const seededArea = defaults.displayAreas.find((candidate) => candidate.id === area.id);
       return {
@@ -243,6 +249,17 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     return structuredClone(display);
   }
 
+  async reorderCampaignDisplay(input: ReorderCampaignDisplayInput): Promise<void> {
+    const display = this.state.campaignDisplays.find((item) => item.id === input.campaignDisplayId);
+    if (!display) throw new Error("Campaign display was not found.");
+    const ordered = this.state.campaignDisplays.filter((item) => item.campaignId === display.campaignId).sort((a, b) => a.sortOrder - b.sortOrder);
+    const index = ordered.findIndex((item) => item.id === display.id);
+    const nextIndex = input.direction === "up" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= ordered.length) return;
+    [ordered[index].sortOrder, ordered[nextIndex].sortOrder] = [ordered[nextIndex].sortOrder, ordered[index].sortOrder];
+    this.persist();
+  }
+
   async removeCampaignDisplay(campaignDisplayId: UUID): Promise<void> {
     const display = this.state.campaignDisplays.find((item) => item.id === campaignDisplayId);
     if (!display) throw new Error("Campaign display was not found.");
@@ -306,9 +323,95 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     if (!product) throw new Error("Display product was not found.");
     if ((input.patch.minimumFacings !== undefined && (!Number.isInteger(input.patch.minimumFacings) || input.patch.minimumFacings < 0))
       || (input.patch.minimumQuantity !== undefined && (!Number.isInteger(input.patch.minimumQuantity) || input.patch.minimumQuantity < 0))) throw new Error("Minimum facings and quantity must be non-negative whole numbers.");
+    if (input.patch.role === "Hero") {
+      this.state.campaignDisplayProducts.forEach((item) => {
+        if (item.campaignDisplayId === product.campaignDisplayId && item.id !== product.id && item.role === "Hero") item.role = "Supporting";
+      });
+    }
     Object.assign(product, input.patch);
     this.persist();
     return structuredClone(product);
+  }
+
+  async reorderCampaignDisplayProduct(input: ReorderCampaignDisplayProductInput): Promise<void> {
+    const product = this.state.campaignDisplayProducts.find((item) => item.id === input.campaignDisplayProductId);
+    if (!product) throw new Error("Display product was not found.");
+    const ordered = this.state.campaignDisplayProducts.filter((item) => item.campaignDisplayId === product.campaignDisplayId).sort((a, b) => a.sortOrder - b.sortOrder);
+    const index = ordered.findIndex((item) => item.id === product.id);
+    const nextIndex = input.direction === "up" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= ordered.length) return;
+    [ordered[index].sortOrder, ordered[nextIndex].sortOrder] = [ordered[nextIndex].sortOrder, ordered[index].sortOrder];
+    this.persist();
+  }
+
+  async setCampaignStores(input: SetCampaignStoresInput): Promise<void> {
+    if (!this.state.campaigns.some((item) => item.id === input.campaignId)) throw new Error("Campaign was not found.");
+    const storeIds = new Set(input.storeIds);
+    if ([...storeIds].some((id) => !this.state.stores.some((store) => store.id === id))) throw new Error("Select valid stores.");
+    this.state.stores.forEach((store) => {
+      const existing = this.state.campaignStores.find((item) => item.campaignId === input.campaignId && item.storeId === store.id);
+      if (existing) existing.included = storeIds.has(store.id);
+      else this.state.campaignStores.push({ id: crypto.randomUUID(), campaignId: input.campaignId, storeId: store.id, included: storeIds.has(store.id), status: "NOT_STARTED" });
+    });
+    this.persist();
+  }
+
+  async suggestCampaignDisplay(input: SuggestCampaignDisplayInput) {
+    const display = this.state.campaignDisplays.find((item) => item.id === input.campaignDisplayId && item.campaignId === input.campaignId);
+    const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
+    if (!display || !campaign) throw new Error("Campaign display was not found.");
+    const storeIds = input.storeIds ?? this.state.campaignStores.filter((item) => item.campaignId === campaign.id && item.included).map((item) => item.storeId);
+    const created = storeIds.map((storeId) => {
+      const existing = this.state.campaignDisplayAssignments.find((item) => item.campaignDisplayId === display.id && item.storeId === storeId);
+      if (existing) return existing;
+      const candidates = this.state.displayAreas.filter((area) => area.storeId === storeId).map((area) => ({ area, result: campaignDisplayAreaCompatibility(display, area, this.state) }));
+      const recommendation = candidates.find((item) => item.result.status === "recommended") ?? candidates.find((item) => item.result.status === "compatible");
+      const assignment = { id: crypto.randomUUID(), campaignId: campaign.id, campaignDisplayId: display.id, storeId, status: display.placementMode === "STANDARD" && recommendation ? "SUGGESTED" : "UNASSIGNED", placementSource: recommendation ? "AUTO_SUGGESTED" : undefined, compatibility: recommendation?.result.status, suggestionDisplayAreaId: recommendation?.area.id, suggestionReasons: recommendation?.result.reasons, startDate: campaign.startDate, endDate: campaign.endDate, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as const;
+      this.state.campaignDisplayAssignments.push(assignment);
+      this.createAllocationProducts(assignment.id, display.id);
+      return assignment;
+    });
+    this.persist();
+    return structuredClone(created);
+  }
+
+  async updateCampaignDisplayAssignment(input: UpdateCampaignDisplayAssignmentInput) {
+    const assignment = this.state.campaignDisplayAssignments.find((item) => item.id === input.campaignDisplayAssignmentId);
+    if (!assignment) throw new Error("Campaign display allocation was not found.");
+    if (input.displayAreaId) {
+      const area = this.state.displayAreas.find((item) => item.id === input.displayAreaId && item.storeId === assignment.storeId);
+      const display = this.state.campaignDisplays.find((item) => item.id === assignment.campaignDisplayId)!;
+      if (!area) throw new Error("Display area does not belong to this store.");
+      const compatibility = campaignDisplayAreaCompatibility(display, area, this.state);
+      if (compatibility.status === "incompatible") throw new Error(compatibility.reasons.join(" "));
+      assignment.displayAreaId = area.id; assignment.compatibility = compatibility.status;
+    }
+    Object.assign(assignment, input, { id: assignment.id, campaignDisplayAssignmentId: undefined, updatedAt: new Date().toISOString() });
+    delete (assignment as { campaignDisplayAssignmentId?: string }).campaignDisplayAssignmentId;
+    if (input.status === "ASSIGNED" && !assignment.displayAreaId) throw new Error("Choose a physical display area before assigning.");
+    if (input.status === "ASSIGNED" && !input.placementSource) assignment.placementSource = assignment.displayAreaId === assignment.suggestionDisplayAreaId ? "AUTO_SUGGESTED" : "BUYER_SELECTED";
+    this.persist(); return structuredClone(assignment);
+  }
+
+  async updateCampaignDisplayAssignmentProduct(input: UpdateCampaignDisplayAssignmentProductInput) {
+    const product = this.state.campaignDisplayAssignmentProducts.find((item) => item.id === input.campaignDisplayAssignmentProductId);
+    if (!product) throw new Error("Allocation product was not found.");
+    if (input.caseQuantity !== undefined && (!Number.isInteger(input.caseQuantity) || input.caseQuantity < 0)) throw new Error("Quantity must be a non-negative whole number.");
+    Object.assign(product, input, { id: product.id, campaignDisplayAssignmentProductId: undefined, buyerOverride: input.caseQuantity !== undefined && input.caseQuantity !== product.recommendedCases, quantitySource: input.caseQuantity !== undefined ? "BUYER_OVERRIDE" : product.quantitySource });
+    delete (product as { campaignDisplayAssignmentProductId?: string }).campaignDisplayAssignmentProductId;
+    this.persist(); return structuredClone(product);
+  }
+
+  async applyCampaignDisplayQuantity(input: ApplyCampaignDisplayQuantityInput): Promise<void> {
+    this.state.campaignDisplayAssignments.filter((item) => item.campaignDisplayId === input.campaignDisplayId).forEach((assignment) => {
+      const product = this.state.campaignDisplayAssignmentProducts.find((item) => item.campaignDisplayAssignmentId === assignment.id && item.campaignDisplayProductId === input.campaignDisplayProductId);
+      if (product) { product.caseQuantity = input.caseQuantity; product.buyerOverride = true; product.quantitySource = "BUYER_OVERRIDE"; }
+    });
+    this.persist();
+  }
+
+  private createAllocationProducts(assignmentId: UUID, displayId: UUID) {
+    this.state.campaignDisplayProducts.filter((item) => item.campaignDisplayId === displayId).forEach((item) => this.state.campaignDisplayAssignmentProducts.push({ id: crypto.randomUUID(), campaignDisplayAssignmentId: assignmentId, campaignDisplayProductId: item.id, productId: item.productId, recommendedCases: item.minimumQuantity, caseQuantity: item.minimumQuantity, quantitySource: item.minimumQuantity === undefined ? undefined : "RECOMMENDED", buyerOverride: false }));
   }
 
   async assignCampaign(input: AssignCampaignInput) {

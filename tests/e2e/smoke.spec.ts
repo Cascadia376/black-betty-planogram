@@ -215,7 +215,7 @@ test("reviews bulk SKUs and creates a pending campaign product", async ({ page }
 
   await bulkDialog.getByRole("button", { name: "Add matched products" }).click();
   await expect(page.getByRole("row", { name: /001234.*Synthetic Bulk Product.*New.*Needs Product Master Review/ })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("pending product");
+  await expect(page.getByRole("status")).toContainText("1 product need review");
 
   await page.getByRole("button", { name: "Bulk add SKUs" }).click();
   const duplicateDialog = page.getByRole("dialog", { name: "Bulk add SKUs" });
@@ -226,18 +226,16 @@ test("reviews bulk SKUs and creates a pending campaign product", async ({ page }
   await duplicateDialog.getByRole("button", { name: "Close" }).click();
   await page.getByRole("link", { name: "Continue to Displays" }).click();
   await expect(page).toHaveURL(/\/campaigns\/[^/]+\/display$/);
-  await expect(page.getByRole("heading", { name: "Bulk SKU Intake Test display" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bulk SKU Intake Test" })).toBeVisible();
 });
 
 test("summarizes campaign workflow status without legacy display requirements", async ({ page }) => {
   await page.goto("/campaigns/50000000-0000-4000-8000-000000000001");
-  await expect(page.getByText("Campaign status", { exact: true })).toBeVisible();
-  await expect(page.getByText("Product totals", { exact: true })).toBeVisible();
-  await expect(page.getByText("Pending products", { exact: true })).toBeVisible();
-  await expect(page.getByText("Display status", { exact: true })).toBeVisible();
-  await expect(page.getByText("Store assignment status", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Product readiness" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Display planning" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Stores" })).toBeVisible();
   await expect(page.getByText("Display type", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Review & Publish" })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Assign stores" }).first()).toBeVisible();
 });
 
 test("validates and applies campaign product spreadsheets in the Products workflow", async ({ page }) => {

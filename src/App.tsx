@@ -3,7 +3,7 @@ import { AppShell } from "./components/AppShell";
 import { EmptyState } from "./components/ui";
 import { CompliancePage } from "./features/compliance/CompliancePage";
 import { CampaignBuilderPage } from "./features/campaigns/CampaignBuilderPage";
-import { CampaignAssignmentPage } from "./features/campaigns/CampaignDetailPages";
+import { CampaignStoreAllocationPage } from "./features/campaigns/CampaignStoreAllocationPage";
 import { CampaignDisplaysPage } from "./features/campaigns/CampaignDisplaysPage";
 import { CampaignOverviewPage } from "./features/campaigns/CampaignOverviewPage";
 import { CampaignProductsPage } from "./features/campaigns/CampaignProductsPage";
@@ -29,7 +29,7 @@ export function App() {
     <Route path="campaigns/:campaignId" element={<CampaignOverviewPage />} />
     <Route path="campaigns/:campaignId/products" element={<CampaignProductsPage />} />
     <Route path="campaigns/:campaignId/display" element={<CampaignDisplaysPage />} />
-    <Route path="campaigns/:campaignId/assign" element={<CampaignAssignmentPage />} />
+    <Route path="campaigns/:campaignId/assign" element={<CampaignStoreAllocationPage />} />
     <Route path="programs/:programId" element={<ProgramWorkspacePage />} />
     <Route path="programs/:programId/allocations" element={<AllocationPlannerPage />} />
     <Route path="programs/:programId/import" element={<OndImportPage />} />

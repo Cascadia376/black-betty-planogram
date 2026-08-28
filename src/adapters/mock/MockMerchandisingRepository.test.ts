@@ -68,6 +68,60 @@ describe("mock merchandising workflow", () => {
     expect(state.campaigns.find((item) => item.id === IDS.octoberCampaign)?.products.find((item) => item.id === productId)?.merchandisingState).toBe("SHELF_SUPPORTED");
   });
 
+  it("edits full display guidance, maintains zero-or-one Hero, and reorders planning priority", async () => {
+    const repository = new MockMerchandisingRepository();
+    const first = await repository.createCampaignDisplay({ campaignId: IDS.octoberCampaign, display: { name: "Priority one", displayType: "feature_display", placementMode: "STANDARD", prescriptive: false } });
+    const second = await repository.createCampaignDisplay({ campaignId: IDS.octoberCampaign, display: { name: "Priority two", displayType: "endcap", placementMode: "STORE_SPECIFIC", prescriptive: true } });
+    await repository.updateCampaignDisplay({ campaignDisplayId: first.id, patch: { placementMode: "STORE_SPECIFIC", signage: "A-frame", minimumSpace: "4 ft", executionNotes: "Face forward", prescriptive: true } });
+    const campaign = (await repository.load()).campaigns.find((item) => item.id === IDS.octoberCampaign)!;
+    const members = await repository.assignCampaignProductsToDisplay({ campaignId: campaign.id, campaignDisplayId: first.id, campaignProductIds: campaign.products.slice(0, 2).map((item) => item.id) });
+    await repository.updateCampaignDisplayProduct({ campaignDisplayProductId: members[0].id, patch: { role: "Hero", required: false, minimumFacings: 2, minimumQuantity: 4, note: "Front row" } });
+    await repository.updateCampaignDisplayProduct({ campaignDisplayProductId: members[1].id, patch: { role: "Hero" } });
+    await repository.reorderCampaignDisplay({ campaignDisplayId: second.id, direction: "up" });
+    await repository.reorderCampaignDisplayProduct({ campaignDisplayProductId: members[1].id, direction: "up" });
+    const state = await repository.load();
+    expect(state.campaignDisplays.find((item) => item.id === first.id)).toEqual(expect.objectContaining({ placementMode: "STORE_SPECIFIC", signage: "A-frame", minimumSpace: "4 ft", executionNotes: "Face forward", prescriptive: true }));
+    expect(state.campaignDisplayProducts.filter((item) => item.campaignDisplayId === first.id && item.role === "Hero")).toHaveLength(1);
+    expect(state.campaignDisplayProducts.find((item) => item.id === members[0].id)).toEqual(expect.objectContaining({ role: "Supporting", required: false, minimumFacings: 2, minimumQuantity: 4, note: "Front row" }));
+    expect(state.campaignDisplays.find((item) => item.id === second.id)!.sortOrder).toBeLessThan(state.campaignDisplays.find((item) => item.id === first.id)!.sortOrder);
+    await repository.updateCampaignDisplayProduct({ campaignDisplayProductId: members[1].id, patch: { role: "Supporting" } });
+    expect((await repository.load()).campaignDisplayProducts.filter((item) => item.campaignDisplayId === first.id && item.role === "Hero")).toHaveLength(0);
+  });
+
+  it("returns populated display products to Unassigned and removes empty displays cleanly", async () => {
+    const repository = new MockMerchandisingRepository();
+    const display = await repository.createCampaignDisplay({ campaignId: IDS.octoberCampaign, display: { name: "Temporary", displayType: "flex", placementMode: "STANDARD", prescriptive: false } });
+    const campaign = (await repository.load()).campaigns.find((item) => item.id === IDS.octoberCampaign)!;
+    await repository.assignCampaignProductsToDisplay({ campaignId: campaign.id, campaignDisplayId: display.id, campaignProductIds: [campaign.products[0].id] });
+    await repository.removeCampaignDisplay(display.id);
+    let state = await repository.load();
+    expect(state.campaigns.find((item) => item.id === campaign.id)?.products[0].merchandisingState).toBe("UNASSIGNED");
+    const empty = await repository.createCampaignDisplay({ campaignId: campaign.id, display: { name: "Empty", displayType: "flex", placementMode: "STANDARD", prescriptive: false } });
+    await repository.removeCampaignDisplay(empty.id);
+    state = await repository.load();
+    expect(state.campaignDisplays.some((item) => item.id === empty.id)).toBe(false);
+  });
+
+  it("plans display allocations per store without matching display numbers, and preserves quantity overrides", async () => {
+    const repository = new MockMerchandisingRepository();
+    const state = await repository.load();
+    const campaign = state.campaigns.find((item) => item.id === IDS.octoberCampaign)!;
+    const display = state.campaignDisplays.find((item) => item.campaignId === campaign.id && item.name === "RTD Endcap")!;
+    await repository.assignCampaignProductsToDisplay({ campaignId: campaign.id, campaignDisplayId: display.id, campaignProductIds: [campaign.products[0].id] });
+    await repository.setCampaignStores({ campaignId: campaign.id, storeIds: [IDS.store, IDS.eagleStore] });
+    const suggestions = await repository.suggestCampaignDisplay({ campaignId: campaign.id, campaignDisplayId: display.id });
+    expect(suggestions).toHaveLength(2);
+    expect(suggestions.every((item) => item.status === "SUGGESTED")).toBe(true);
+    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: suggestions[0].id, displayAreaId: IDS.endcapB, status: "ASSIGNED" });
+    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: suggestions[1].id, displayAreaId: IDS.eagleEndcapA, status: "ASSIGNED", placementSource: "BUYER_SELECTED" });
+    const after = await repository.load();
+    const assignments = after.campaignDisplayAssignments.filter((item) => item.campaignDisplayId === display.id);
+    expect(assignments.map((item) => item.displayAreaId)).toEqual(expect.arrayContaining([IDS.endcapB, IDS.eagleEndcapA]));
+    const product = after.campaignDisplayAssignmentProducts.find((item) => item.campaignDisplayAssignmentId === suggestions[0].id)!;
+    await repository.updateCampaignDisplayAssignmentProduct({ campaignDisplayAssignmentProductId: product.id, caseQuantity: 9 });
+    expect((await repository.load()).campaignDisplayAssignmentProducts.find((item) => item.id === product.id)).toEqual(expect.objectContaining({ caseQuantity: 9, buyerOverride: true }));
+  });
+
   it("creates a campaign, assignment, execution, and compliance review", async () => {
     const repository = new MockMerchandisingRepository();
     const source = seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!;

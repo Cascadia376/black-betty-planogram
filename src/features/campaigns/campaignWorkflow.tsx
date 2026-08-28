@@ -42,6 +42,26 @@ export interface CampaignDisplayReadiness {
   status: "complete" | "warning" | "not_started";
 }
 
+export interface CampaignStoreReadiness {
+  included: number; ready: number; needsReview: number; notStarted: number; totalPlacements: number; completePlacements: number; complete: boolean;
+}
+
+export function campaignStoreReadiness(campaign: Campaign | undefined, data: PlatformSnapshot | undefined): CampaignStoreReadiness {
+  const empty = { included: 0, ready: 0, needsReview: 0, notStarted: 0, totalPlacements: 0, completePlacements: 0, complete: false };
+  if (!campaign || !data) return empty;
+  const stores = data.campaignStores.filter((item) => item.campaignId === campaign.id && item.included);
+  const displays = data.campaignDisplays.filter((item) => item.campaignId === campaign.id);
+  const assignments = data.campaignDisplayAssignments.filter((item) => item.campaignId === campaign.id);
+  const complete = (status: string | undefined) => status === "ASSIGNED" || status === "EXCLUDED";
+  const perStore = stores.map((store) => {
+    const rows = assignments.filter((item) => item.storeId === store.storeId);
+    if (!rows.length) return "not_started";
+    return displays.every((display) => complete(rows.find((row) => row.campaignDisplayId === display.id)?.status)) ? "ready" : "needs_review";
+  });
+  const completePlacements = assignments.filter((item) => complete(item.status)).length;
+  return { included: stores.length, ready: perStore.filter((item) => item === "ready").length, needsReview: perStore.filter((item) => item === "needs_review").length, notStarted: perStore.filter((item) => item === "not_started").length, totalPlacements: stores.length * displays.length, completePlacements, complete: stores.length > 0 && perStore.every((item) => item === "ready") };
+}
+
 export function campaignDisplayReadiness(campaign: Campaign | undefined, data: PlatformSnapshot | undefined): CampaignDisplayReadiness {
   const empty: CampaignDisplayReadiness = { total: 0, assigned: 0, shelfSupported: 0, unassigned: 0, displays: 0, emptyDisplays: 0, status: "not_started" };
   if (!campaign || !data || !campaign.products.length) return empty;
@@ -121,7 +141,9 @@ export function campaignStepStatuses(campaign: Campaign | undefined, data: Platf
     statuses.displays = data?.campaignDisplays.some((display) => display.campaignId === campaign.id)
       ? displayReadiness.status === "complete" ? "complete" : "warning"
       : hasLegacyDisplayData ? "complete" : "not_started";
-    statuses.stores = data?.assignments.some((assignment) => assignment.campaignId === campaign.id) ? "complete" : "not_started";
+    const storeReadiness = campaignStoreReadiness(campaign, data);
+    const hasNewAllocations = data?.campaignStores.some((item) => item.campaignId === campaign.id) || data?.campaignDisplayAssignments.some((item) => item.campaignId === campaign.id);
+    statuses.stores = hasNewAllocations ? storeReadiness.complete ? "complete" : storeReadiness.included ? "warning" : "not_started" : data?.assignments.some((assignment) => assignment.campaignId === campaign.id) ? "complete" : "not_started";
   }
 
   statuses[current] = "current";

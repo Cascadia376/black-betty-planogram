@@ -21,12 +21,19 @@ export class SupabaseMerchandisingRepository implements MerchandisingRepository 
   async removeCampaignProduct(): Promise<void> { return this.unavailable(); }
   async createCampaignDisplay(): Promise<never> { return this.unavailable(); }
   async updateCampaignDisplay(): Promise<never> { return this.unavailable(); }
+  async reorderCampaignDisplay(): Promise<void> { return this.unavailable(); }
   async removeCampaignDisplay(): Promise<void> { return this.unavailable(); }
   async assignCampaignProductsToDisplay(): Promise<never> { return this.unavailable(); }
   async removeCampaignProductFromDisplay(): Promise<void> { return this.unavailable(); }
   async setCampaignProductShelfSupport(): Promise<void> { return this.unavailable(); }
   async setCampaignProductUnassigned(): Promise<void> { return this.unavailable(); }
   async updateCampaignDisplayProduct(): Promise<never> { return this.unavailable(); }
+  async reorderCampaignDisplayProduct(): Promise<void> { return this.unavailable(); }
+  async setCampaignStores(): Promise<void> { return this.unavailable(); }
+  async suggestCampaignDisplay(): Promise<never> { return this.unavailable(); }
+  async updateCampaignDisplayAssignment(): Promise<never> { return this.unavailable(); }
+  async updateCampaignDisplayAssignmentProduct(): Promise<never> { return this.unavailable(); }
+  async applyCampaignDisplayQuantity(): Promise<void> { return this.unavailable(); }
   async assignCampaign(): Promise<never> { return this.unavailable(); }
   async createDisplayAssignment(): Promise<never> { return this.unavailable(); }
   async updateDisplayAssignment(): Promise<never> { return this.unavailable(); }

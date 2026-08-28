@@ -4,7 +4,7 @@ import { Badge, Card, DataState, EmptyState, PageHeader, formatDate } from "../.
 import type { Campaign, PlatformSnapshot } from "../../domain/types";
 import { productMasterStatusLabel, resolveCampaignProduct } from "../../domain/productMaster";
 import { usePlatform } from "../../services/PlatformProvider";
-import { CampaignWorkflowStepper, campaignDisplayReadiness, campaignProductReadiness } from "./campaignWorkflow";
+import { CampaignWorkflowStepper, campaignDisplayReadiness, campaignProductReadiness, campaignStoreReadiness } from "./campaignWorkflow";
 
 export function CampaignOverviewPage() {
   const { campaignId } = useParams();
@@ -32,6 +32,7 @@ export function CampaignOverviewPage() {
 function CampaignSummary({ campaign, data }: { campaign: Campaign; data: PlatformSnapshot }) {
   const readiness = campaignProductReadiness(campaign, data);
   const displayReadiness = campaignDisplayReadiness(campaign, data);
+  const storeReadiness = campaignStoreReadiness(campaign, data);
   const assignments = data.assignments.filter((item) => item.campaignId === campaign.id).length;
   return <div className="grid gap-4 lg:grid-cols-3">
     <Card className="lg:col-span-2">
@@ -52,6 +53,17 @@ function CampaignSummary({ campaign, data }: { campaign: Campaign; data: Platfor
         <Detail label="Needs review" value={String(readiness.needsReview)} />
       </dl>
       <div className="mt-4"><WorkflowLink to={`/campaigns/${campaign.id}/products`}>{readiness.total ? "Review products" : "Add products"}</WorkflowLink></div>
+    </Card>
+    <Card>
+      <h2 className="font-semibold">Stores</h2>
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <Detail label="Included" value={String(storeReadiness.included)} />
+        <Detail label="Ready" value={String(storeReadiness.ready)} />
+        <Detail label="Need review" value={String(storeReadiness.needsReview)} />
+        <Detail label="Not started" value={String(storeReadiness.notStarted)} />
+      </dl>
+      <p className="mt-3 text-xs text-text-muted">{storeReadiness.completePlacements} / {storeReadiness.totalPlacements} placements complete</p>
+      <div className="mt-4"><WorkflowLink to={`/campaigns/${campaign.id}/assign`}>{storeReadiness.complete ? "Review store plan" : "Assign stores"}</WorkflowLink></div>
     </Card>
     <Card>
       <h2 className="font-semibold">Display planning</h2>

@@ -239,6 +239,11 @@ export const seedSnapshot: PlatformSnapshot = {
     { id: "56000000-0000-4000-8000-000000000001", campaignDisplayId: "55000000-0000-4000-8000-000000000001", campaignProductId: "54000000-0000-4000-8000-000000000001", productId: IDS.coastalLagerProduct, role: "Hero", required: true, minimumFacings: 3, minimumQuantity: 6, sortOrder: 0 },
     { id: "56000000-0000-4000-8000-000000000002", campaignDisplayId: "55000000-0000-4000-8000-000000000001", campaignProductId: "54000000-0000-4000-8000-000000000002", productId: IDS.harvestRedProduct, role: "Supporting", required: true, sortOrder: 1 },
   ],
+  campaignStores: [],
+  campaignDisplayAssignments: [],
+  campaignDisplayAssignmentProducts: [],
+  campaignReleases: [],
+  storeReleaseNotices: [],
   assignments: [
     { id: IDS.beerAssignment, campaignId: IDS.beerCampaign, storeId: IDS.store, displayAreaId: IDS.endcapA, effectiveDate: "2026-08-20", compatibility: "compatible", notes: "Pilot execution at Crown Isle." },
     { id: IDS.seasonalAssignment, campaignId: IDS.seasonalCampaign, storeId: IDS.store, displayAreaId: IDS.feature1, effectiveDate: "2026-10-01", compatibility: "compatible", notes: "Prepare after September feature changeover." },

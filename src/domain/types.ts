@@ -108,6 +108,9 @@ export interface DisplayArea {
   type: DisplayType;
   description: string;
   capacity: string;
+  primaryCategory?: string;
+  compatibleCategories?: string[];
+  flexible?: boolean;
   geometry: Geometry;
 }
 
@@ -148,6 +151,70 @@ export interface CampaignDisplayProduct {
   minimumQuantity?: number;
   sortOrder: number;
   note?: string;
+}
+
+/** Store scope exists before a physical allocation is decided. */
+export interface CampaignStore {
+  id: UUID;
+  campaignId: UUID;
+  storeId: UUID;
+  included: boolean;
+  status: "NOT_STARTED" | "PLANNING" | "READY";
+}
+
+/** Planning-layer mapping. It becomes a canonical DisplayAssignment at Publish in a later phase. */
+export interface CampaignDisplayAssignment {
+  id: UUID;
+  campaignId: UUID;
+  campaignDisplayId: UUID;
+  storeId: UUID;
+  displayAreaId?: UUID;
+  status: "UNASSIGNED" | "SUGGESTED" | "ASSIGNED" | "NEEDS_REVIEW" | "EXCLUDED";
+  placementSource?: "AUTO_SUGGESTED" | "BUYER_SELECTED" | "COPIED" | "LEGACY";
+  compatibility?: "recommended" | "compatible" | "review" | "incompatible";
+  suggestionDisplayAreaId?: UUID;
+  suggestionReasons?: string[];
+  startDate: string;
+  endDate: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CampaignDisplayAssignmentProduct {
+  id: UUID;
+  campaignDisplayAssignmentId: UUID;
+  campaignDisplayProductId: UUID;
+  productId: UUID;
+  recommendedCases?: number;
+  caseQuantity?: number;
+  quantitySource?: "RECOMMENDED" | "BUYER_OVERRIDE" | "MANUAL";
+  buyerOverride: boolean;
+  preferredSupplierId?: UUID;
+  note?: string;
+}
+
+/** Immutable snapshot of mutable campaign planning at publish time. */
+export interface CampaignRelease {
+  id: UUID;
+  campaignId: UUID;
+  version: number;
+  status: "published" | "superseded";
+  publishedAt: string;
+  publishedBy: string;
+  snapshot: { campaign: Campaign; stores: CampaignStore[]; displays: CampaignDisplay[]; displayProducts: CampaignDisplayProduct[]; allocations: CampaignDisplayAssignment[]; allocationProducts: CampaignDisplayAssignmentProduct[] };
+  displayAssignmentIds: UUID[];
+}
+
+export interface StoreReleaseNotice {
+  id: UUID;
+  storeId: UUID;
+  campaignId: UUID;
+  releaseId: UUID;
+  publishedAt: string;
+  title: string;
+  summary: string;
+  read?: boolean;
 }
 
 export interface DisplayRequirement {
@@ -486,6 +553,11 @@ export interface PlatformSnapshot {
   campaigns: Campaign[];
   campaignDisplays: CampaignDisplay[];
   campaignDisplayProducts: CampaignDisplayProduct[];
+  campaignStores: CampaignStore[];
+  campaignDisplayAssignments: CampaignDisplayAssignment[];
+  campaignDisplayAssignmentProducts: CampaignDisplayAssignmentProduct[];
+  campaignReleases: CampaignRelease[];
+  storeReleaseNotices: StoreReleaseNotice[];
   assignments: CampaignAssignment[];
   executions: ExecutionTask[];
   complianceReviews: ComplianceReview[];
