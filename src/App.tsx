@@ -3,7 +3,9 @@ import { AppShell } from "./components/AppShell";
 import { EmptyState } from "./components/ui";
 import { CompliancePage } from "./features/compliance/CompliancePage";
 import { CampaignBuilderPage } from "./features/campaigns/CampaignBuilderPage";
-import { CampaignAssignmentPage, CampaignDetailPage, CampaignProductsPage, DisplayDesignerPage } from "./features/campaigns/CampaignDetailPages";
+import { CampaignAssignmentPage, DisplayDesignerPage } from "./features/campaigns/CampaignDetailPages";
+import { CampaignOverviewPage } from "./features/campaigns/CampaignOverviewPage";
+import { CampaignProductsPage } from "./features/campaigns/CampaignProductsPage";
 import { CampaignsPage } from "./features/campaigns/CampaignsPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { ExecutionPage } from "./features/execution/ExecutionPage";
@@ -23,7 +25,7 @@ export function App() {
     <Route index element={<DashboardPage />} />
     <Route path="campaigns" element={<CampaignsPage />} />
     <Route path="campaigns/new" element={<CampaignBuilderPage />} />
-    <Route path="campaigns/:campaignId" element={<CampaignDetailPage />} />
+    <Route path="campaigns/:campaignId" element={<CampaignOverviewPage />} />
     <Route path="campaigns/:campaignId/products" element={<CampaignProductsPage />} />
     <Route path="campaigns/:campaignId/display" element={<DisplayDesignerPage />} />
     <Route path="campaigns/:campaignId/assign" element={<CampaignAssignmentPage />} />

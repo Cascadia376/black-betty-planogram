@@ -6,15 +6,32 @@ This application manages persistent high-value merchandising spaces such as endc
 
 ## Current Scope
 
-The MVP supports the workflow:
+The MVP supports the broader merchandising workflow:
 
-Scope -> Import -> Allocate -> Publish -> Order -> Execute -> Verify -> Measure -> Improve
+Plan -> Publish -> Order -> Execute -> Verify -> Measure -> Improve
+
+Campaign planning now begins with a guided Phase 1 flow:
+
+Create Campaign -> Build Product Assortment -> Continue to Displays
+
+Product intake supports four paths:
+
+- Product Master search for known products.
+- Bulk SKU paste from Excel, email, or another source.
+- Known-format campaign spreadsheet import.
+- Controlled pending-product creation when a valid SKU is new to Product Master.
+
+Product Master remains authoritative for known product attributes such as SKU, name, category, case pack, and active status. Campaign records store campaign-specific metadata such as role, required/optional state, and notes. Pending products can continue through planning, but remain clearly flagged for Product Master review.
+
+Campaign product spreadsheet import is intentionally separate from OND allocation import. The campaign Products workspace accepts the documented `campaign-product-v1` format and applies rows only after review and approval.
 
 Routes included:
 
 - `/`
 - `/campaigns`
+- `/campaigns/new`
 - `/campaigns/:campaignId`
+- `/campaigns/:campaignId/products`
 - `/campaigns/:campaignId/display`
 - `/campaigns/:campaignId/assign`
 - `/imports`
@@ -59,6 +76,7 @@ npm run dev
 Run validation:
 
 ```bash
+npm run lint
 npm test
 npm run build
 npm run test:e2e
