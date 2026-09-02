@@ -4,6 +4,8 @@ Standalone merchandising operations application for Cascadia Liquor.
 
 This application manages persistent high-value merchandising spaces such as endcaps, feature tables, cooler-door groups, seasonal areas, and floor displays. It is intentionally separate from `Cascadia376/ursus-major`, but is designed to integrate with Ursus Major authentication, Supabase-backed data, navigation, and shared package boundaries later.
 
+It also models regular category homes through versioned `StoreLayout` and `CategorySpace` records. A category home is never a promotional `DisplayArea`; both layers can be viewed together on the store floorplan.
+
 ## Current Scope
 
 The MVP supports the broader merchandising workflow:
@@ -36,6 +38,14 @@ The display-product pool supports category, campaign role, requirement, brand, p
 ## Phase 3 Store Allocation
 
 `CampaignDisplay` describes what should be built. `DisplayArea` is the persistent physical asset in one store. `CampaignDisplayAssignment` is the planning-layer mapping between them for a participating store, and `CampaignDisplayAssignmentProduct` records store-specific product quantities and buyer overrides. A STANDARD display receives an explainable suggestion per store and must be accepted; it never assumes matching display numbers across stores. STORE_SPECIFIC displays require buyer placement per store. At Publish, approved planning allocations will be converted into canonical `DisplayAssignment` records for operational ordering and execution; that conversion remains a later phase.
+
+## Physical Store Layouts
+
+`/stores/:storeId/floorplan` is the primary physical-layout view. It layers a data-owned PNG/WebP background, optional `CategorySpace` outlines, and persistent `DisplayArea` markers. Crown Isle is the first real reference implementation and uses `public/floorplans/crown-isle.png` plus capacity metadata transcribed from the June 2026 planogram workbook. The cooler summary is used as validation and retained alongside detailed records when classifications differ.
+
+Category spaces support optional normalized geometry, fixture type, shelf dimensions, shelf count, maximum facings, fractional cooler-door equivalents, source notes, and lightweight irregular sections. Users can edit the category metadata in a form. A current layout can be duplicated into a draft and later made current; the prior current version becomes archived and remains readable.
+
+This foundation does not include OCR ingestion, individual shelves, drag/resize editing, automated reset optimization, or production database migrations. Additional stores can be added by placing an appropriately sized image in `public/floorplans/`, creating a `StoreLayout` record with its aspect ratio, and adding source-backed category spaces through the repository boundary.
 
 ## Phase 1 Campaign Workflow
 

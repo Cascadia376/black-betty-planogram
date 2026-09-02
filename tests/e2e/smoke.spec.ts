@@ -578,7 +578,8 @@ test("loads the Crown Isle floorplan and selects a persistent display area", asy
 
   const canvas = page.getByLabel("Crown Isle merchandising floorplan");
   await expect(canvas).toBeVisible();
-  await expect(canvas.getByRole("button")).toHaveCount(4);
+  await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(21);
+  await expect(canvas.getByRole("button", { name: /Endcap|Cooler Doors|Feature Area/ })).toHaveCount(4);
   await expect(canvas.getByRole("button", { name: /Endcap A, Active campaign/ })).toBeVisible();
   await expect(canvas.getByRole("button", { name: /Feature Area 1, Upcoming campaign/ })).toBeVisible();
   await expect(canvas.getByRole("button", { name: /Endcap B, Available/ })).toBeVisible();
@@ -592,6 +593,24 @@ test("loads the Crown Isle floorplan and selects a persistent display area", asy
   await expect(page.getByText("Approx. 24 cases", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Persistent Display Area Profile" })).toHaveAttribute("href", `/display-areas/${endcapAId}`);
   await expect(page.getByRole("main").getByRole("link", { name: /Store workspace/ })).toHaveAttribute("href", "/stores/10000000-0000-4000-8000-000000000001/workspace");
+});
+
+test("toggles, selects, and edits a regular Crown Isle category space", async ({ page }) => {
+  await page.goto(crownIsleFloorplan);
+  const canvas = page.getByLabel("Crown Isle merchandising floorplan");
+  const categoryToggle = page.getByRole("button", { name: "Category layout" });
+
+  await categoryToggle.click();
+  await expect(canvas.getByRole("button", { name: "Vodka category space" })).toHaveCount(0);
+  await categoryToggle.click();
+  await canvas.getByRole("button", { name: "Vodka category space" }).click();
+  await expect(page.getByRole("heading", { name: "Vodka" })).toBeVisible();
+  await expect(page.getByText("18", { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit category space" }).click();
+  await page.getByLabel("Subcategory").fill("Core vodka");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Core vodka", { exact: true })).toBeVisible();
 });
 
 test("supports direct floorplan selection and linked destinations", async ({ page }) => {

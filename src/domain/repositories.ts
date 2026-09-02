@@ -6,6 +6,7 @@ import type {
   CampaignDisplayAssignmentProduct,
   CampaignDisplayProduct,
   CampaignProduct,
+  CategorySpace,
   ComplianceCheck,
   DisplayAssignment,
   DisplayAssignmentProduct,
@@ -17,6 +18,7 @@ import type {
   RecommendationStatus,
   ReviewDecision,
   SupplierProductOption,
+  StoreLayout,
   UUID,
 } from "./types";
 
@@ -158,8 +160,24 @@ export interface SetProgramStoreInput {
   included: boolean;
 }
 
+export interface UpdateCategorySpaceInput {
+  categorySpaceId: UUID;
+  patch: Partial<Omit<CategorySpace, "id" | "storeId" | "layoutId">>;
+}
+
+export interface CreateStoreLayoutInput {
+  layout: Omit<StoreLayout, "id" | "createdAt" | "updatedAt">;
+}
+
 export interface MerchandisingRepository {
   load(): Promise<PlatformSnapshot>;
+  getStoreLayouts(storeId: UUID): Promise<StoreLayout[]>;
+  getStoreLayout(layoutId: UUID): Promise<StoreLayout | undefined>;
+  getCategorySpaces(layoutId: UUID): Promise<CategorySpace[]>;
+  updateCategorySpace(input: UpdateCategorySpaceInput): Promise<CategorySpace>;
+  createStoreLayout(input: CreateStoreLayoutInput): Promise<StoreLayout>;
+  duplicateStoreLayout(layoutId: UUID, name?: string): Promise<StoreLayout>;
+  setCurrentStoreLayout(layoutId: UUID): Promise<void>;
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;

@@ -3,9 +3,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  ApplyCampaignDisplayQuantityInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
+  ApplyCampaignDisplayQuantityInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
-import type { CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, UUID, UserRole } from "../domain/types";
+import type { CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
 
 const repository = new MockMerchandisingRepository();
 
@@ -16,6 +16,9 @@ interface PlatformContextValue {
   role: UserRole;
   setRole(role: UserRole): void;
   refresh(): Promise<void>;
+  updateCategorySpace(input: UpdateCategorySpaceInput): Promise<CategorySpace>;
+  duplicateStoreLayout(layoutId: UUID, name?: string): Promise<StoreLayout>;
+  setCurrentStoreLayout(layoutId: UUID): Promise<void>;
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
@@ -89,6 +92,9 @@ export function PlatformProvider({ children, adapter = repository }: { children:
 
   const value = useMemo<PlatformContextValue>(() => ({
     data, loading, error, role, setRole, refresh,
+    updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutate(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
+    duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutate(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
+    setCurrentStoreLayout: (layoutId) => mutate(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
     searchProducts: (query) => adapter.searchProducts(query),
     createPendingProduct: async (input) => {
       let product: Product | undefined;

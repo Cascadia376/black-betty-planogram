@@ -6,6 +6,24 @@ All primary keys are UUIDs. Foreign keys use the same shared IDs expected by Urs
 
 ## Core hierarchy
 
+Regular store layout is versioned independently from promotional placements:
+
+```text
+stores -> store_layouts -> category_spaces -> category_space_sections
+```
+
+`CategorySpace` represents a regular merchandising/category allocation. `DisplayArea` represents a persistent promotional destination. `CampaignDisplay` represents the merchandising concept a campaign intends to place. These records are deliberately separate even when rendered on the same floorplan.
+
+```text
+StoreLayout
+    -> CategorySpace
+
+Store
+    -> DisplayArea
+         <- CampaignDisplayAssignment
+              <- CampaignDisplay
+```
+
 ```text
 merchandising_programs -> program_stores
                        -> program_releases
@@ -32,6 +50,9 @@ campaign_displays -> (Phase 3) display_areas
 | Table | Required fields | Ownership and notes |
 | --- | --- | --- |
 | `stores` | `id`, `code`, `name`, `address` | `id` must map to the shared Ursus store identity. |
+| `store_layouts` | `id`, `store_id`, `name`, `status`, timestamps | Versioned physical layout. Status is `draft`, `current`, or `archived`; background image URL and aspect ratio belong to the layout data, not a React component. |
+| `category_spaces` | `id`, `store_id`, `layout_id`, `name`, `category`, `active` | Regular shelf, cooler, wall, cabinet, table, or other category home. Capacity and normalized geometry are optional when source data is missing. This is not a promotional `display_area`. |
+| `category_space_sections` | `id`, `category_space_id`, `sort_order` | Lightweight optional detail for mixed widths/depths, partial doors, ledges, or other irregular configurations. It does not model individual shelves. |
 | `store_zones` | `id`, `store_id`, `name`, `category`, `geometry` | Belongs to one store. Geometry uses normalized coordinates. |
 | `fixtures` | `id`, `store_id`, `zone_id`, `name`, `type`, `geometry` | Belongs to one zone and store. |
 | `display_areas` | `id`, `store_id`, `zone_id`, `fixture_id`, `name`, `type`, `description`, `capacity`, `geometry` | Persistent first-class merchandising asset. |
@@ -58,7 +79,13 @@ campaign_displays -> (Phase 3) display_areas
 
 ## Geometry contract
 
-Zone, fixture, and display-area geometry is stored as `x`, `y`, `width`, and `height` values normalized to `0..1`, with optional rotation. Every rectangle must remain inside the floorplan bounds.
+Zone, fixture, display-area, and category-space geometry is stored as `x`, `y`, `width`, and `height` values normalized to `0..1`, with optional rotation. Every supplied rectangle must remain inside the floorplan bounds. Category-space geometry may be absent while a source record is awaiting manual mapping.
+
+## Layout versioning
+
+A store may have many layouts but at most one `current` layout. Duplicating a layout creates a `draft` and copies its category spaces and irregular sections with new identities. Publishing that draft makes the prior current layout `archived`; archived layouts remain readable. `DisplayArea` remains store-level in this phase so campaign allocation behavior is unchanged.
+
+The Crown Isle reference layout uses `/public/floorplans/crown-isle.png`, rendered from `Crown Isle Floorplan.pdf`. Capacity fields come from the `CROWNE ISLE` worksheet in `Planogram Spreadsheet all stores June 2026.xlsx`; cooler summary classifications are retained in notes when they differ from detailed records. Missing or ambiguous measurements remain unset.
 
 ## Product Master reconciliation contract
 

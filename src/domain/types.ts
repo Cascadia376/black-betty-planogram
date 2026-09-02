@@ -97,6 +97,65 @@ export interface Geometry {
   rotation?: number;
 }
 
+export type StoreLayoutStatus = "draft" | "current" | "archived";
+
+export interface StoreLayout {
+  id: UUID;
+  storeId: UUID;
+  name: string;
+  effectiveDate?: string;
+  status: StoreLayoutStatus;
+  backgroundImageUrl?: string;
+  backgroundAspectRatio?: number;
+  sourceReference?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CategorySpaceFixtureType =
+  | "gondola"
+  | "perimeter_shelf"
+  | "cooler"
+  | "open_cooler"
+  | "wall"
+  | "cabinet"
+  | "table"
+  | "other";
+
+/** A regular merchandise category home in one versioned store layout. */
+export interface CategorySpace {
+  id: UUID;
+  storeId: UUID;
+  layoutId: UUID;
+  name: string;
+  category: string;
+  subcategory?: string;
+  geometry?: Geometry;
+  fixtureType?: CategorySpaceFixtureType;
+  shelfWidthIn?: number;
+  shelfDepthIn?: number;
+  shelfCount?: number;
+  maxFacings?: number;
+  coolerDoorEquivalent?: number;
+  notes?: string;
+  active: boolean;
+  source?: "FLOORPLAN" | "PLANOGRAM_WORKBOOK" | "MANUAL";
+}
+
+/** Optional capacity detail for an irregular CategorySpace; not an individual shelf. */
+export interface CategorySpaceSection {
+  id: UUID;
+  categorySpaceId: UUID;
+  label?: string;
+  shelfWidthIn?: number;
+  shelfDepthIn?: number;
+  shelfCount?: number;
+  maxFacings?: number;
+  coolerDoorEquivalent?: number;
+  notes?: string;
+  sortOrder: number;
+}
+
 export interface DisplayArea {
   id: UUID;
   displayNumber: string;
@@ -204,6 +263,7 @@ export interface CampaignRelease {
   publishedBy: string;
   snapshot: { campaign: Campaign; stores: CampaignStore[]; displays: CampaignDisplay[]; displayProducts: CampaignDisplayProduct[]; allocations: CampaignDisplayAssignment[]; allocationProducts: CampaignDisplayAssignmentProduct[] };
   displayAssignmentIds: UUID[];
+  planningFingerprint?: string;
 }
 
 export interface StoreReleaseNotice {
@@ -293,6 +353,8 @@ export interface DisplayAssignment {
   resetRequired: boolean;
   notes: string;
   status: DisplayAssignmentStatus;
+  campaignReleaseId?: UUID;
+  campaignDisplayAssignmentId?: UUID;
 }
 
 export interface DisplayAssignmentProduct {
@@ -531,6 +593,9 @@ export interface DisplayAreaHistoryEntry {
 
 export interface PlatformSnapshot {
   stores: Store[];
+  storeLayouts: StoreLayout[];
+  categorySpaces: CategorySpace[];
+  categorySpaceSections: CategorySpaceSection[];
   products: Product[];
   zones: StoreZone[];
   fixtures: Fixture[];

@@ -41,6 +41,27 @@ function ondAssignmentInput(startDate = "2026-10-01", endDate = "2026-11-11"): C
 describe("mock merchandising workflow", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("updates category spaces, duplicates layouts, and preserves display/campaign data", async () => {
+    const repository = new MockMerchandisingRepository();
+    const before = await repository.load();
+    const sourceSpace = before.categorySpaces[0];
+    await repository.updateCategorySpace({ categorySpaceId: sourceSpace.id, patch: { coolerDoorEquivalent: 0.5, notes: "Fractional test allocation" } });
+    const draft = await repository.duplicateStoreLayout(IDS.crownLayout, "Proposed reset");
+    let after = await repository.load();
+
+    expect(after.categorySpaces.find((space) => space.id === sourceSpace.id)).toEqual(expect.objectContaining({ coolerDoorEquivalent: 0.5 }));
+    expect(after.categorySpaces.filter((space) => space.layoutId === draft.id)).toHaveLength(before.categorySpaces.filter((space) => space.layoutId === IDS.crownLayout).length);
+    expect(after.categorySpaceSections.filter((section) => after.categorySpaces.some((space) => space.layoutId === draft.id && space.id === section.categorySpaceId))).toHaveLength(before.categorySpaceSections.length);
+    expect(after.displayAreas).toEqual(before.displayAreas);
+    expect(after.campaigns).toEqual(before.campaigns);
+
+    await repository.setCurrentStoreLayout(draft.id);
+    after = await repository.load();
+    expect(after.storeLayouts.find((layout) => layout.id === draft.id)?.status).toBe("current");
+    expect(after.storeLayouts.find((layout) => layout.id === IDS.crownLayout)?.status).toBe("archived");
+    expect(await repository.getStoreLayout(IDS.crownLayout)).toEqual(expect.objectContaining({ status: "archived" }));
+  });
+
   it("searches Product Master and creates a visibly pending temporary product", async () => {
     const repository = new MockMerchandisingRepository();
     const results = await repository.searchProducts("Coastal Lager");

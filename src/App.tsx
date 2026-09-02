@@ -18,7 +18,8 @@ import { DisplayAreaProfilePage } from "./features/performance/PerformancePages"
 import { PerformancePage } from "./features/performance/OndPerformancePage";
 import { ProgramWorkspacePage } from "./features/programs/ProgramWorkspacePage";
 import { AllocationPlannerPage } from "./features/programs/AllocationPlannerPage";
-import { StoreFloorplanPage, StoreOverviewPage } from "./features/stores/StorePages";
+import { StoreOverviewPage } from "./features/stores/StorePages";
+import { PhysicalStoreFloorplanPage } from "./features/stores/PhysicalStoreFloorplanPage";
 import { StoreWorkspacePage } from "./features/stores/OndStoreWorkspacePage";
 import { PlatformProvider } from "./services/PlatformProvider";
 
@@ -38,7 +39,7 @@ export function App() {
     <Route path="programs/:programId/import" element={<OndImportPage />} />
     <Route path="imports" element={<ImportsPage />} />
     <Route path="stores/:storeId" element={<StoreOverviewPage />} />
-    <Route path="stores/:storeId/floorplan" element={<StoreFloorplanPage />} />
+    <Route path="stores/:storeId/floorplan" element={<PhysicalStoreFloorplanPage />} />
     <Route path="stores/:storeId/workspace" element={<StoreWorkspacePage />} />
     <Route path="stores/:storeId/orders" element={<StoreOrdersPage />} />
     <Route path="executions/:executionId" element={<ExecutionPage />} />

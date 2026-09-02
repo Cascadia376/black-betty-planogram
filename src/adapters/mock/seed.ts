@@ -1,7 +1,8 @@
-import type { PlatformSnapshot } from "../../domain/types";
+import type { CategorySpace, CategorySpaceSection, PlatformSnapshot } from "../../domain/types";
 
 export const IDS = {
   store: "10000000-0000-4000-8000-000000000001",
+  crownLayout: "11000000-0000-4000-8000-000000000001",
   eagleStore: "10000000-0000-4000-8000-000000000002",
   zoneEntrance: "20000000-0000-4000-8000-000000000001",
   zoneBeer: "20000000-0000-4000-8000-000000000002",
@@ -61,11 +62,57 @@ export const IDS = {
   summerExecution: "70000000-0000-4000-8000-000000000003",
 } as const;
 
+const crownSpace = (
+  sequence: number,
+  value: Omit<CategorySpace, "id" | "storeId" | "layoutId" | "active" | "source">,
+): CategorySpace => ({
+  id: `12000000-0000-4000-8000-${sequence.toString().padStart(12, "0")}`,
+  storeId: IDS.store,
+  layoutId: IDS.crownLayout,
+  active: true,
+  source: "PLANOGRAM_WORKBOOK",
+  ...value,
+});
+
+const mixedDepthNote = "Workbook shelf-depth configuration: 20/22/24 inches.";
+
+const crownCategorySpaces: CategorySpace[] = [
+  crownSpace(1, { name: "Beer - Domestic", category: "Beer", subcategory: "Domestic", geometry: { x: 0.064, y: 0.126, width: 0.084, height: 0.038 }, fixtureType: "cooler", coolerDoorEquivalent: 4, notes: "Cooler summary: Domestic 4 doors; the detailed workbook row has no door count." }),
+  crownSpace(2, { name: "Beer - Import", category: "Beer", subcategory: "Import", geometry: { x: 0.152, y: 0.126, width: 0.043, height: 0.038 }, fixtureType: "cooler", shelfWidthIn: 35.5, shelfDepthIn: 16, shelfCount: 15, maxFacings: 130, coolerDoorEquivalent: 2, notes: "Cooler summary: Import 2 doors." }),
+  crownSpace(3, { name: "Beer - Craft Packaged", category: "Beer", subcategory: "Craft", geometry: { x: 0.198, y: 0.126, width: 0.082, height: 0.038 }, fixtureType: "cooler", shelfWidthIn: 28.5, shelfDepthIn: 60.5, shelfCount: 6, coolerDoorEquivalent: 4, notes: "Detailed workbook: 4D, 6 shelf. Cooler summary also classifies 4 doors as Craft." }),
+  crownSpace(4, { name: "Cider - Packaged", category: "Cider", subcategory: "Packaged", geometry: { x: 0.283, y: 0.126, width: 0.024, height: 0.038 }, fixtureType: "cooler", shelfWidthIn: 28.5, shelfDepthIn: 60.5, shelfCount: 6, coolerDoorEquivalent: 1, notes: "Detailed workbook and cooler summary: 1 door; detailed record says 6 shelves." }),
+  crownSpace(5, { name: "Refresh", category: "Refresh", geometry: { x: 0.308, y: 0.126, width: 0.083, height: 0.038 }, fixtureType: "cooler", shelfWidthIn: 28.5, shelfDepthIn: 60.5, shelfCount: 6, coolerDoorEquivalent: 4, notes: "Detailed workbook: 4D, 6 shelf. Cooler summary classifies 5 doors as Refresh; neither value overwrites the other." }),
+  crownSpace(6, { name: "Beer - Single can CRAFT", category: "Beer", subcategory: "Singles", geometry: { x: 0.413, y: 0.126, width: 0.043, height: 0.038 }, fixtureType: "cooler", shelfWidthIn: 28.5, shelfDepthIn: 36, coolerDoorEquivalent: 2, notes: "Detailed record: 2D. Cooler summary classifies 3 doors as Singles." }),
+  crownSpace(7, { name: "Wine Cooler", category: "Wine", geometry: { x: 0.49, y: 0.126, width: 0.108, height: 0.038 }, fixtureType: "cooler", shelfWidthIn: 28.5, shelfDepthIn: 36, shelfCount: 5, coolerDoorEquivalent: 5, notes: "Detailed workbook: 5D, 5 shelf. Cooler summary: Wine 5 doors." }),
+  crownSpace(8, { name: "British Columbia", category: "Wine", subcategory: "British Columbia", geometry: { x: 0.748, y: 0.232, width: 0.046, height: 0.352 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 63, maxFacings: 630, notes: "Workbook depth: 24*. Fifteen shelves use the 20/22/24 configuration." }),
+  crownSpace(9, { name: "California", category: "Wine", subcategory: "USA", geometry: { x: 0.69, y: 0.13, width: 0.102, height: 0.034 }, fixtureType: "perimeter_shelf", shelfWidthIn: 35.5, shelfDepthIn: 23.5, shelfCount: 20, maxFacings: 220 }),
+  crownSpace(10, { name: "Australia", category: "Wine", geometry: { x: 0.793, y: 0.13, width: 0.079, height: 0.034 }, fixtureType: "perimeter_shelf", shelfWidthIn: 35.5, shelfDepthIn: 23.5, shelfCount: 15, maxFacings: 165 }),
+  crownSpace(11, { name: "Bubbles", category: "Wine", geometry: { x: 0.635, y: 0.89, width: 0.178, height: 0.036 }, fixtureType: "perimeter_shelf", shelfWidthIn: 31.5, shelfCount: 21, maxFacings: 168, notes: mixedDepthNote }),
+  crownSpace(12, { name: "House Wine - Both", category: "Wine", subcategory: "House", geometry: { x: 0.824, y: 0.232, width: 0.047, height: 0.394 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 18, maxFacings: 180, notes: mixedDepthNote }),
+  crownSpace(13, { name: "Liqueur", category: "Liquor", geometry: { x: 0.414, y: 0.265, width: 0.047, height: 0.348 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 33, maxFacings: 297, notes: mixedDepthNote }),
+  crownSpace(14, { name: "Vodka", category: "Liquor", geometry: { x: 0.496, y: 0.352, width: 0.025, height: 0.262 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 18, maxFacings: 162, notes: mixedDepthNote }),
+  crownSpace(15, { name: "Scotch", category: "Liquor", geometry: { x: 0.523, y: 0.352, width: 0.024, height: 0.262 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 18, maxFacings: 144, notes: mixedDepthNote }),
+  crownSpace(16, { name: "Canadian Whisky", category: "Liquor", geometry: { x: 0.582, y: 0.265, width: 0.023, height: 0.26 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 18, maxFacings: 144, notes: mixedDepthNote }),
+  crownSpace(17, { name: "Rum", category: "Liquor", geometry: { x: 0.608, y: 0.438, width: 0.021, height: 0.176 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 12, maxFacings: 108, notes: mixedDepthNote }),
+  crownSpace(18, { name: "Gin", category: "Liquor", geometry: { x: 0.608, y: 0.265, width: 0.021, height: 0.168 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 12, maxFacings: 108, notes: mixedDepthNote }),
+  crownSpace(19, { name: "Tequila", category: "Liquor", geometry: { x: 0.665, y: 0.351, width: 0.023, height: 0.263 }, fixtureType: "gondola", shelfWidthIn: 31.5, shelfCount: 18, maxFacings: 144, notes: mixedDepthNote }),
+  crownSpace(20, { name: "Non-Alc", category: "Other", subcategory: "Non-Alcoholic", geometry: { x: 0.133, y: 0.89, width: 0.149, height: 0.036 }, fixtureType: "perimeter_shelf", shelfWidthIn: 31.5, shelfCount: 18, notes: `${mixedDepthNote} Three shelves have waterfall depth; max facings is recorded as n/a.` }),
+  crownSpace(21, { name: "Cider - Local", category: "Cider", subcategory: "Local", geometry: { x: 0.059, y: 0.89, width: 0.072, height: 0.036 }, fixtureType: "perimeter_shelf", shelfWidthIn: 35.5, shelfDepthIn: 16, shelfCount: 17, maxFacings: 170, notes: "Three movable-shelf sections: one has 5 shelves and two have 6 shelves." }),
+];
+
+const crownCategorySpaceSections: CategorySpaceSection[] = [
+  { id: "13000000-0000-4000-8000-000000000001", categorySpaceId: crownCategorySpaces[7].id, label: "Mixed-depth section", shelfWidthIn: 31.5, shelfCount: 15, notes: "Source records 20/22/24 configuration; no per-depth split is provided.", sortOrder: 0 },
+  { id: "13000000-0000-4000-8000-000000000002", categorySpaceId: crownCategorySpaces[20].id, label: "Movable shelves", shelfWidthIn: 35.5, shelfDepthIn: 16, shelfCount: 17, notes: "One 5-shelf section and two 6-shelf sections.", sortOrder: 0 },
+];
+
 export const seedSnapshot: PlatformSnapshot = {
   stores: [
     { id: IDS.store, name: "Crown Isle", code: "CI", address: "Courtenay, BC" },
     { id: IDS.eagleStore, name: "Eagle Creek", code: "EC", address: "Victoria, BC (synthetic planning location)" },
   ],
+  storeLayouts: [{ id: IDS.crownLayout, storeId: IDS.store, name: "June 2026 Current Layout", effectiveDate: "2026-06-25", status: "current", backgroundImageUrl: "/floorplans/crown-isle.png", backgroundAspectRatio: 1008 / 612, sourceReference: "Crown Isle Floorplan.pdf; Planogram Spreadsheet all stores June 2026.xlsx (CROWNE ISLE)", createdAt: "2026-06-25T00:00:00Z", updatedAt: "2026-06-25T00:00:00Z" }],
+  categorySpaces: crownCategorySpaces,
+  categorySpaceSections: crownCategorySpaceSections,
   products: [
     { id: IDS.ondHarvestProduct, sku: "MOCK-OND-1001", name: "Mock Harvest Red Feature", category: "Wine", brand: "Mock Valley Cellars", packageSize: "750 mL", casePack: 6, masterStatus: "verified", active: true, synthetic: true },
     { id: IDS.ondBridgeProduct, sku: "MOCK-OND-1002", name: "Mock Cream Liqueur Gift Pack", category: "Spirits", brand: "Mock Island Cream", packageSize: "750 mL gift pack", casePack: 8, masterStatus: "verified", active: true, synthetic: true },

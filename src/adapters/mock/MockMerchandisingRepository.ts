@@ -1,6 +1,6 @@
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  ApplyCampaignDisplayQuantityInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateOrderRecommendationInput,
+  ApplyCampaignDisplayQuantityInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -9,7 +9,7 @@ import {
   validateDisplayAssignment,
   validateDisplayAssignmentProducts,
 } from "../../domain/rules";
-import type { BridgeStrategy, CampaignDisplay, CampaignDisplayProduct, CampaignProduct, DisplayRequirement, NewCampaignInput, OrderRecommendation, PlatformSnapshot, Product, RecommendationStatus, UUID } from "../../domain/types";
+import type { BridgeStrategy, CampaignDisplay, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayRequirement, NewCampaignInput, OrderRecommendation, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID } from "../../domain/types";
 import { productDetails } from "../../features/programs/allocationPlanner";
 import type { BusinessClock } from "../../services/clock";
 import { mockBusinessClock } from "../../services/clock";
@@ -19,6 +19,7 @@ import { RuleBasedOrderRecommendationService } from "../../services/orders/Order
 import { calculateResidualInventory } from "../../services/orders/ResidualInventoryService";
 import { seedSnapshot } from "./seed";
 import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAllocation";
+import { validateCategorySpace } from "../../domain/storeLayouts";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
 const defaultDisplayRequirement: DisplayRequirement = {
@@ -74,6 +75,9 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     campaignDisplayAssignmentProducts: snapshot.campaignDisplayAssignmentProducts ?? [],
     campaignReleases: snapshot.campaignReleases ?? [],
     storeReleaseNotices: snapshot.storeReleaseNotices ?? [],
+    storeLayouts: snapshot.storeLayouts ?? defaults.storeLayouts,
+    categorySpaces: snapshot.categorySpaces ?? defaults.categorySpaces,
+    categorySpaceSections: snapshot.categorySpaceSections ?? defaults.categorySpaceSections,
     displayAreas: snapshot.displayAreas.map((area) => {
       const seededArea = defaults.displayAreas.find((candidate) => candidate.id === area.id);
       return {
@@ -125,6 +129,71 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
 
   async load(): Promise<PlatformSnapshot> {
     return structuredClone(this.state);
+  }
+
+  async getStoreLayouts(storeId: UUID): Promise<StoreLayout[]> {
+    return structuredClone(this.state.storeLayouts.filter((layout) => layout.storeId === storeId));
+  }
+
+  async getStoreLayout(layoutId: UUID): Promise<StoreLayout | undefined> {
+    return structuredClone(this.state.storeLayouts.find((layout) => layout.id === layoutId));
+  }
+
+  async getCategorySpaces(layoutId: UUID): Promise<CategorySpace[]> {
+    return structuredClone(this.state.categorySpaces.filter((space) => space.layoutId === layoutId));
+  }
+
+  async updateCategorySpace(input: UpdateCategorySpaceInput): Promise<CategorySpace> {
+    const index = this.state.categorySpaces.findIndex((space) => space.id === input.categorySpaceId);
+    if (index < 0) throw new Error("Category space was not found.");
+    const updated = { ...this.state.categorySpaces[index], ...input.patch };
+    validateCategorySpace(updated, this.state);
+    this.state.categorySpaces[index] = updated;
+    this.persist();
+    return structuredClone(updated);
+  }
+
+  async createStoreLayout(input: CreateStoreLayoutInput): Promise<StoreLayout> {
+    if (!this.state.stores.some((store) => store.id === input.layout.storeId)) throw new Error("Store was not found.");
+    if (!input.layout.name.trim()) throw new Error("Layout name is required.");
+    const now = this.clock.now();
+    const layout = { ...input.layout, id: crypto.randomUUID(), createdAt: now, updatedAt: now };
+    this.state.storeLayouts.push(layout);
+    if (layout.status === "current") await this.setCurrentStoreLayout(layout.id);
+    else this.persist();
+    return structuredClone(layout);
+  }
+
+  async duplicateStoreLayout(layoutId: UUID, name?: string): Promise<StoreLayout> {
+    const source = this.state.storeLayouts.find((layout) => layout.id === layoutId);
+    if (!source) throw new Error("Store layout was not found.");
+    const now = this.clock.now();
+    const duplicate: StoreLayout = { ...source, id: crypto.randomUUID(), name: name?.trim() || `${source.name} copy`, status: "draft", effectiveDate: undefined, createdAt: now, updatedAt: now };
+    this.state.storeLayouts.push(duplicate);
+    const idMap = new Map<UUID, UUID>();
+    this.state.categorySpaces.filter((space) => space.layoutId === source.id).forEach((space) => {
+      const id = crypto.randomUUID();
+      idMap.set(space.id, id);
+      this.state.categorySpaces.push({ ...structuredClone(space), id, layoutId: duplicate.id });
+    });
+    this.state.categorySpaceSections.filter((section) => idMap.has(section.categorySpaceId)).forEach((section) => {
+      this.state.categorySpaceSections.push({ ...structuredClone(section), id: crypto.randomUUID(), categorySpaceId: idMap.get(section.categorySpaceId)! });
+    });
+    this.persist();
+    return structuredClone(duplicate);
+  }
+
+  async setCurrentStoreLayout(layoutId: UUID): Promise<void> {
+    const target = this.state.storeLayouts.find((layout) => layout.id === layoutId);
+    if (!target) throw new Error("Store layout was not found.");
+    const now = this.clock.now();
+    this.state.storeLayouts.forEach((layout) => {
+      if (layout.storeId !== target.storeId) return;
+      if (layout.id === target.id) layout.status = "current";
+      else if (layout.status === "current") layout.status = "archived";
+      layout.updatedAt = now;
+    });
+    this.persist();
   }
 
   async searchProducts(query: string): Promise<Product[]> {
