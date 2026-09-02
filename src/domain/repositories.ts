@@ -10,6 +10,7 @@ import type {
   ComplianceCheck,
   DisplayAssignment,
   DisplayAssignmentProduct,
+  DisplayArea,
   MerchandisingProgram,
   NewCampaignInput,
   Product,
@@ -169,6 +170,15 @@ export interface CreateStoreLayoutInput {
   layout: Omit<StoreLayout, "id" | "createdAt" | "updatedAt">;
 }
 
+export interface CreateDisplayAreaInput {
+  area: Omit<DisplayArea, "id">;
+}
+
+export interface UpdateDisplayAreaInput {
+  displayAreaId: UUID;
+  patch: Partial<Omit<DisplayArea, "id" | "storeId">>;
+}
+
 export interface MerchandisingRepository {
   load(): Promise<PlatformSnapshot>;
   getStoreLayouts(storeId: UUID): Promise<StoreLayout[]>;
@@ -178,6 +188,9 @@ export interface MerchandisingRepository {
   createStoreLayout(input: CreateStoreLayoutInput): Promise<StoreLayout>;
   duplicateStoreLayout(layoutId: UUID, name?: string): Promise<StoreLayout>;
   setCurrentStoreLayout(layoutId: UUID): Promise<void>;
+  createDisplayArea(input: CreateDisplayAreaInput): Promise<DisplayArea>;
+  updateDisplayArea(input: UpdateDisplayAreaInput): Promise<DisplayArea>;
+  deleteDisplayArea(displayAreaId: UUID): Promise<void>;
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;

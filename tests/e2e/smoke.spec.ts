@@ -613,6 +613,46 @@ test("toggles, selects, and edits a regular Crown Isle category space", async ({
   await expect(page.getByText("Core vodka", { exact: true })).toBeVisible();
 });
 
+test("renders representative imported store layouts with category overlays", async ({ page }, testInfo) => {
+  const stores = [
+    ["Allandale", "10000000-0000-4000-8000-000000000003", "allandale.png", 40, 73],
+    ["Caddy Bay", "10000000-0000-4000-8000-000000000004", "caddy-bay.png", 30, 66],
+    ["Port Alberni", "10000000-0000-4000-8000-000000000009", "port-alberni.png", 36, 60],
+    ["Quadra", "10000000-0000-4000-8000-000000000010", "quadra.png", 54, 98],
+    ["Royal Bay", "10000000-0000-4000-8000-000000000011", "royal-bay.png", 37, 70],
+    ["Uptown", "10000000-0000-4000-8000-000000000012", "uptown.png", 30, 84],
+  ] as const;
+  for (const [name, id, asset, mapped, total] of stores) {
+    await page.goto(`/stores/${id}/floorplan`);
+    const canvas = page.getByLabel(`${name} merchandising floorplan`);
+    await expect(canvas).toBeVisible();
+    await expect(canvas.getByAltText(`${name} store layout background`)).toHaveAttribute("src", `/floorplans/${asset}`);
+    await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(mapped);
+    await expect(page.getByText(`${mapped} mapped · ${total} source-backed category spaces · 0 display areas`)).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`${asset.replace(".png", "")}-layout.png`), fullPage: true });
+  }
+});
+
+test("creates and edits a DisplayArea while protecting referenced areas", async ({ page }) => {
+  await page.goto(`/stores/10000000-0000-4000-8000-000000000004/display-areas/new`);
+  await page.getByLabel("Display number").fill("1");
+  await page.getByLabel("Code").fill("CB-D01");
+  await page.getByLabel("Name").fill("Buyer-defined feature");
+  await page.getByLabel("Description").fill("Human-defined promotional location.");
+  await page.getByLabel("Capacity").fill("To be verified");
+  await page.getByRole("button", { name: "Save display area" }).click();
+  await expect(page.getByRole("heading", { name: "Buyer-defined feature" })).toBeVisible();
+  await page.getByRole("link", { name: "Edit Display Area" }).click();
+  await page.getByLabel("Name").fill("Verified buyer feature");
+  await page.getByLabel("Verification").selectOption("verified");
+  await page.getByRole("button", { name: "Save display area" }).click();
+  await expect(page.getByRole("heading", { name: "Verified buyer feature" })).toBeVisible();
+
+  await page.goto(`/display-areas/${endcapAId}/edit`);
+  await page.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(page.getByRole("alert")).toContainText("Deactivate it instead");
+});
+
 test("supports direct floorplan selection and linked destinations", async ({ page }) => {
   await page.goto(`${crownIsleFloorplan}?area=${endcapAId}`);
   await expect(page.getByRole("heading", { name: "Endcap A" })).toBeVisible();

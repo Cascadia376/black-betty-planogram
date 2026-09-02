@@ -51,7 +51,8 @@ describe("mock merchandising workflow", () => {
 
     expect(after.categorySpaces.find((space) => space.id === sourceSpace.id)).toEqual(expect.objectContaining({ coolerDoorEquivalent: 0.5 }));
     expect(after.categorySpaces.filter((space) => space.layoutId === draft.id)).toHaveLength(before.categorySpaces.filter((space) => space.layoutId === IDS.crownLayout).length);
-    expect(after.categorySpaceSections.filter((section) => after.categorySpaces.some((space) => space.layoutId === draft.id && space.id === section.categorySpaceId))).toHaveLength(before.categorySpaceSections.length);
+    const sourceSectionCount = before.categorySpaceSections.filter((section) => before.categorySpaces.some((space) => space.layoutId === IDS.crownLayout && space.id === section.categorySpaceId)).length;
+    expect(after.categorySpaceSections.filter((section) => after.categorySpaces.some((space) => space.layoutId === draft.id && space.id === section.categorySpaceId))).toHaveLength(sourceSectionCount);
     expect(after.displayAreas).toEqual(before.displayAreas);
     expect(after.campaigns).toEqual(before.campaigns);
 
@@ -60,6 +61,23 @@ describe("mock merchandising workflow", () => {
     expect(after.storeLayouts.find((layout) => layout.id === draft.id)?.status).toBe("current");
     expect(after.storeLayouts.find((layout) => layout.id === IDS.crownLayout)?.status).toBe("archived");
     expect(await repository.getStoreLayout(IDS.crownLayout)).toEqual(expect.objectContaining({ status: "archived" }));
+  });
+
+  it("creates, edits, deactivates, and deletes an unreferenced display area", async () => {
+    const repository = new MockMerchandisingRepository();
+    const created = await repository.createDisplayArea({ area: { displayNumber: "99", code: "CI-TEST-99", storeId: IDS.store, name: "Test display", type: "other", description: "Repository lifecycle test", capacity: "Unknown", flexible: true, geometry: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 }, active: true, verificationStatus: "unverified" } });
+    const edited = await repository.updateDisplayArea({ displayAreaId: created.id, patch: { name: "Edited test display", active: false, verificationStatus: "verified", geometry: { x: 0.2, y: 0.2, width: 0.1, height: 0.1, rotation: 15 } } });
+    expect(edited).toEqual(expect.objectContaining({ name: "Edited test display", active: false, verificationStatus: "verified" }));
+
+    await repository.deleteDisplayArea(created.id);
+    expect((await repository.load()).displayAreas.some((area) => area.id === created.id)).toBe(false);
+  });
+
+  it("rejects invalid display geometry and protects referenced display areas from deletion", async () => {
+    const repository = new MockMerchandisingRepository();
+    await expect(repository.createDisplayArea({ area: { displayNumber: "98", code: "CI-TEST-98", storeId: IDS.store, name: "Invalid display", type: "other", description: "Invalid geometry", capacity: "Unknown", geometry: { x: 0.95, y: 0.1, width: 0.1, height: 0.1 }, active: true, verificationStatus: "unverified" } })).rejects.toThrow("normalized floorplan bounds");
+    await expect(repository.deleteDisplayArea(IDS.endcapA)).rejects.toThrow("Deactivate it instead");
+    expect((await repository.load()).displayAreas.some((area) => area.id === IDS.endcapA)).toBe(true);
   });
 
   it("searches Product Master and creates a visibly pending temporary product", async () => {

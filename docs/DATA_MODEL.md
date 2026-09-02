@@ -55,7 +55,7 @@ campaign_displays -> (Phase 3) display_areas
 | `category_space_sections` | `id`, `category_space_id`, `sort_order` | Lightweight optional detail for mixed widths/depths, partial doors, ledges, or other irregular configurations. It does not model individual shelves. |
 | `store_zones` | `id`, `store_id`, `name`, `category`, `geometry` | Belongs to one store. Geometry uses normalized coordinates. |
 | `fixtures` | `id`, `store_id`, `zone_id`, `name`, `type`, `geometry` | Belongs to one zone and store. |
-| `display_areas` | `id`, `store_id`, `zone_id`, `fixture_id`, `name`, `type`, `description`, `capacity`, `geometry` | Persistent first-class merchandising asset. |
+| `display_areas` | `id`, `store_id`, `display_number`, `code`, `name`, `type`, `description`, `capacity`, `geometry`, `active`, `verification_status` | Persistent first-class promotional asset. Zone and fixture references are optional because real layouts may not yet have verified structural records. Existing synthetic records default to `unverified`. |
 | `products` | `id`, `sku`, `name`, `category`, `master_status`, `case_pack`, `active` | Product Master abstraction. Production identity and attributes should be sourced from Ursus/Supabase, not inferred from campaigns or allocations. `pending` records are temporary planning records awaiting reconciliation. |
 | `merchandising_programs` | `id`, `name`, `start_date`, `end_date`, `status`, `description` | A quarterly program may contain multiple periods and campaigns. |
 | `program_stores` | `id`, `program_id`, `store_id`, `included`, `status`, optional `owner_user_id` | Establishes program scope before allocations exist, so not-started stores remain visible. |
@@ -86,6 +86,14 @@ Zone, fixture, display-area, and category-space geometry is stored as `x`, `y`, 
 A store may have many layouts but at most one `current` layout. Duplicating a layout creates a `draft` and copies its category spaces and irregular sections with new identities. Publishing that draft makes the prior current layout `archived`; archived layouts remain readable. `DisplayArea` remains store-level in this phase so campaign allocation behavior is unchanged.
 
 The Crown Isle reference layout uses `/public/floorplans/crown-isle.png`, rendered from `Crown Isle Floorplan.pdf`. Capacity fields come from the `CROWNE ISLE` worksheet in `Planogram Spreadsheet all stores June 2026.xlsx`; cooler summary classifications are retained in notes when they differ from detailed records. Missing or ambiguous measurements remain unset.
+
+All 12 current store layouts follow the same contract. The detailed planogram workbook remains the primary capacity source. Embedded PDF text and vector rectangles establish only the initial normalized location; a workbook record is not assigned to a rectangle when its label maps to several physical areas or several workbook meanings. The cooler summary is represented separately with source `COOLER_WORKBOOK`, optional geometry, and fractional door equivalents. This prevents a summary classification from changing a detailed fixture record.
+
+## DisplayArea administration and deletion
+
+`DisplayArea.verificationStatus` is `unverified` or `verified`. A plausible location on a floorplan is not evidence of verification; all pre-existing synthetic areas start unverified. `active = false` is the default retirement path because assignments and performance history retain stable DisplayArea IDs.
+
+Hard deletion is rejected when the DisplayArea is referenced by campaign assignments, operational display assignments, campaign-display allocation or suggestions, performance records, display history, or recommendations. Unreferenced areas may be deleted. DisplayArea mutations remain behind `MerchandisingRepository`; React forms do not write persistence directly.
 
 ## Product Master reconciliation contract
 

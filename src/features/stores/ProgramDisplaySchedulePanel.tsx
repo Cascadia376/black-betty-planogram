@@ -69,7 +69,7 @@ export function ProgramDisplaySchedulePanel({ area, programId, data }: { area: D
     </div>}
 
     <div className="bg-subtle/50 p-4">
-      <Link className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover" to={`/display-areas/${area.id}`}>Display Area Profile <ArrowRight className="h-4 w-4" /></Link>
+      <div className="grid gap-2"><Link className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-primary px-3 text-sm font-semibold text-primary" to={`/display-areas/${area.id}/edit`}>Edit Display Area</Link><Link className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover" to={`/display-areas/${area.id}`}>Display Area Profile <ArrowRight className="h-4 w-4" /></Link></div>
     </div>
   </Card>;
 }

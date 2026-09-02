@@ -41,11 +41,13 @@ The display-product pool supports category, campaign role, requirement, brand, p
 
 ## Physical Store Layouts
 
-`/stores/:storeId/floorplan` is the primary physical-layout view. It layers a data-owned PNG/WebP background, optional `CategorySpace` outlines, and persistent `DisplayArea` markers. Crown Isle is the first real reference implementation and uses `public/floorplans/crown-isle.png` plus capacity metadata transcribed from the June 2026 planogram workbook. The cooler summary is used as validation and retained alongside detailed records when classifications differ.
+`/stores/:storeId/floorplan` is the primary physical-layout view. It layers a data-owned PNG background, optional `CategorySpace` outlines, and persistent `DisplayArea` markers. Current source layouts are populated for Allandale, Caddy Bay, Crown Isle, Eagle Creek, Hatley Park, Langford, Nanoose, Parksville, Port Alberni, Quadra, Royal Bay, and Uptown. Allandale uses the superseding August 5 source map; the older Allandale map is not active.
 
-Category spaces support optional normalized geometry, fixture type, shelf dimensions, shelf count, maximum facings, fractional cooler-door equivalents, source notes, and lightweight irregular sections. Users can edit the category metadata in a form. A current layout can be duplicated into a draft and later made current; the prior current version becomes archived and remains readable.
+Category spaces support optional normalized geometry, fixture type, shelf dimensions, shelf count, maximum facings, fractional cooler-door equivalents, source notes, and lightweight irregular sections. Capacity records come from the detailed June 2026 planogram workbook. Exact embedded PDF labels provide the initial geometry; ambiguous one-to-many label matches remain unmapped. Cooler-summary classifications are retained as separate records and never overwrite detailed allocations. Users can edit category metadata in a form. A current layout can be duplicated into a draft and later made current; the prior current version becomes archived and remains readable.
 
-This foundation does not include OCR ingestion, individual shelves, drag/resize editing, automated reset optimization, or production database migrations. Additional stores can be added by placing an appropriately sized image in `public/floorplans/`, creating a `StoreLayout` record with its aspect ratio, and adding source-backed category spaces through the repository boundary.
+Display areas remain an independent promotional layer. Existing synthetic assumptions default to `unverified`; verification is a human decision. The floorplan links to form-based DisplayArea creation and editing for number, code, name, type, description, capacity, category compatibility, flexibility, normalized geometry, active state, and verification state. Deactivation is safe for referenced areas. Permanent deletion is allowed only when no campaign, assignment, performance, history, or recommendation dependency exists.
+
+This foundation does not include OCR ingestion, individual shelves, drag/resize editing, automated reset optimization, or production database migrations. Known source limitations and per-store counts are documented in `docs/STORE_LAYOUT_VALIDATION.md`.
 
 ## Phase 1 Campaign Workflow
 

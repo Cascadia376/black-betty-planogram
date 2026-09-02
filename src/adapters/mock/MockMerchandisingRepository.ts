@@ -1,6 +1,6 @@
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  ApplyCampaignDisplayQuantityInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateOrderRecommendationInput,
+  ApplyCampaignDisplayQuantityInput, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -9,7 +9,7 @@ import {
   validateDisplayAssignment,
   validateDisplayAssignmentProducts,
 } from "../../domain/rules";
-import type { BridgeStrategy, CampaignDisplay, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayRequirement, NewCampaignInput, OrderRecommendation, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID } from "../../domain/types";
+import type { BridgeStrategy, CampaignDisplay, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, DisplayRequirement, NewCampaignInput, OrderRecommendation, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID } from "../../domain/types";
 import { productDetails } from "../../features/programs/allocationPlanner";
 import type { BusinessClock } from "../../services/clock";
 import { mockBusinessClock } from "../../services/clock";
@@ -20,6 +20,7 @@ import { calculateResidualInventory } from "../../services/orders/ResidualInvent
 import { seedSnapshot } from "./seed";
 import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAllocation";
 import { validateCategorySpace } from "../../domain/storeLayouts";
+import { displayAreaDependencies, validateDisplayArea } from "../../domain/displayAreas";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
 const defaultDisplayRequirement: DisplayRequirement = {
@@ -84,6 +85,8 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
         ...area,
         displayNumber: area.displayNumber ?? seededArea?.displayNumber ?? area.name,
         code: area.code ?? seededArea?.code ?? area.id,
+        active: area.active ?? true,
+        verificationStatus: area.verificationStatus ?? "unverified",
       };
     }),
     programs: snapshot.programs ?? defaults.programs,
@@ -193,6 +196,33 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       else if (layout.status === "current") layout.status = "archived";
       layout.updatedAt = now;
     });
+    this.persist();
+  }
+
+  async createDisplayArea(input: CreateDisplayAreaInput): Promise<DisplayArea> {
+    const area: DisplayArea = { ...input.area, id: crypto.randomUUID() };
+    validateDisplayArea(area, this.state);
+    this.state.displayAreas.push(area);
+    this.persist();
+    return structuredClone(area);
+  }
+
+  async updateDisplayArea(input: UpdateDisplayAreaInput): Promise<DisplayArea> {
+    const index = this.state.displayAreas.findIndex((area) => area.id === input.displayAreaId);
+    if (index < 0) throw new Error("Display area was not found.");
+    const area = { ...this.state.displayAreas[index], ...input.patch };
+    validateDisplayArea(area, this.state);
+    this.state.displayAreas[index] = area;
+    this.persist();
+    return structuredClone(area);
+  }
+
+  async deleteDisplayArea(displayAreaId: UUID): Promise<void> {
+    const index = this.state.displayAreas.findIndex((area) => area.id === displayAreaId);
+    if (index < 0) throw new Error("Display area was not found.");
+    const dependencies = displayAreaDependencies(this.state, displayAreaId);
+    if (dependencies.length) throw new Error(`Display area cannot be deleted because it has dependent ${dependencies.join(", ")}. Deactivate it instead.`);
+    this.state.displayAreas.splice(index, 1);
     this.persist();
   }
 

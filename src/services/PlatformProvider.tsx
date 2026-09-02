@@ -2,10 +2,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import type {
-  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  ApplyCampaignDisplayQuantityInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateOrderRecommendationInput,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  ApplyCampaignDisplayQuantityInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
-import type { CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
+import type { CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
 
 const repository = new MockMerchandisingRepository();
 
@@ -19,6 +19,9 @@ interface PlatformContextValue {
   updateCategorySpace(input: UpdateCategorySpaceInput): Promise<CategorySpace>;
   duplicateStoreLayout(layoutId: UUID, name?: string): Promise<StoreLayout>;
   setCurrentStoreLayout(layoutId: UUID): Promise<void>;
+  createDisplayArea(input: CreateDisplayAreaInput): Promise<DisplayArea>;
+  updateDisplayArea(input: UpdateDisplayAreaInput): Promise<DisplayArea>;
+  deleteDisplayArea(displayAreaId: UUID): Promise<void>;
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
@@ -95,6 +98,9 @@ export function PlatformProvider({ children, adapter = repository }: { children:
     updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutate(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
     duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutate(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
     setCurrentStoreLayout: (layoutId) => mutate(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
+    createDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutate(async () => { result = await adapter.createDisplayArea(input); }); if (!result) throw new Error("Display area creation did not return a result."); return result; },
+    updateDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutate(async () => { result = await adapter.updateDisplayArea(input); }); if (!result) throw new Error("Display area update did not return a result."); return result; },
+    deleteDisplayArea: (displayAreaId) => mutate(() => adapter.deleteDisplayArea(displayAreaId)).then(() => undefined),
     searchProducts: (query) => adapter.searchProducts(query),
     createPendingProduct: async (input) => {
       let product: Product | undefined;

@@ -12,7 +12,7 @@ export default defineConfig({
     launchOptions: { args: ["--no-proxy-server"] },
   },
   webServer: {
-    command: "npm run dev -- --host ::",
+    command: "npx vite --host ::",
     reuseExistingServer: !process.env.CI,
     url: "http://localhost:5173",
   },

@@ -39,6 +39,7 @@ export type DisplayType =
   | "feature_table"
   | "floor_display"
   | "seasonal_area";
+export type DisplayAreaVerificationStatus = "unverified" | "verified";
 export type ProductRole = "Feature" | "Core" | "Supporting" | "Optional";
 export type CampaignProductMerchandisingState = "UNASSIGNED" | "DISPLAY_ASSIGNED" | "SHELF_SUPPORTED";
 export type CampaignDisplayPlacementMode = "STANDARD" | "STORE_SPECIFIC";
@@ -139,7 +140,7 @@ export interface CategorySpace {
   coolerDoorEquivalent?: number;
   notes?: string;
   active: boolean;
-  source?: "FLOORPLAN" | "PLANOGRAM_WORKBOOK" | "MANUAL";
+  source?: "FLOORPLAN" | "PLANOGRAM_WORKBOOK" | "COOLER_WORKBOOK" | "MANUAL";
 }
 
 /** Optional capacity detail for an irregular CategorySpace; not an individual shelf. */
@@ -161,8 +162,8 @@ export interface DisplayArea {
   displayNumber: string;
   code: string;
   storeId: UUID;
-  zoneId: UUID;
-  fixtureId: UUID;
+  zoneId?: UUID;
+  fixtureId?: UUID;
   name: string;
   type: DisplayType;
   description: string;
@@ -171,6 +172,8 @@ export interface DisplayArea {
   compatibleCategories?: string[];
   flexible?: boolean;
   geometry: Geometry;
+  active: boolean;
+  verificationStatus: DisplayAreaVerificationStatus;
 }
 
 export interface CampaignProduct {

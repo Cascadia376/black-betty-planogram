@@ -1,4 +1,5 @@
 import type { CategorySpace, CategorySpaceSection, PlatformSnapshot } from "../../domain/types";
+import { additionalCategorySpaces, additionalCategorySpaceSections, additionalStoreLayouts, additionalStores } from "./allStoreLayoutSeed.generated";
 
 export const IDS = {
   store: "10000000-0000-4000-8000-000000000001",
@@ -108,11 +109,11 @@ const crownCategorySpaceSections: CategorySpaceSection[] = [
 export const seedSnapshot: PlatformSnapshot = {
   stores: [
     { id: IDS.store, name: "Crown Isle", code: "CI", address: "Courtenay, BC" },
-    { id: IDS.eagleStore, name: "Eagle Creek", code: "EC", address: "Victoria, BC (synthetic planning location)" },
+    ...additionalStores,
   ],
-  storeLayouts: [{ id: IDS.crownLayout, storeId: IDS.store, name: "June 2026 Current Layout", effectiveDate: "2026-06-25", status: "current", backgroundImageUrl: "/floorplans/crown-isle.png", backgroundAspectRatio: 1008 / 612, sourceReference: "Crown Isle Floorplan.pdf; Planogram Spreadsheet all stores June 2026.xlsx (CROWNE ISLE)", createdAt: "2026-06-25T00:00:00Z", updatedAt: "2026-06-25T00:00:00Z" }],
-  categorySpaces: crownCategorySpaces,
-  categorySpaceSections: crownCategorySpaceSections,
+  storeLayouts: [{ id: IDS.crownLayout, storeId: IDS.store, name: "June 2026 Current Layout", effectiveDate: "2026-06-25", status: "current", backgroundImageUrl: "/floorplans/crown-isle.png", backgroundAspectRatio: 1008 / 612, sourceReference: "Crown Isle Floorplan.pdf; Planogram Spreadsheet all stores June 2026.xlsx (CROWNE ISLE)", createdAt: "2026-06-25T00:00:00Z", updatedAt: "2026-06-25T00:00:00Z" }, ...additionalStoreLayouts],
+  categorySpaces: [...crownCategorySpaces, ...additionalCategorySpaces],
+  categorySpaceSections: [...crownCategorySpaceSections, ...additionalCategorySpaceSections],
   products: [
     { id: IDS.ondHarvestProduct, sku: "MOCK-OND-1001", name: "Mock Harvest Red Feature", category: "Wine", brand: "Mock Valley Cellars", packageSize: "750 mL", casePack: 6, masterStatus: "verified", active: true, synthetic: true },
     { id: IDS.ondBridgeProduct, sku: "MOCK-OND-1002", name: "Mock Cream Liqueur Gift Pack", category: "Spirits", brand: "Mock Island Cream", packageSize: "750 mL gift pack", casePack: 8, masterStatus: "verified", active: true, synthetic: true },
@@ -142,13 +143,13 @@ export const seedSnapshot: PlatformSnapshot = {
     { id: IDS.eagleFixtureCooler, storeId: IDS.eagleStore, zoneId: IDS.eagleZoneCooler, name: "Cooler run", type: "cooler", geometry: { x: 0.75, y: 0.14, width: 0.13, height: 0.66 } },
   ],
   displayAreas: [
-    { id: IDS.endcapA, displayNumber: "1", code: "CI-D01", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap A", type: "endcap", description: "North-facing endcap on the central wine gondola.", capacity: "Approx. 24 cases", geometry: { x: 0.315, y: 0.22, width: 0.035, height: 0.14 } },
-    { id: IDS.endcapB, displayNumber: "2", code: "CI-D02", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap B", type: "endcap", description: "South-facing endcap on the central wine gondola.", capacity: "Approx. 20 cases", geometry: { x: 0.57, y: 0.64, width: 0.035, height: 0.14 } },
-    { id: IDS.cooler14, displayNumber: "3", code: "CI-D03", storeId: IDS.store, zoneId: IDS.zoneBeer, fixtureId: IDS.fixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Four-door group at the start of the beer cooler run.", capacity: "4 cooler doors", geometry: { x: 0.87, y: 0.18, width: 0.045, height: 0.28 } },
-    { id: IDS.feature1, displayNumber: "4", code: "CI-D04", storeId: IDS.store, zoneId: IDS.zoneEntrance, fixtureId: IDS.fixtureFeature, name: "Feature Area 1", type: "feature_table", description: "Front-of-store feature table visible from entry.", capacity: "Approx. 16 cases", geometry: { x: 0.1, y: 0.17, width: 0.09, height: 0.08 } },
-    { id: IDS.eagleEndcapA, displayNumber: "1", code: "EC-D01", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneFront, fixtureId: IDS.eagleFixtureEndcaps, name: "Endcap A", type: "endcap", description: "Synthetic Eagle Creek endcap destination.", capacity: "Approx. 20 cases", geometry: { x: 0.265, y: 0.22, width: 0.04, height: 0.14 } },
-    { id: IDS.eagleEndcapB, displayNumber: "2", code: "EC-D02", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneFront, fixtureId: IDS.eagleFixtureEndcaps, name: "Endcap B", type: "endcap", description: "Synthetic Eagle Creek endcap destination.", capacity: "Approx. 18 cases", geometry: { x: 0.54, y: 0.58, width: 0.04, height: 0.14 } },
-    { id: IDS.eagleCooler, displayNumber: "3", code: "EC-D03", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneCooler, fixtureId: IDS.eagleFixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Synthetic four-door cooler destination.", capacity: "4 cooler doors", geometry: { x: 0.84, y: 0.2, width: 0.045, height: 0.28 } },
+    { id: IDS.endcapA, displayNumber: "1", code: "CI-D01", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap A", type: "endcap", description: "North-facing endcap on the central wine gondola.", capacity: "Approx. 24 cases", geometry: { x: 0.315, y: 0.22, width: 0.035, height: 0.14 }, active: true, verificationStatus: "unverified" },
+    { id: IDS.endcapB, displayNumber: "2", code: "CI-D02", storeId: IDS.store, zoneId: IDS.zoneWine, fixtureId: IDS.fixtureEndcaps, name: "Endcap B", type: "endcap", description: "South-facing endcap on the central wine gondola.", capacity: "Approx. 20 cases", geometry: { x: 0.57, y: 0.64, width: 0.035, height: 0.14 }, active: true, verificationStatus: "unverified" },
+    { id: IDS.cooler14, displayNumber: "3", code: "CI-D03", storeId: IDS.store, zoneId: IDS.zoneBeer, fixtureId: IDS.fixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Four-door group at the start of the beer cooler run.", capacity: "4 cooler doors", geometry: { x: 0.87, y: 0.18, width: 0.045, height: 0.28 }, active: true, verificationStatus: "unverified" },
+    { id: IDS.feature1, displayNumber: "4", code: "CI-D04", storeId: IDS.store, zoneId: IDS.zoneEntrance, fixtureId: IDS.fixtureFeature, name: "Feature Area 1", type: "feature_table", description: "Front-of-store feature table visible from entry.", capacity: "Approx. 16 cases", geometry: { x: 0.1, y: 0.17, width: 0.09, height: 0.08 }, active: true, verificationStatus: "unverified" },
+    { id: IDS.eagleEndcapA, displayNumber: "1", code: "EC-D01", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneFront, fixtureId: IDS.eagleFixtureEndcaps, name: "Endcap A", type: "endcap", description: "Synthetic Eagle Creek endcap destination.", capacity: "Approx. 20 cases", geometry: { x: 0.265, y: 0.22, width: 0.04, height: 0.14 }, active: true, verificationStatus: "unverified" },
+    { id: IDS.eagleEndcapB, displayNumber: "2", code: "EC-D02", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneFront, fixtureId: IDS.eagleFixtureEndcaps, name: "Endcap B", type: "endcap", description: "Synthetic Eagle Creek endcap destination.", capacity: "Approx. 18 cases", geometry: { x: 0.54, y: 0.58, width: 0.04, height: 0.14 }, active: true, verificationStatus: "unverified" },
+    { id: IDS.eagleCooler, displayNumber: "3", code: "EC-D03", storeId: IDS.eagleStore, zoneId: IDS.eagleZoneCooler, fixtureId: IDS.eagleFixtureCooler, name: "Cooler Doors 1-4", type: "cooler_doors", description: "Synthetic four-door cooler destination.", capacity: "4 cooler doors", geometry: { x: 0.84, y: 0.2, width: 0.045, height: 0.28 }, active: true, verificationStatus: "unverified" },
   ],
   programs: [
     {

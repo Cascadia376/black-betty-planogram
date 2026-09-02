@@ -19,6 +19,9 @@ export class SupabaseMerchandisingRepository implements MerchandisingRepository 
   async createStoreLayout(): Promise<never> { return this.unavailable(); }
   async duplicateStoreLayout(): Promise<never> { return this.unavailable(); }
   async setCurrentStoreLayout(): Promise<void> { return this.unavailable(); }
+  async createDisplayArea(): Promise<never> { return this.unavailable(); }
+  async updateDisplayArea(): Promise<never> { return this.unavailable(); }
+  async deleteDisplayArea(): Promise<void> { return this.unavailable(); }
   async searchProducts(): Promise<never> { return this.unavailable(); }
   async createPendingProduct(): Promise<never> { return this.unavailable(); }
   async createCampaign(): Promise<UUID> { return this.unavailable(); }

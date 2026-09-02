@@ -34,7 +34,7 @@ export function PhysicalStoreFloorplanPage() {
     ?? layouts.find((item) => item.status === "current")
     ?? layouts[0];
   const spaces = data?.categorySpaces.filter((item) => item.layoutId === layout?.id && item.active) ?? [];
-  const areas = data?.displayAreas.filter((item) => item.storeId === storeId) ?? [];
+  const areas = data?.displayAreas.filter((item) => item.storeId === storeId && item.active) ?? [];
   const zones = data?.zones.filter((item) => item.storeId === storeId) ?? [];
   const fixtures = data?.fixtures.filter((item) => item.storeId === storeId) ?? [];
   const selectedSpace = spaces.find((item) => item.id === params.get("space"));
@@ -138,7 +138,7 @@ export function PhysicalStoreFloorplanPage() {
             eyebrow="Physical store layout"
             title={`${store.name} floorplan`}
             description="Regular category homes and persistent campaign display areas share one real floorplan without sharing domain semantics."
-            actions={<Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace</Link>}
+            actions={<><Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/display-areas/new`}>New display area</Link><Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace</Link></>}
           />
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
@@ -160,7 +160,7 @@ export function PhysicalStoreFloorplanPage() {
           <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
             <Card className="min-w-0 overflow-hidden p-0">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
-                <div><h2 className="text-sm font-semibold">Store layout</h2><p className="mt-1 text-xs text-text-muted">{spaces.length} category spaces · {areas.length} display areas</p></div>
+                <div><h2 className="text-sm font-semibold">Store layout</h2><p className="mt-1 text-xs text-text-muted">{spaces.filter((space) => space.geometry).length} mapped · {spaces.length} source-backed category spaces · {areas.length} display areas</p></div>
                 <div className="flex gap-2" aria-label="Floorplan layers">
                   <button type="button" aria-pressed={showCategories} onClick={() => setShowCategories((value) => !value)} className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${showCategories ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface"}`}><Layers3 className="h-4 w-4" />Category layout</button>
                   <button type="button" aria-pressed={showDisplayAreas} onClick={() => setShowDisplayAreas((value) => !value)} className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${showDisplayAreas ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface"}`}><MapPin className="h-4 w-4" />Display areas</button>
@@ -200,7 +200,7 @@ export function PhysicalStoreFloorplanPage() {
               ) : selectedArea && selectedProgram && data ? (
                 <ProgramDisplaySchedulePanel area={selectedArea} programId={selectedProgram.id} data={data} />
               ) : selectedArea ? (
-                <Card><p className="text-[11px] font-semibold uppercase text-text-muted">Persistent display area</p><h2 className="mt-1 text-lg font-semibold">{selectedArea.name}</h2><p className="mt-1 text-xs text-text-muted">Display {selectedArea.displayNumber} · {selectedArea.code}</p><p className="mt-3 text-sm text-text-secondary">{selectedArea.description}</p><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><Metric label="Type" value={humanize(selectedArea.type)} /><Metric label="Capacity" value={selectedArea.capacity} /><Metric label="Zone" value={zones.find((zone) => zone.id === selectedArea.zoneId)?.name} /><Metric label="Fixture" value={fixtures.find((fixture) => fixture.id === selectedArea.fixtureId)?.name} /></dl><Link className="mt-4 inline-flex min-h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground" to={`/display-areas/${selectedArea.id}`}>Persistent Display Area Profile</Link></Card>
+                <Card><div className="flex items-center justify-between gap-3"><p className="text-[11px] font-semibold uppercase text-text-muted">Persistent display area</p><Badge tone={selectedArea.verificationStatus === "verified" ? "success" : "warning"}>{humanize(selectedArea.verificationStatus)}</Badge></div><h2 className="mt-1 text-lg font-semibold">{selectedArea.name}</h2><p className="mt-1 text-xs text-text-muted">Display {selectedArea.displayNumber} · {selectedArea.code}</p><p className="mt-3 text-sm text-text-secondary">{selectedArea.description}</p><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><Metric label="Type" value={humanize(selectedArea.type)} /><Metric label="Capacity" value={selectedArea.capacity} /><Metric label="Zone" value={zones.find((zone) => zone.id === selectedArea.zoneId)?.name} /><Metric label="Fixture" value={fixtures.find((fixture) => fixture.id === selectedArea.fixtureId)?.name} /></dl><div className="mt-4 grid gap-2"><Link className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-primary px-3 text-sm font-semibold text-primary" to={`/display-areas/${selectedArea.id}/edit`}>Edit Display Area</Link><Link className="inline-flex min-h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground" to={`/display-areas/${selectedArea.id}`}>Persistent Display Area Profile</Link></div></Card>
               ) : (
                 <Card><div className="grid min-h-56 place-items-center text-center"><div><MapPin className="mx-auto h-6 w-6 text-primary" /><h2 className="mt-3 text-sm font-semibold">Select a mapped space</h2><p className="mt-1 text-xs leading-5 text-text-muted">Choose a blue category outline or numbered display marker.</p></div></div></Card>
               )}
