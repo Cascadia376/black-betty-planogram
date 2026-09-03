@@ -40,6 +40,9 @@ export type DisplayType =
   | "floor_display"
   | "seasonal_area";
 export type DisplayAreaVerificationStatus = "unverified" | "verified";
+export type DisplayFamily = "WINE" | "BEER_RTD" | "MULTI" | "SEASONAL" | "WINDOW" | "OTHER";
+export type DisplaySizeClass = "mini" | "small" | "medium" | "large";
+export type DisplayPositionClass = "front_end" | "back_end" | "feature_table" | "window" | "zone" | "other";
 export type ProductRole = "Feature" | "Core" | "Supporting" | "Optional";
 export type CampaignProductMerchandisingState = "UNASSIGNED" | "DISPLAY_ASSIGNED" | "SHELF_SUPPORTED";
 export type CampaignDisplayPlacementMode = "STANDARD" | "STORE_SPECIFIC";
@@ -164,8 +167,11 @@ export interface DisplayArea {
   storeId: UUID;
   zoneId?: UUID;
   fixtureId?: UUID;
+  localCode?: string;
   name: string;
   type: DisplayType;
+  displayFamily?: DisplayFamily;
+  displayClassDefinitionId?: UUID;
   description: string;
   capacity: string;
   primaryCategory?: string;
@@ -174,6 +180,28 @@ export interface DisplayArea {
   geometry: Geometry;
   active: boolean;
   verificationStatus: DisplayAreaVerificationStatus;
+  sourceReference?: string;
+  notes?: string;
+}
+
+/** Shared naming taxonomy from Master Display Naming.xlsx. Legacy codes are intentionally non-unique. */
+export interface DisplayClassDefinition {
+  id: UUID;
+  family: DisplayFamily;
+  name: string;
+  legacyCode?: string;
+  sizeClass?: DisplaySizeClass;
+  positionClass?: DisplayPositionClass;
+  notes?: string;
+}
+
+/** An additional physical hotspot for one logical DisplayArea. */
+export interface DisplayAreaSection {
+  id: UUID;
+  displayAreaId: UUID;
+  geometry: Geometry;
+  label?: string;
+  sortOrder: number;
 }
 
 export interface CampaignProduct {
@@ -602,7 +630,9 @@ export interface PlatformSnapshot {
   products: Product[];
   zones: StoreZone[];
   fixtures: Fixture[];
+  displayClassDefinitions: DisplayClassDefinition[];
   displayAreas: DisplayArea[];
+  displayAreaSections: DisplayAreaSection[];
   programs: MerchandisingProgram[];
   programPeriods: ProgramPeriod[];
   programStores: ProgramStore[];

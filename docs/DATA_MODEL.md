@@ -19,7 +19,8 @@ StoreLayout
     -> CategorySpace
 
 Store
-    -> DisplayArea
+    -> DisplayArea -> DisplayAreaSection
+         -> DisplayClassDefinition
          <- CampaignDisplayAssignment
               <- CampaignDisplay
 ```
@@ -55,7 +56,9 @@ campaign_displays -> (Phase 3) display_areas
 | `category_space_sections` | `id`, `category_space_id`, `sort_order` | Lightweight optional detail for mixed widths/depths, partial doors, ledges, or other irregular configurations. It does not model individual shelves. |
 | `store_zones` | `id`, `store_id`, `name`, `category`, `geometry` | Belongs to one store. Geometry uses normalized coordinates. |
 | `fixtures` | `id`, `store_id`, `zone_id`, `name`, `type`, `geometry` | Belongs to one zone and store. |
-| `display_areas` | `id`, `store_id`, `display_number`, `code`, `name`, `type`, `description`, `capacity`, `geometry`, `active`, `verification_status` | Persistent first-class promotional asset. Zone and fixture references are optional because real layouts may not yet have verified structural records. Existing synthetic records default to `unverified`. |
+| `display_class_definitions` | `id`, `family`, `name` | Shared class taxonomy sourced from `Master Display Naming.xlsx`. Optional legacy code, size, and position are evidence-backed attributes. Legacy codes are not unique. |
+| `display_areas` | `id`, `store_id`, `display_number`, `code`, `name`, `type`, `description`, `capacity`, `geometry`, `active`, `verification_status` | Persistent first-class promotional asset. Optional local code, family, class FK, category compatibility, source reference, and notes preserve classification and traceability. Zone and fixture references remain optional. |
+| `display_area_sections` | `id`, `display_area_id`, `geometry`, `sort_order` | Additional physical hotspot for one logical display when the source repeats a local code. It does not create a fabricated local-code suffix. |
 | `products` | `id`, `sku`, `name`, `category`, `master_status`, `case_pack`, `active` | Product Master abstraction. Production identity and attributes should be sourced from Ursus/Supabase, not inferred from campaigns or allocations. `pending` records are temporary planning records awaiting reconciliation. |
 | `merchandising_programs` | `id`, `name`, `start_date`, `end_date`, `status`, `description` | A quarterly program may contain multiple periods and campaigns. |
 | `program_stores` | `id`, `program_id`, `store_id`, `included`, `status`, optional `owner_user_id` | Establishes program scope before allocations exist, so not-started stores remain visible. |
@@ -91,7 +94,11 @@ All 12 current store layouts follow the same contract. The detailed planogram wo
 
 ## DisplayArea administration and deletion
 
-`DisplayArea.verificationStatus` is `unverified` or `verified`. A plausible location on a floorplan is not evidence of verification; all pre-existing synthetic areas start unverified. `active = false` is the default retirement path because assignments and performance history retain stable DisplayArea IDs.
+`DisplayArea.verificationStatus` is `unverified` or `verified`. Verified records require a non-empty source reference. The current import is backed by the supplied Word display maps and shared master naming workbook. Its normalized hotspot is spatial identification rather than square footage; the label-box dimensions are not copied as fixture dimensions.
+
+`DisplayFamily` is constrained to `WINE`, `BEER_RTD`, `MULTI`, `SEASONAL`, `WINDOW`, or `OTHER`. Prefixes support family mapping (`W*`, `BR*`, `M*`), while named displays retain the family supported by their source. A `DisplayClassDefinition` uses its UUID as identity. Six medium/mini legacy abbreviations collide and are therefore explicitly allowed to repeat. Store-local codes may repeat across stores, but `DisplayArea.code` is globally stable through a store prefix.
+
+All pre-existing synthetic areas are inactive and unverified. `active = false` is the default retirement path because assignments and performance history retain stable DisplayArea IDs. Inactive historical areas can still be rendered in an explicitly selected historical program context, but are excluded from new campaign allocation choices and suggestions.
 
 Hard deletion is rejected when the DisplayArea is referenced by campaign assignments, operational display assignments, campaign-display allocation or suggestions, performance records, display history, or recommendations. Unreferenced areas may be deleted. DisplayArea mutations remain behind `MerchandisingRepository`; React forms do not write persistence directly.
 

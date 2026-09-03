@@ -1,9 +1,11 @@
 import type { DisplayArea, Geometry, PlatformSnapshot } from "./types";
 import { isNormalizedGeometry } from "./storeLayouts";
 
-export function validateDisplayArea(area: DisplayArea, snapshot: Pick<PlatformSnapshot, "stores" | "displayAreas">): void {
+export function validateDisplayArea(area: DisplayArea, snapshot: Pick<PlatformSnapshot, "stores" | "displayAreas" | "displayClassDefinitions">): void {
   if (!snapshot.stores.some((store) => store.id === area.storeId)) throw new Error("Display area store was not found.");
   if (!area.displayNumber.trim() || !area.code.trim() || !area.name.trim()) throw new Error("Display number, code, and name are required.");
+  if (area.verificationStatus === "verified" && !area.sourceReference?.trim()) throw new Error("Verified display areas require a source reference.");
+  if (area.displayClassDefinitionId && !snapshot.displayClassDefinitions.some((item) => item.id === area.displayClassDefinitionId)) throw new Error("Display class definition was not found.");
   if (!isNormalizedGeometry(area.geometry)) throw new Error("Display area geometry must remain within normalized floorplan bounds.");
   const duplicate = snapshot.displayAreas.find((candidate) => candidate.id !== area.id && candidate.storeId === area.storeId && candidate.code.toLocaleLowerCase() === area.code.toLocaleLowerCase());
   if (duplicate) throw new Error("Display area code must be unique within a store.");

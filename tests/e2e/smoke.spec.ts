@@ -90,6 +90,7 @@ test("keeps OND performance learning within desktop and tablet viewports", async
 
 const crownIsleFloorplan = "/stores/10000000-0000-4000-8000-000000000001/floorplan";
 const endcapAId = "40000000-0000-4000-8000-000000000001";
+const crownW1Id = "42000000-0000-4000-8000-000000000020";
 const ondProgramId = "c0000000-0000-4000-8000-000000000001";
 const ondProgram = `/programs/${ondProgramId}`;
 const ondAllocations = `${ondProgram}/allocations`;
@@ -579,19 +580,16 @@ test("loads the Crown Isle floorplan and selects a persistent display area", asy
   const canvas = page.getByLabel("Crown Isle merchandising floorplan");
   await expect(canvas).toBeVisible();
   await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(21);
-  await expect(canvas.getByRole("button", { name: /Endcap|Cooler Doors|Feature Area/ })).toHaveCount(4);
-  await expect(canvas.getByRole("button", { name: /Endcap A, Active campaign/ })).toBeVisible();
-  await expect(canvas.getByRole("button", { name: /Feature Area 1, Upcoming campaign/ })).toBeVisible();
-  await expect(canvas.getByRole("button", { name: /Endcap B, Available/ })).toBeVisible();
+  await expect(canvas.getByRole("button", { name: /, Available,/ })).toHaveCount(31);
+  await expect(canvas.getByRole("button", { name: /W1, Wine Large Display zone 1, Available/ })).toBeVisible();
 
-  await canvas.getByRole("button", { name: /Endcap A/ }).click();
+  await canvas.getByRole("button", { name: /W1, Wine Large Display zone 1/ }).click();
 
-  await expect(page).toHaveURL(new RegExp(`\\?area=${endcapAId}$`));
-  await expect(page.getByRole("heading", { name: "Endcap A" })).toBeVisible();
-  await expect(page.getByText("Wine gondolas", { exact: true }).last()).toBeVisible();
-  await expect(page.getByText("Central gondola endcaps", { exact: true })).toBeVisible();
-  await expect(page.getByText("Approx. 24 cases", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Persistent Display Area Profile" })).toHaveAttribute("href", `/display-areas/${endcapAId}`);
+  await expect(page).toHaveURL(new RegExp(`\\?area=${crownW1Id}$`));
+  await expect(page.getByRole("heading", { name: "Wine Large Display zone 1" })).toBeVisible();
+  await expect(page.getByText("Local W1 · Global CI-W1", { exact: true })).toBeVisible();
+  await expect(page.getByText("Crown Isle.docx; Master Display Naming.xlsx", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Persistent Display Area Profile" })).toHaveAttribute("href", `/display-areas/${crownW1Id}`);
   await expect(page.getByRole("main").getByRole("link", { name: /Store workspace/ })).toHaveAttribute("href", "/stores/10000000-0000-4000-8000-000000000001/workspace");
 });
 
@@ -615,28 +613,65 @@ test("toggles, selects, and edits a regular Crown Isle category space", async ({
 
 test("renders representative imported store layouts with category overlays", async ({ page }, testInfo) => {
   const stores = [
-    ["Allandale", "10000000-0000-4000-8000-000000000003", "allandale.png", 40, 73],
-    ["Caddy Bay", "10000000-0000-4000-8000-000000000004", "caddy-bay.png", 30, 66],
-    ["Port Alberni", "10000000-0000-4000-8000-000000000009", "port-alberni.png", 36, 60],
-    ["Quadra", "10000000-0000-4000-8000-000000000010", "quadra.png", 54, 98],
-    ["Royal Bay", "10000000-0000-4000-8000-000000000011", "royal-bay.png", 37, 70],
-    ["Uptown", "10000000-0000-4000-8000-000000000012", "uptown.png", 30, 84],
+    ["Allandale", "10000000-0000-4000-8000-000000000003", "allandale.png", 40, 73, 13],
+    ["Caddy Bay", "10000000-0000-4000-8000-000000000004", "caddy-bay.png", 30, 66, 12],
+    ["Port Alberni", "10000000-0000-4000-8000-000000000009", "port-alberni.png", 36, 60, 10],
+    ["Quadra", "10000000-0000-4000-8000-000000000010", "quadra.png", 54, 98, 22],
+    ["Royal Bay", "10000000-0000-4000-8000-000000000011", "royal-bay.png", 37, 70, 18],
+    ["Uptown", "10000000-0000-4000-8000-000000000012", "uptown.png", 30, 84, 27],
   ] as const;
-  for (const [name, id, asset, mapped, total] of stores) {
+  for (const [name, id, asset, mapped, total, displayCount] of stores) {
     await page.goto(`/stores/${id}/floorplan`);
     const canvas = page.getByLabel(`${name} merchandising floorplan`);
     await expect(canvas).toBeVisible();
     await expect(canvas.getByAltText(`${name} store layout background`)).toHaveAttribute("src", `/floorplans/${asset}`);
     await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(mapped);
-    await expect(page.getByText(`${mapped} mapped · ${total} source-backed category spaces · 0 display areas`)).toBeVisible();
+    await expect(page.getByText(`${mapped} mapped · ${total} source-backed category spaces · ${displayCount} display areas`)).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /W1,/ })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath(`${asset.replace(".png", "")}-layout.png`), fullPage: true });
   }
+});
+
+test("opens verified display metadata for Crown Isle, Eagle Creek, Royal Bay, and Quadra", async ({ page }, testInfo) => {
+  const stores = [
+    ["Crown Isle", "10000000-0000-4000-8000-000000000001"],
+    ["Eagle Creek", "10000000-0000-4000-8000-000000000002"],
+    ["Royal Bay", "10000000-0000-4000-8000-000000000011"],
+    ["Quadra", "10000000-0000-4000-8000-000000000010"],
+  ] as const;
+
+  for (const [name, storeId] of stores) {
+    await page.goto(`/stores/${storeId}/floorplan`);
+    const canvas = page.getByLabel(`${name} merchandising floorplan`);
+    await expect(canvas.getByAltText(`${name} store layout background`)).toBeVisible();
+    await canvas.getByRole("button", { name: /W1,/ }).click();
+    await expect(page.getByText(new RegExp(`Local W1 · Global .*W1`))).toBeVisible();
+    await expect(page.getByText(/\.docx; Master Display Naming\.xlsx/, { exact: false })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Edit Display Area" })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`${name.toLowerCase().replaceAll(" ", "-")}-verified-displays.png`), fullPage: true });
+  }
+
+  await page.getByRole("link", { name: "Edit Display Area" }).click();
+  await page.getByLabel("Notes").fill("Representative E2E correction.");
+  await page.getByRole("button", { name: "Save display area" }).click();
+  await expect(page.getByText("Representative E2E correction.", { exact: true })).toBeVisible();
+});
+
+test("selects an active verified area during campaign allocation", async ({ page }) => {
+  await page.goto("/campaigns/50000000-0000-4000-8000-000000000004/assign");
+  await page.getByRole("button", { name: "Include all stores" }).click();
+  await page.getByRole("button", { name: "Suggest for all stores" }).first().click();
+  await page.getByRole("button", { name: "Choose / quantities" }).first().click();
+  const location = page.getByLabel("Physical display area").first();
+  await location.selectOption("42000000-0000-4000-8000-000000000010");
+  await expect(location).toHaveValue("42000000-0000-4000-8000-000000000010");
+  await expect(page.getByText(/Multi Front end 1 \(M1\)/).first()).toBeVisible();
 });
 
 test("creates and edits a DisplayArea while protecting referenced areas", async ({ page }) => {
   await page.goto(`/stores/10000000-0000-4000-8000-000000000004/display-areas/new`);
   await page.getByLabel("Display number").fill("1");
-  await page.getByLabel("Code").fill("CB-D01");
+  await page.getByLabel("Global code").fill("CB-TEST-01");
   await page.getByLabel("Name").fill("Buyer-defined feature");
   await page.getByLabel("Description").fill("Human-defined promotional location.");
   await page.getByLabel("Capacity").fill("To be verified");
@@ -645,6 +680,7 @@ test("creates and edits a DisplayArea while protecting referenced areas", async 
   await page.getByRole("link", { name: "Edit Display Area" }).click();
   await page.getByLabel("Name").fill("Verified buyer feature");
   await page.getByLabel("Verification").selectOption("verified");
+  await page.getByLabel("Source reference").fill("Buyer verification test");
   await page.getByRole("button", { name: "Save display area" }).click();
   await expect(page.getByRole("heading", { name: "Verified buyer feature" })).toBeVisible();
 
@@ -654,28 +690,28 @@ test("creates and edits a DisplayArea while protecting referenced areas", async 
 });
 
 test("supports direct floorplan selection and linked destinations", async ({ page }) => {
-  await page.goto(`${crownIsleFloorplan}?area=${endcapAId}`);
-  await expect(page.getByRole("heading", { name: "Endcap A" })).toBeVisible();
-  await expect(page.getByLabel(/Endcap A, Selected/)).toHaveAttribute("aria-pressed", "true");
+  await page.goto(`${crownIsleFloorplan}?area=${crownW1Id}`);
+  await expect(page.getByRole("heading", { name: "Wine Large Display zone 1" })).toBeVisible();
+  await expect(page.getByLabel(/W1, Wine Large Display zone 1, Selected/)).toHaveAttribute("aria-pressed", "true");
 
   await page.getByRole("link", { name: "Persistent Display Area Profile" }).click();
-  await expect(page.getByRole("heading", { name: "Crown Isle / Endcap A" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Crown Isle / Wine Large Display zone 1" })).toBeVisible();
 
-  await page.goto(`${crownIsleFloorplan}?area=${endcapAId}`);
+  await page.goto(`${crownIsleFloorplan}?area=${crownW1Id}`);
   await page.getByRole("main").getByRole("link", { name: /Store workspace/ }).click();
   await expect(page.getByRole("heading", { name: "Crown Isle merchandising workspace" })).toBeVisible();
 });
 
 test("selects a floorplan display area with the keyboard", async ({ page }) => {
   await page.goto(crownIsleFloorplan);
-  const area = page.getByLabel("Crown Isle merchandising floorplan").getByRole("button", { name: /Cooler Doors 1-4/ });
+  const area = page.getByLabel("Crown Isle merchandising floorplan").getByRole("button", { name: /W1, Wine Large Display zone 1/ });
 
   await area.focus();
   await expect(area).toBeFocused();
   await area.press("Enter");
 
-  await expect(page).toHaveURL(/\?area=40000000-0000-4000-8000-000000000003$/);
-  await expect(page.getByRole("heading", { name: "Cooler Doors 1-4" })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`\\?area=${crownW1Id}$`));
+  await expect(page.getByRole("heading", { name: "Wine Large Display zone 1" })).toBeVisible();
 });
 
 test("keeps the floorplan within the viewport at desktop widths", async ({ page }, testInfo) => {
@@ -692,8 +728,8 @@ test("navigates the Crown Isle merchandising workflow", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Merchandising Dashboard" })).toBeVisible();
   await page.getByRole("link", { name: "Displays" }).click();
   await expect(page.getByLabel("Crown Isle merchandising floorplan")).toBeVisible();
-  await page.getByRole("button", { name: /Endcap A/ }).click();
-  await expect(page.getByRole("heading", { name: "Endcap A" })).toBeVisible();
+  await page.getByRole("button", { name: /W1, Wine Large Display zone 1/ }).click();
+  await expect(page.getByRole("heading", { name: "Wine Large Display zone 1" })).toBeVisible();
   await page.getByRole("main").getByRole("link", { name: "Store workspace" }).click();
   await page.getByRole("link", { name: "Open task" }).first().click();
   await expect(page.getByRole("heading", { name: "September Beer Feature" })).toBeVisible();

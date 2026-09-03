@@ -14,5 +14,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     exclude: ["tests/e2e/**", "node_modules/**"],
+    // The generated source-backed seed is shared by many suites. A single worker
+    // avoids repeatedly parsing it and keeps Windows CI memory usage predictable.
+    fileParallelism: false,
+    isolate: false,
   },
 });

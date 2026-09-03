@@ -38,6 +38,11 @@ function cloneSeed(): PlatformSnapshot {
 
 function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
   const defaults = cloneSeed();
+  const storedDisplayAreas = snapshot.displayAreas ?? [];
+  const mergedDisplayAreas = [
+    ...storedDisplayAreas,
+    ...defaults.displayAreas.filter((seeded) => !storedDisplayAreas.some((area) => area.id === seeded.id)),
+  ];
   const products: Product[] = (snapshot.products ?? defaults.products).map((product) => ({
     ...product,
     masterStatus: product.masterStatus ?? "verified",
@@ -79,16 +84,18 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     storeLayouts: snapshot.storeLayouts ?? defaults.storeLayouts,
     categorySpaces: snapshot.categorySpaces ?? defaults.categorySpaces,
     categorySpaceSections: snapshot.categorySpaceSections ?? defaults.categorySpaceSections,
-    displayAreas: snapshot.displayAreas.map((area) => {
+    displayClassDefinitions: snapshot.displayClassDefinitions ?? defaults.displayClassDefinitions,
+    displayAreas: mergedDisplayAreas.map((area) => {
       const seededArea = defaults.displayAreas.find((candidate) => candidate.id === area.id);
       return {
         ...area,
         displayNumber: area.displayNumber ?? seededArea?.displayNumber ?? area.name,
         code: area.code ?? seededArea?.code ?? area.id,
-        active: area.active ?? true,
+        active: seededArea?.active === false && seededArea.verificationStatus === "unverified" ? false : area.active ?? true,
         verificationStatus: area.verificationStatus ?? "unverified",
       };
     }),
+    displayAreaSections: snapshot.displayAreaSections ?? defaults.displayAreaSections,
     programs: snapshot.programs ?? defaults.programs,
     programPeriods: snapshot.programPeriods ?? defaults.programPeriods,
     programStores: snapshot.programStores ?? defaults.programStores,
@@ -463,7 +470,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const created = storeIds.map((storeId) => {
       const existing = this.state.campaignDisplayAssignments.find((item) => item.campaignDisplayId === display.id && item.storeId === storeId);
       if (existing) return existing;
-      const candidates = this.state.displayAreas.filter((area) => area.storeId === storeId).map((area) => ({ area, result: campaignDisplayAreaCompatibility(display, area, this.state) }));
+      const candidates = this.state.displayAreas.filter((area) => area.storeId === storeId && area.active).map((area) => ({ area, result: campaignDisplayAreaCompatibility(display, area, this.state) }));
       const recommendation = candidates.find((item) => item.result.status === "recommended") ?? candidates.find((item) => item.result.status === "compatible");
       const assignment = { id: crypto.randomUUID(), campaignId: campaign.id, campaignDisplayId: display.id, storeId, status: display.placementMode === "STANDARD" && recommendation ? "SUGGESTED" : "UNASSIGNED", placementSource: recommendation ? "AUTO_SUGGESTED" : undefined, compatibility: recommendation?.result.status, suggestionDisplayAreaId: recommendation?.area.id, suggestionReasons: recommendation?.result.reasons, startDate: campaign.startDate, endDate: campaign.endDate, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as const;
       this.state.campaignDisplayAssignments.push(assignment);
@@ -478,9 +485,9 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const assignment = this.state.campaignDisplayAssignments.find((item) => item.id === input.campaignDisplayAssignmentId);
     if (!assignment) throw new Error("Campaign display allocation was not found.");
     if (input.displayAreaId) {
-      const area = this.state.displayAreas.find((item) => item.id === input.displayAreaId && item.storeId === assignment.storeId);
+      const area = this.state.displayAreas.find((item) => item.id === input.displayAreaId && item.storeId === assignment.storeId && item.active);
       const display = this.state.campaignDisplays.find((item) => item.id === assignment.campaignDisplayId)!;
-      if (!area) throw new Error("Display area does not belong to this store.");
+      if (!area) throw new Error("Choose an active display area that belongs to this store.");
       const compatibility = campaignDisplayAreaCompatibility(display, area, this.state);
       if (compatibility.status === "incompatible") throw new Error(compatibility.reasons.join(" "));
       assignment.displayAreaId = area.id; assignment.compatibility = compatibility.status;

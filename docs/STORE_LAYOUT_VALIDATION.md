@@ -21,20 +21,20 @@ Geometry source: the supplied 2026 floorplan PDFs. Allandale uses `Allandale Flo
 
 ## Per-store results
 
-| Store | Asset | CategorySpace | Mapped | Sections | With shelves | With facings | With doors | Unresolved | DisplayAreas | Unverified | Status |
+| Store | Asset | CategorySpace | Mapped | Sections | With shelves | With facings | With doors | Unresolved | Verified DisplayAreas | Inactive legacy | Status |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Allandale | `allandale.png` | 73 | 40 | 26 | 36 | 33 | 13 | 49 | 0 | 0 | Current; representative browser check passed |
-| Caddy Bay | `caddy-bay.png` | 66 | 30 | 40 | 34 | 31 | 13 | 47 | 0 | 0 | Current; representative browser check passed |
-| Crown Isle | `crown-isle.png` | 21 | 21 | 2 | 19 | 14 | 7 | 0 | 4 | 4 | Existing reference preserved |
-| Eagle Creek | `eagle-creek.png` | 107 | 59 | 39 | 51 | 40 | 15 | 82 | 3 | 3 | Current |
-| Hatley Park | `hatley-park.png` | 82 | 40 | 41 | 43 | 41 | 16 | 59 | 0 | 0 | Current; cooler conflict requires review |
-| Langford | `langford.png` | 85 | 47 | 41 | 46 | 43 | 16 | 53 | 0 | 0 | Current |
-| Nanoose | `nanoose.png` | 93 | 52 | 16 | 41 | 35 | 14 | 77 | 0 | 0 | Current; 0.5-door total difference retained |
-| Parksville | `parksville.png` | 71 | 39 | 21 | 44 | 38 | 14 | 42 | 0 | 0 | Current |
-| Port Alberni | `port-alberni.png` | 60 | 36 | 11 | 35 | 31 | 12 | 35 | 0 | 0 | Current; open-cooler layout browser-checked |
-| Quadra | `quadra.png` | 98 | 54 | 37 | 43 | 37 | 16 | 75 | 0 | 0 | Current; Cellar layout browser-checked |
-| Royal Bay | `royal-bay.png` | 70 | 37 | 18 | 40 | 40 | 14 | 45 | 0 | 0 | Current; substantial cooler allocation browser-checked |
-| Uptown | `uptown.png` | 84 | 30 | 26 | 47 | 42 | 15 | 69 | 0 | 0 | Current; angled footprint browser-checked |
+| Allandale | `allandale.png` | 73 | 40 | 26 | 36 | 33 | 13 | 49 | 13 | 0 | Current; representative browser check passed |
+| Caddy Bay | `caddy-bay.png` | 66 | 30 | 40 | 34 | 31 | 13 | 47 | 12 | 0 | Current; representative browser check passed |
+| Crown Isle | `crown-isle.png` | 21 | 21 | 2 | 19 | 14 | 7 | 0 | 31 | 4 | Verified display map loaded; historical synthetic IDs preserved inactive |
+| Eagle Creek | `eagle-creek.png` | 107 | 59 | 39 | 51 | 40 | 15 | 82 | 31 | 3 | Verified display map loaded; historical synthetic IDs preserved inactive |
+| Hatley Park | `hatley-park.png` | 82 | 40 | 41 | 43 | 41 | 16 | 59 | 16 | 0 | Current; cooler conflict requires review |
+| Langford | `langford.png` | 85 | 47 | 41 | 46 | 43 | 16 | 53 | 31 | 0 | Current |
+| Nanoose | `nanoose.png` | 93 | 52 | 16 | 41 | 35 | 14 | 77 | 21 | 0 | Current; 0.5-door total difference retained |
+| Parksville | `parksville.png` | 71 | 39 | 21 | 44 | 38 | 14 | 42 | 15 | 0 | Current; W5 uses an additional display section |
+| Port Alberni | `port-alberni.png` | 60 | 36 | 11 | 35 | 31 | 12 | 35 | 10 | 0 | Current; open-cooler layout browser-checked |
+| Quadra | `quadra.png` | 98 | 54 | 37 | 43 | 37 | 16 | 75 | 22 | 0 | Current; Cellar layout browser-checked |
+| Royal Bay | `royal-bay.png` | 70 | 37 | 18 | 40 | 40 | 14 | 45 | 18 | 0 | Current; M3 uses an additional display section |
+| Uptown | `uptown.png` | 84 | 30 | 26 | 47 | 42 | 15 | 69 | 27 | 0 | Current; angled footprint browser-checked |
 
 ## Detailed workbook versus cooler summary
 

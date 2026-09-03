@@ -45,9 +45,11 @@ The display-product pool supports category, campaign role, requirement, brand, p
 
 Category spaces support optional normalized geometry, fixture type, shelf dimensions, shelf count, maximum facings, fractional cooler-door equivalents, source notes, and lightweight irregular sections. Capacity records come from the detailed June 2026 planogram workbook. Exact embedded PDF labels provide the initial geometry; ambiguous one-to-many label matches remain unmapped. Cooler-summary classifications are retained as separate records and never overwrite detailed allocations. Users can edit category metadata in a form. A current layout can be duplicated into a draft and later made current; the prior current version becomes archived and remains readable.
 
-Display areas remain an independent promotional layer. Existing synthetic assumptions default to `unverified`; verification is a human decision. The floorplan links to form-based DisplayArea creation and editing for number, code, name, type, description, capacity, category compatibility, flexibility, normalized geometry, active state, and verification state. Deactivation is safe for referenced areas. Permanent deletion is allowed only when no campaign, assignment, performance, history, or recommendation dependency exists.
+Display areas remain an independent promotional layer. The 12 supplied Word display maps provide 247 active, verified logical `DisplayArea` records. Store-local identifiers (`W*`, `BR*`, and `M*`) are preserved separately from globally unique store-prefixed codes. Named Seasonal and Window locations are supported without fabricated numeric codes. `Master Display Naming.xlsx` supplies 63 shared `DisplayClassDefinition` records; each physical area references that taxonomy where the store mapping is explicit. The legacy abbreviation is descriptive rather than an identifier because medium/mini abbreviations collide.
 
-This foundation does not include OCR ingestion, individual shelves, drag/resize editing, automated reset optimization, or production database migrations. Known source limitations and per-store counts are documented in `docs/STORE_LAYOUT_VALIDATION.md`.
+The floorplan links to form-based DisplayArea creation and editing for local/global identity, family, shared class, type, description, capacity, category compatibility, flexibility, normalized geometry, active/verification state, source reference, and notes. Minimal manual creation requires a local code or name, display type, and valid geometry. A record cannot be marked verified without a source reference. Deactivation is the safe path for referenced areas; permanent deletion is allowed only when no campaign, assignment, performance, history, or recommendation dependency exists. Seven earlier synthetic areas remain inactive and unverified so historical IDs continue to resolve. Parksville W5 and Royal Bay M3 use `DisplayAreaSection` for a second source-marked hotspot.
+
+This foundation does not include OCR ingestion, individual shelves, drag/resize editing, automated reset optimization, historical product assignment import, or production database migrations. Known display-map limitations and per-store counts are documented in `docs/DISPLAY_AREA_VALIDATION.md`; category-layout limitations remain in `docs/STORE_LAYOUT_VALIDATION.md`.
 
 ## Phase 1 Campaign Workflow
 
@@ -109,6 +111,7 @@ Run validation:
 
 ```bash
 npm run lint
+npm run typecheck
 npm test
 npm run build
 npm run test:e2e

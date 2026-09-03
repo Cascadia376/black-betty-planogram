@@ -11,6 +11,8 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1600,
+    // Large deterministic floorplan/display seed literals can exhaust the
+    // Windows esbuild minifier. Gzip still compresses the static data well.
+    minify: false,
   },
 });
-

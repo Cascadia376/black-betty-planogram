@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  fullyParallel: true,
+  workers: 4,
   timeout: 60_000,
   expect: {
     timeout: 5_000,
@@ -11,9 +13,9 @@ export default defineConfig({
     trace: "on-first-retry",
     launchOptions: { args: ["--no-proxy-server"] },
   },
-  webServer: {
-    command: "npx vite --host ::",
-    reuseExistingServer: !process.env.CI,
+  webServer: process.env.E2E_EXTERNAL_SERVER ? undefined : {
+    command: "npx vite --host=:: --port=5173 --strictPort",
+    reuseExistingServer: true,
     url: "http://localhost:5173",
   },
   projects: [

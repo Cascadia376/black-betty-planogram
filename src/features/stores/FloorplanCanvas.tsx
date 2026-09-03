@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { clsx } from "clsx";
 import { MapPin } from "lucide-react";
-import type { CategorySpace, DisplayArea, Fixture, Geometry, StoreZone } from "../../domain/types";
+import type { CategorySpace, DisplayArea, DisplayAreaSection, Fixture, Geometry, StoreZone } from "../../domain/types";
 import { humanize } from "../../components/ui";
 
 export type DisplayAreaState = "available" | "active_campaign" | "upcoming_campaign" | "current" | "upcoming_reset" | "requires_attention" | "selected";
@@ -46,6 +46,7 @@ export function FloorplanCanvas({
   zones,
   fixtures,
   areas,
+  displayAreaSections = [],
   categorySpaces = [],
   backgroundImageUrl,
   backgroundAspectRatio,
@@ -61,6 +62,7 @@ export function FloorplanCanvas({
   zones: StoreZone[];
   fixtures: Fixture[];
   areas: DisplayArea[];
+  displayAreaSections?: DisplayAreaSection[];
   categorySpaces?: CategorySpace[];
   backgroundImageUrl?: string;
   backgroundAspectRatio?: number;
@@ -73,6 +75,13 @@ export function FloorplanCanvas({
   onSelectCategorySpace?(categorySpaceId: string): void;
 }) {
   const hasRealBackground = Boolean(backgroundImageUrl);
+  const displayHotspots = areas.flatMap((area) => [
+    { key: area.id, area, geometry: area.geometry, sectionLabel: undefined as string | undefined },
+    ...displayAreaSections
+      .filter((section) => section.displayAreaId === area.id)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((section) => ({ key: section.id, area, geometry: section.geometry, sectionLabel: section.label })),
+  ]);
   return (
     <div
       className="relative w-full overflow-hidden rounded-sm border-4 border-locked bg-surface"
@@ -134,13 +143,13 @@ export function FloorplanCanvas({
         </button>
       ))}
 
-      {showDisplayAreas && areas.map((area) => {
+      {showDisplayAreas && displayHotspots.map(({ key, area, geometry, sectionLabel }) => {
         const state = stateFor(area.id);
         return (
           <button
-            key={area.id}
+            key={key}
             type="button"
-            aria-label={`${area.name}, ${displayAreaStateLabels[state]}, ${humanize(area.type)}`}
+            aria-label={`${area.localCode ?? area.displayNumber}, ${area.name}${sectionLabel ? `, ${sectionLabel}` : ""}, ${displayAreaStateLabels[state]}, ${humanize(area.type)}`}
             aria-pressed={selectedAreaId === area.id}
             title={`${area.name} · ${displayAreaStateLabels[state]}`}
             onClick={() => onSelect(area.id)}
@@ -148,7 +157,7 @@ export function FloorplanCanvas({
               "absolute z-10 grid min-h-7 min-w-7 place-items-center rounded-sm border-2 text-[10px] font-bold shadow-sm transition hover:z-20 hover:scale-110 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus focus-visible:ring-offset-2",
               stateStyles[state],
             )}
-            style={constrainedGeometry(area.geometry, 0.045, 0.055)}
+            style={constrainedGeometry(geometry, 0.045, 0.055)}
           >
             <span className="sr-only">{area.name}</span>
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />

@@ -66,7 +66,7 @@ describe("mock merchandising workflow", () => {
   it("creates, edits, deactivates, and deletes an unreferenced display area", async () => {
     const repository = new MockMerchandisingRepository();
     const created = await repository.createDisplayArea({ area: { displayNumber: "99", code: "CI-TEST-99", storeId: IDS.store, name: "Test display", type: "other", description: "Repository lifecycle test", capacity: "Unknown", flexible: true, geometry: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 }, active: true, verificationStatus: "unverified" } });
-    const edited = await repository.updateDisplayArea({ displayAreaId: created.id, patch: { name: "Edited test display", active: false, verificationStatus: "verified", geometry: { x: 0.2, y: 0.2, width: 0.1, height: 0.1, rotation: 15 } } });
+    const edited = await repository.updateDisplayArea({ displayAreaId: created.id, patch: { name: "Edited test display", active: false, verificationStatus: "verified", sourceReference: "Human verification test", geometry: { x: 0.2, y: 0.2, width: 0.1, height: 0.1, rotation: 15 } } });
     expect(edited).toEqual(expect.objectContaining({ name: "Edited test display", active: false, verificationStatus: "verified" }));
 
     await repository.deleteDisplayArea(created.id);
@@ -151,11 +151,15 @@ describe("mock merchandising workflow", () => {
     const suggestions = await repository.suggestCampaignDisplay({ campaignId: campaign.id, campaignDisplayId: display.id });
     expect(suggestions).toHaveLength(2);
     expect(suggestions.every((item) => item.status === "SUGGESTED")).toBe(true);
-    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: suggestions[0].id, displayAreaId: IDS.endcapB, status: "ASSIGNED" });
-    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: suggestions[1].id, displayAreaId: IDS.eagleEndcapA, status: "ASSIGNED", placementSource: "BUYER_SELECTED" });
+    expect(suggestions.every((item) => {
+      const area = state.displayAreas.find((candidate) => candidate.id === item.suggestionDisplayAreaId);
+      return area?.active && area.verificationStatus === "verified";
+    })).toBe(true);
+    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: suggestions[0].id, displayAreaId: suggestions[0].suggestionDisplayAreaId, status: "ASSIGNED" });
+    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: suggestions[1].id, displayAreaId: suggestions[1].suggestionDisplayAreaId, status: "ASSIGNED", placementSource: "BUYER_SELECTED" });
     const after = await repository.load();
     const assignments = after.campaignDisplayAssignments.filter((item) => item.campaignDisplayId === display.id);
-    expect(assignments.map((item) => item.displayAreaId)).toEqual(expect.arrayContaining([IDS.endcapB, IDS.eagleEndcapA]));
+    expect(assignments.map((item) => item.displayAreaId)).toEqual(expect.arrayContaining(suggestions.map((item) => item.suggestionDisplayAreaId)));
     const product = after.campaignDisplayAssignmentProducts.find((item) => item.campaignDisplayAssignmentId === suggestions[0].id)!;
     await repository.updateCampaignDisplayAssignmentProduct({ campaignDisplayAssignmentProductId: product.id, caseQuantity: 9 });
     expect((await repository.load()).campaignDisplayAssignmentProducts.find((item) => item.id === product.id)).toEqual(expect.objectContaining({ caseQuantity: 9, buyerOverride: true }));
