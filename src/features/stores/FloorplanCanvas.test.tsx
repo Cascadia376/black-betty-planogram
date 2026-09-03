@@ -7,14 +7,18 @@ describe("FloorplanCanvas", () => {
   const spaces = seedSnapshot.categorySpaces.filter((space) => space.layoutId === IDS.crownLayout);
   const areas = seedSnapshot.displayAreas.filter((area) => area.storeId === IDS.store);
 
-  it("renders a real background and independently toggled category/display layers", () => {
+  it("renders independently controlled base, category, display, and placement layers", () => {
     const { rerender } = render(<FloorplanCanvas storeName="Crown Isle" zones={[]} fixtures={[]} areas={areas} categorySpaces={spaces} backgroundImageUrl="/floorplans/crown-isle.png" backgroundAspectRatio={1008 / 612} stateFor={() => "available"} onSelect={() => undefined} onSelectCategorySpace={() => undefined} />);
     expect(screen.getByAltText("Crown Isle store layout background")).toHaveAttribute("src", "/floorplans/crown-isle.png");
     expect(screen.getByRole("button", { name: "Vodka category space" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Endcap A/ })).toBeInTheDocument();
 
-    rerender(<FloorplanCanvas storeName="Crown Isle" zones={[]} fixtures={[]} areas={areas} categorySpaces={spaces} backgroundImageUrl="/floorplans/crown-isle.png" showCategories={false} showDisplayAreas={false} stateFor={() => "available"} onSelect={() => undefined} />);
+    rerender(<FloorplanCanvas storeName="Crown Isle" zones={[]} fixtures={[]} areas={areas} categorySpaces={spaces} backgroundImageUrl="/floorplans/crown-isle.png" showBase={false} showCategories={false} showDisplayAreas stateFor={() => "active_campaign"} showCampaignPlacements={false} onSelect={() => undefined} />);
+    expect(screen.queryByAltText("Crown Isle store layout background")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Vodka category space" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Endcap A.*Available/ })).toBeInTheDocument();
+
+    rerender(<FloorplanCanvas storeName="Crown Isle" zones={[]} fixtures={[]} areas={areas} categorySpaces={spaces} backgroundImageUrl="/floorplans/crown-isle.png" showCategories={false} showDisplayAreas={false} stateFor={() => "active_campaign"} onSelect={() => undefined} />);
     expect(screen.queryByRole("button", { name: /Endcap A/ })).not.toBeInTheDocument();
   });
 

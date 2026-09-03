@@ -50,8 +50,10 @@ export function FloorplanCanvas({
   categorySpaces = [],
   backgroundImageUrl,
   backgroundAspectRatio,
+  showBase = true,
   showCategories = true,
   showDisplayAreas = true,
+  showCampaignPlacements = true,
   selectedAreaId,
   selectedCategorySpaceId,
   stateFor,
@@ -66,8 +68,10 @@ export function FloorplanCanvas({
   categorySpaces?: CategorySpace[];
   backgroundImageUrl?: string;
   backgroundAspectRatio?: number;
+  showBase?: boolean;
   showCategories?: boolean;
   showDisplayAreas?: boolean;
+  showCampaignPlacements?: boolean;
   selectedAreaId?: string;
   selectedCategorySpaceId?: string;
   stateFor(areaId: string): DisplayAreaState;
@@ -88,9 +92,9 @@ export function FloorplanCanvas({
       style={{ aspectRatio: backgroundAspectRatio ?? 4 / 3 }}
       aria-label={`${storeName} merchandising floorplan`}
     >
-      {backgroundImageUrl ? <img src={backgroundImageUrl} alt={`${storeName} store layout background`} className="absolute inset-0 h-full w-full object-contain" /> : <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.22)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.22)_1px,transparent_1px)] bg-[size:4%_4%]" aria-hidden="true" />}
+      {showBase && (backgroundImageUrl ? <img src={backgroundImageUrl} alt={`${storeName} store layout background`} className="absolute inset-0 h-full w-full object-contain" /> : <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.22)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.22)_1px,transparent_1px)] bg-[size:4%_4%]" aria-hidden="true" />)}
 
-      {!hasRealBackground && zones.map((zone) => (
+      {showBase && !hasRealBackground && zones.map((zone) => (
         <div
           key={zone.id}
           className="absolute border border-dashed border-border-strong bg-subtle/50 p-2 text-[10px] font-semibold uppercase leading-4 text-text-muted"
@@ -100,7 +104,7 @@ export function FloorplanCanvas({
         </div>
       ))}
 
-      {!hasRealBackground && contextualLandmarks.map((landmark) => (
+      {showBase && !hasRealBackground && contextualLandmarks.map((landmark) => (
         <div
           key={landmark.label}
           className="absolute grid place-items-center border border-border bg-page-canvas/80 px-1 text-center text-[9px] font-medium leading-3 text-text-muted"
@@ -111,7 +115,7 @@ export function FloorplanCanvas({
         </div>
       ))}
 
-      {!hasRealBackground && fixtures.map((fixture) => (
+      {showBase && !hasRealBackground && fixtures.map((fixture) => (
         <div
           key={fixture.id}
           className="absolute border border-locked/50 bg-locked/15"
@@ -121,7 +125,7 @@ export function FloorplanCanvas({
         />
       ))}
 
-      {!hasRealBackground && <div className="absolute bottom-[1.5%] left-[35%] right-[35%] flex items-end justify-center border-b-4 border-primary pb-1 text-[9px] font-bold uppercase text-primary" aria-hidden="true">
+      {showBase && !hasRealBackground && <div className="absolute bottom-[1.5%] left-[35%] right-[35%] flex items-end justify-center border-b-4 border-primary pb-1 text-[9px] font-bold uppercase text-primary" aria-hidden="true">
         Entrance / exit
       </div>}
 
@@ -144,7 +148,8 @@ export function FloorplanCanvas({
       ))}
 
       {showDisplayAreas && displayHotspots.map(({ key, area, geometry, sectionLabel }) => {
-        const state = stateFor(area.id);
+        const resolvedState = stateFor(area.id);
+        const state = selectedAreaId === area.id ? "selected" : showCampaignPlacements ? resolvedState : "available";
         return (
           <button
             key={key}

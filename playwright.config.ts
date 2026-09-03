@@ -14,7 +14,7 @@ export default defineConfig({
     launchOptions: { args: ["--no-proxy-server"] },
   },
   webServer: process.env.E2E_EXTERNAL_SERVER ? undefined : {
-    command: "npx vite --host=:: --port=5173 --strictPort",
+    command: "npx vite --host=localhost --port=5173 --strictPort",
     reuseExistingServer: true,
     url: "http://localhost:5173",
   },
