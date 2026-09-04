@@ -133,7 +133,20 @@ test("creates campaign metadata and continues to the Product Master workspace", 
   await expect(page.getByRole("navigation", { name: "Campaign planning steps" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add products" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Upload spreadsheet" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Import known-format spreadsheet" })).toBeEnabled();
+  await expect(page.getByRole("status")).toContainText("Synthetic Phase 1 Campaign created and saved");
+  const campaignUrl = page.url().replace(/\/products$/, "");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Synthetic Phase 1 Campaign" })).toBeVisible();
+  await page.goto("/campaigns");
+  await page.getByRole("link", { name: "Synthetic Phase 1 Campaign", exact: true }).click();
+  await expect(page).toHaveURL(campaignUrl);
+  await page.getByRole("link", { name: "Edit details" }).click();
+  await page.getByLabel("Description").fill("Updated and persisted campaign details");
+  await page.getByRole("button", { name: "Save campaign" }).click();
+  await expect(page.getByRole("status")).toContainText("changes saved");
+  await page.reload();
+  await expect(page.getByText("Updated and persisted campaign details", { exact: true })).toBeVisible();
   await expect(page.getByText("Total products", { exact: true })).toBeVisible();
   await expect(page.getByText("Pending", { exact: true })).toBeVisible();
   await expect(page.getByText("Review required", { exact: true })).toBeVisible();
@@ -243,7 +256,7 @@ test("validates and applies campaign product spreadsheets in the Products workfl
   await page.goto("/campaigns/new");
   await page.getByLabel("Campaign name").fill("Campaign Product Import Test");
   await page.getByRole("button", { name: "Create campaign and continue" }).click();
-  await page.getByRole("button", { name: "Upload spreadsheet" }).click();
+  await page.getByRole("button", { name: "Import known-format spreadsheet" }).click();
   const dialog = page.getByRole("dialog", { name: "Upload campaign products" });
   await dialog.locator('input[type="file"]').setInputFiles({ name: "campaign-products.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(createCascadiaOndWorkbook([[
     "SKU", "Role", "Required", "Notes"], ["MOCK-1001", "Feature", "Yes", "Imported feature"], ["001234", "Core", "No", ""], ["ABC???", "Feature", "Yes", ""]])) as never });
@@ -262,7 +275,7 @@ test("validates and applies campaign product spreadsheets in the Products workfl
   await expect(page.getByRole("row", { name: /MOCK-1001.*Feature/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /001234.*Imported Pending Product.*New.*Needs Product Master Review/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "Upload spreadsheet" }).click();
+  await page.getByRole("button", { name: "Import known-format spreadsheet" }).click();
   const duplicate = page.getByRole("dialog", { name: "Upload campaign products" });
   await duplicate.locator('input[type="file"]').setInputFiles({ name: "campaign-products-duplicate.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(createCascadiaOndWorkbook([[
     "SKU", "Role", "Required", "Notes"], ["MOCK-1001", "Feature", "Yes", ""]])) as never });
@@ -579,6 +592,10 @@ test("loads the Crown Isle floorplan and selects a persistent display area", asy
 
   const canvas = page.getByLabel("Crown Isle merchandising floorplan");
   await expect(canvas).toBeVisible();
+  await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Base floorplan" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Campaign placements" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Category layout" }).click();
   await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(21);
   await expect(canvas.getByRole("button", { name: /, Available,/ })).toHaveCount(31);
   await expect(canvas.getByRole("button", { name: /W1, Wine Large Display zone 1, Available/ })).toBeVisible();
@@ -598,8 +615,6 @@ test("toggles, selects, and edits a regular Crown Isle category space", async ({
   const canvas = page.getByLabel("Crown Isle merchandising floorplan");
   const categoryToggle = page.getByRole("button", { name: "Category layout" });
 
-  await categoryToggle.click();
-  await expect(canvas.getByRole("button", { name: "Vodka category space" })).toHaveCount(0);
   await categoryToggle.click();
   await canvas.getByRole("button", { name: "Vodka category space" }).click();
   await expect(page.getByRole("heading", { name: "Vodka" })).toBeVisible();
@@ -625,6 +640,7 @@ test("renders representative imported store layouts with category overlays", asy
     const canvas = page.getByLabel(`${name} merchandising floorplan`);
     await expect(canvas).toBeVisible();
     await expect(canvas.getByAltText(`${name} store layout background`)).toHaveAttribute("src", `/floorplans/${asset}`);
+    await page.getByRole("button", { name: "Category layout" }).click();
     await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(mapped);
     await expect(page.getByText(`${mapped} mapped · ${total} source-backed category spaces · ${displayCount} display areas`)).toBeVisible();
     await expect(canvas.getByRole("button", { name: /W1,/ })).toBeVisible();

@@ -1,6 +1,6 @@
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  ApplyCampaignDisplayQuantityInput, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput,
+  ApplyCampaignDisplayQuantityInput, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -268,9 +268,31 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     if (errors.length) throw new Error(errors.join(" "));
     const id = crypto.randomUUID();
     const products = input.products.map((product) => ({ ...product, campaignId: id }));
-    this.state.campaigns.unshift({ ...input, products, requirement: input.requirement ?? structuredClone(defaultDisplayRequirement), id, status: "draft" });
-    this.persist();
+    const campaign = { ...input, products, requirement: input.requirement ?? structuredClone(defaultDisplayRequirement), id, status: "draft" as const };
+    this.state.campaigns.unshift(campaign);
+    try {
+      this.persist();
+    } catch (cause) {
+      this.state.campaigns = this.state.campaigns.filter((item) => item.id !== id);
+      throw new Error("Campaign storage failed.", { cause });
+    }
     return id;
+  }
+
+  async updateCampaign(input: UpdateCampaignInput) {
+    const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
+    if (!campaign) throw new Error("Campaign was not found.");
+    const errors = validateCampaignDetails(input.patch);
+    if (errors.length) throw new Error(errors.join(" "));
+    const previous = structuredClone(campaign);
+    Object.assign(campaign, input.patch, { name: input.patch.name.trim(), owner: input.patch.owner.trim() });
+    try {
+      this.persist();
+    } catch (cause) {
+      Object.assign(campaign, previous);
+      throw new Error("Campaign storage failed.", { cause });
+    }
+    return structuredClone(campaign);
   }
 
   async addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]> {
@@ -435,6 +457,17 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       });
     }
     Object.assign(product, input.patch);
+    if (Object.hasOwn(input.patch, "minimumQuantity")) {
+      this.state.campaignDisplayAssignmentProducts
+        .filter((item) => item.campaignDisplayProductId === product.id)
+        .forEach((item) => {
+          item.recommendedCases = product.minimumQuantity;
+          if (!item.buyerOverride) {
+            item.caseQuantity = product.minimumQuantity;
+            item.quantitySource = product.minimumQuantity === undefined ? undefined : "RECOMMENDED";
+          }
+        });
+    }
     this.persist();
     return structuredClone(product);
   }
@@ -503,15 +536,27 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const product = this.state.campaignDisplayAssignmentProducts.find((item) => item.id === input.campaignDisplayAssignmentProductId);
     if (!product) throw new Error("Allocation product was not found.");
     if (input.caseQuantity !== undefined && (!Number.isInteger(input.caseQuantity) || input.caseQuantity < 0)) throw new Error("Quantity must be a non-negative whole number.");
-    Object.assign(product, input, { id: product.id, campaignDisplayAssignmentProductId: undefined, buyerOverride: input.caseQuantity !== undefined && input.caseQuantity !== product.recommendedCases, quantitySource: input.caseQuantity !== undefined ? "BUYER_OVERRIDE" : product.quantitySource });
-    delete (product as { campaignDisplayAssignmentProductId?: string }).campaignDisplayAssignmentProductId;
+    if (input.resetToDefault) {
+      product.caseQuantity = product.recommendedCases;
+      product.buyerOverride = false;
+      product.quantitySource = product.recommendedCases === undefined ? undefined : "RECOMMENDED";
+    } else if (input.caseQuantity !== undefined) {
+      product.caseQuantity = input.caseQuantity;
+      product.buyerOverride = input.caseQuantity !== product.recommendedCases;
+      product.quantitySource = product.buyerOverride ? "BUYER_OVERRIDE" : "RECOMMENDED";
+    }
+    if (input.note !== undefined) product.note = input.note;
     this.persist(); return structuredClone(product);
   }
 
   async applyCampaignDisplayQuantity(input: ApplyCampaignDisplayQuantityInput): Promise<void> {
+    if (!Number.isInteger(input.caseQuantity) || input.caseQuantity < 0) throw new Error("Campaign default quantity must be a non-negative whole number.");
+    const displayProduct = this.state.campaignDisplayProducts.find((item) => item.id === input.campaignDisplayProductId && item.campaignDisplayId === input.campaignDisplayId);
+    if (!displayProduct) throw new Error("Campaign display product was not found.");
+    displayProduct.minimumQuantity = input.caseQuantity;
     this.state.campaignDisplayAssignments.filter((item) => item.campaignDisplayId === input.campaignDisplayId).forEach((assignment) => {
       const product = this.state.campaignDisplayAssignmentProducts.find((item) => item.campaignDisplayAssignmentId === assignment.id && item.campaignDisplayProductId === input.campaignDisplayProductId);
-      if (product) { product.caseQuantity = input.caseQuantity; product.buyerOverride = true; product.quantitySource = "BUYER_OVERRIDE"; }
+      if (product) { product.recommendedCases = input.caseQuantity; product.caseQuantity = input.caseQuantity; product.buyerOverride = false; product.quantitySource = "RECOMMENDED"; }
     });
     this.persist();
   }

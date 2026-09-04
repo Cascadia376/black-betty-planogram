@@ -10,7 +10,7 @@ export function campaignDisplayAreaCompatibility(display: CampaignDisplay, area:
   if (!area.active) return { status: "incompatible", reasons: ["This physical display area is inactive."] };
   const typeMatch = display.displayType === area.type || (display.displayType === "feature_display" && area.type === "feature_table");
   if (!typeMatch && !area.flexible) return { status: "incompatible", reasons: ["Display type is not compatible with this physical area."] };
-  reasons.push(typeMatch ? "Compatible display type." : "Flexible fixture can support this display type.");
+  reasons.push(typeMatch ? "Compatible display type." : "This display area can support an alternate display type.");
   const campaignLanguage = `${display.name} ${display.description ?? ""}`.toLocaleLowerCase();
   const preferredFamily = campaignLanguage.includes("wine") ? "WINE" : /beer|rtd|cider/.test(campaignLanguage) ? "BEER_RTD" : campaignLanguage.includes("multi") ? "MULTI" : undefined;
   if (preferredFamily && area.displayFamily === preferredFamily) reasons.push(`Recommended because this is a ${preferredFamily === "BEER_RTD" ? "Beer/RTD" : preferredFamily === "MULTI" ? "Multi" : "Wine"} display family.`);

@@ -29,11 +29,11 @@ export function App() {
     <Route index element={<DashboardPage />} />
     <Route path="campaigns" element={<CampaignsPage />} />
     <Route path="campaigns/new" element={<CampaignBuilderPage />} />
+    <Route path="campaigns/:campaignId/edit" element={<CampaignBuilderPage />} />
     <Route path="campaigns/:campaignId" element={<CampaignOverviewPage />} />
     <Route path="campaigns/:campaignId/products" element={<CampaignProductsPage />} />
     <Route path="campaigns/:campaignId/display" element={<CampaignDisplaysPage />} />
     <Route path="campaigns/:campaignId/assign" element={<CampaignStoreAllocationPage />} />
-    <Route path="campaigns/:campaignId/review" element={<CampaignReviewPage />} />
     <Route path="campaigns/:campaignId/review" element={<CampaignReviewPage />} />
     <Route path="programs/:programId" element={<ProgramWorkspacePage />} />
     <Route path="programs/:programId/allocations" element={<AllocationPlannerPage />} />

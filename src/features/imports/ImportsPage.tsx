@@ -50,11 +50,11 @@ export function ImportsPage() {
           <div>
             <div className="flex items-start justify-between gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-subtle text-text-secondary"><Megaphone className="h-5 w-5" /></span>
-              <Badge tone="warning">Planned</Badge>
+              <Badge tone="warning">Coming soon</Badge>
             </div>
             <h2 className="mt-4 text-lg font-semibold">Monthly flyer spreadsheet</h2>
             <p className="mt-2 text-sm leading-5 text-text-secondary">
-              A monthly flyer spreadsheet adapter has not been implemented yet. For today&apos;s prototype, create or review monthly flyer campaigns manually.
+              Spreadsheet import is not available for monthly flyers in this prototype. Create or review monthly flyer campaigns manually.
             </p>
             <div className="mt-4 rounded-md border border-warning/20 bg-warning-subtle p-3 text-sm leading-5 text-warning">
               No arbitrary spreadsheet import is enabled. This prevents ambiguous product, date, and display assumptions from being written silently.

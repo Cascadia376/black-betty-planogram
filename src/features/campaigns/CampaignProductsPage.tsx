@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Button, DataState, EmptyState, PageHeader, formatDate } from "../../components/ui";
 import { usePlatform } from "../../services/PlatformProvider";
 import { CampaignWorkflowStepper, campaignProductReadiness } from "./campaignWorkflow";
@@ -8,6 +8,7 @@ import { ProductIntakeWorkspace } from "./ProductIntakeWorkspace";
 
 export function CampaignProductsPage() {
   const { campaignId } = useParams();
+  const location = useLocation();
   const platform = usePlatform();
   const { data, loading, error, searchProducts, createPendingProduct, addCampaignProducts, applyCampaignProductImport, updateCampaignProduct, removeCampaignProduct } = platform;
   const campaign = data?.campaigns.find((item) => item.id === campaignId);
@@ -30,6 +31,7 @@ export function CampaignProductsPage() {
   return <DataState loading={loading} error={error}>{!campaign || !data ? <EmptyState title="Campaign not found" message="Unable to open this campaign product workspace." /> : <CampaignProductsContent>
     {(() => {
       const readiness = campaignProductReadiness(campaign, data);
+      const createdName = (location.state as { createdCampaignName?: string } | null)?.createdCampaignName;
       return <>
         <PageHeader
           eyebrow="Products"
@@ -40,6 +42,7 @@ export function CampaignProductsPage() {
             : <Button type="button" disabled>Continue to Displays<ArrowRight className="h-4 w-4" /></Button>}
         />
         <CampaignWorkflowStepper campaign={campaign} data={data} current="products" />
+        {createdName && <div role="status" aria-live="polite" className="rounded-md border border-success/30 bg-success-subtle p-4 text-sm font-semibold text-success">{createdName} created and saved. Continue by adding products, or return to the campaign overview at any time.</div>}
         {readiness.total === 0 && <div role="status" className="rounded-md border border-border bg-subtle/50 p-3 text-sm text-text-secondary">Add at least one campaign product before continuing to Displays.</div>}
         {readiness.needsReview > 0 && <div role="status" className="rounded-md border border-warning/30 bg-warning-subtle p-3 text-sm text-text-secondary">{readiness.needsReview} product{readiness.needsReview === 1 ? "" : "s"} need review. Pending or inactive products may continue into display planning, but they remain flagged for follow-up.</div>}
         {mutationError && <div role="alert" className="rounded-md border border-error/30 bg-error-subtle p-3 text-sm text-error">{mutationError}</div>}

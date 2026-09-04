@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateDisplayAssignmentInput } from "../../domain/repositories";
 import type { PlatformSnapshot } from "../../domain/types";
 import { MockMerchandisingRepository } from "./MockMerchandisingRepository";
@@ -165,6 +165,49 @@ describe("mock merchandising workflow", () => {
     expect((await repository.load()).campaignDisplayAssignmentProducts.find((item) => item.id === product.id)).toEqual(expect.objectContaining({ caseQuantity: 9, buyerOverride: true }));
   });
 
+  it("keeps campaign defaults, inherited quantities, and store adjustments isolated", async () => {
+    const repository = new MockMerchandisingRepository();
+    const campaignId = await repository.createCampaign({
+      name: "Store quantity model", type: "Monthly flyer", description: "", startDate: "2026-10-01",
+      endDate: "2026-10-31", owner: "Test owner", supplier: "", products: [],
+    });
+    const [campaignProduct] = await repository.addCampaignProducts({ campaignId, productIds: [IDS.coastalLagerProduct] });
+    const display = await repository.createCampaignDisplay({ campaignId, display: { name: "Feature", displayType: "feature_display", placementMode: "STANDARD", prescriptive: false } });
+    const [displayProduct] = await repository.assignCampaignProductsToDisplay({ campaignId, campaignDisplayId: display.id, campaignProductIds: [campaignProduct.id] });
+    await repository.updateCampaignDisplayProduct({ campaignDisplayProductId: displayProduct.id, patch: { minimumQuantity: 6 } });
+    const storeIds = (await repository.load()).stores.slice(0, 3).map((store) => store.id);
+    await repository.setCampaignStores({ campaignId, storeIds });
+    const assignments = await repository.suggestCampaignDisplay({ campaignId, campaignDisplayId: display.id });
+
+    let state = await repository.load();
+    let quantities = state.campaignDisplayAssignmentProducts.filter((item) => assignments.some((assignment) => assignment.id === item.campaignDisplayAssignmentId));
+    expect(quantities).toHaveLength(3);
+    expect(quantities.every((item) => item.caseQuantity === 6 && !item.buyerOverride && item.quantitySource === "RECOMMENDED")).toBe(true);
+
+    await repository.updateCampaignDisplayAssignmentProduct({ campaignDisplayAssignmentProductId: quantities[0].id, caseQuantity: 9 });
+    await repository.updateCampaignDisplayAssignmentProduct({ campaignDisplayAssignmentProductId: quantities[1].id, caseQuantity: 10 });
+    await repository.updateCampaignDisplayProduct({ campaignDisplayProductId: displayProduct.id, patch: { minimumQuantity: 7 } });
+    state = await repository.load();
+    quantities = state.campaignDisplayAssignmentProducts.filter((item) => assignments.some((assignment) => assignment.id === item.campaignDisplayAssignmentId));
+    expect(quantities.map((item) => [item.caseQuantity, item.recommendedCases, item.buyerOverride])).toEqual([[9, 7, true], [10, 7, true], [7, 7, false]]);
+
+    await repository.updateCampaignDisplayAssignmentProduct({ campaignDisplayAssignmentProductId: quantities[0].id, resetToDefault: true });
+    state = await repository.load();
+    expect(state.campaignDisplayAssignmentProducts.find((item) => item.id === quantities[0].id)).toEqual(expect.objectContaining({ caseQuantity: 7, recommendedCases: 7, buyerOverride: false, quantitySource: "RECOMMENDED" }));
+    expect(state.campaignDisplayAssignmentProducts.find((item) => item.id === quantities[1].id)).toEqual(expect.objectContaining({ caseQuantity: 10, buyerOverride: true }));
+
+    await repository.applyCampaignDisplayQuantity({ campaignDisplayId: display.id, campaignDisplayProductId: displayProduct.id, caseQuantity: 8 });
+    const reloaded = await new MockMerchandisingRepository().load();
+    quantities = reloaded.campaignDisplayAssignmentProducts.filter((item) => assignments.some((assignment) => assignment.id === item.campaignDisplayAssignmentId));
+    expect(quantities.every((item) => item.caseQuantity === 8 && item.recommendedCases === 8 && !item.buyerOverride)).toBe(true);
+
+    const allStoreIds = reloaded.stores.map((store) => store.id);
+    await repository.setCampaignStores({ campaignId, storeIds: allStoreIds });
+    await repository.setCampaignStores({ campaignId, storeIds: allStoreIds.slice(1) });
+    const selected = (await repository.load()).campaignStores.filter((item) => item.campaignId === campaignId && item.included).map((item) => item.storeId);
+    expect(selected).toEqual(allStoreIds.slice(1));
+  });
+
   it("creates a campaign, assignment, execution, and compliance review", async () => {
     const repository = new MockMerchandisingRepository();
     const source = seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!;
@@ -193,6 +236,26 @@ describe("mock merchandising workflow", () => {
     const campaign = (await repository.load()).campaigns.find((item) => item.id === campaignId);
     expect(campaign).toEqual(expect.objectContaining({ type: "OND", products: [], status: "draft" }));
     expect(campaign?.requirement).toEqual(expect.objectContaining({ displayType: "flex", prescriptive: false }));
+  });
+
+  it("persists campaign creation and edits across repository instances", async () => {
+    const repository = new MockMerchandisingRepository();
+    const campaignId = await repository.createCampaign({
+      name: "October Flyer", type: "Monthly flyer", description: "Initial plan", startDate: "2026-10-01",
+      endDate: "2026-10-31", owner: "Jeremy", supplier: "Local partners", products: [],
+    });
+    await repository.updateCampaign({ campaignId, patch: { name: "October Flyer Updated", type: "Monthly flyer", description: "Approved plan", startDate: "2026-10-02", endDate: "2026-11-01", owner: "Jeremy", supplier: "Local partners" } });
+    const campaign = (await new MockMerchandisingRepository().load()).campaigns.find((item) => item.id === campaignId);
+    expect(campaign).toEqual(expect.objectContaining({ name: "October Flyer Updated", description: "Approved plan", startDate: "2026-10-02", endDate: "2026-11-01", owner: "Jeremy", supplier: "Local partners", status: "draft" }));
+  });
+
+  it("rolls back campaign creation when browser persistence fails", async () => {
+    const repository = new MockMerchandisingRepository();
+    const before = (await repository.load()).campaigns.length;
+    const storage = vi.spyOn(window.localStorage, "setItem").mockImplementationOnce(() => { throw new DOMException("Quota exceeded", "QuotaExceededError"); });
+    await expect(repository.createCampaign({ name: "Unsaved campaign", type: "Monthly flyer", description: "", startDate: "2026-10-01", endDate: "2026-10-31", owner: "Jeremy", supplier: "", products: [] })).rejects.toThrow("storage failed");
+    expect((await repository.load()).campaigns).toHaveLength(before);
+    storage.mockRestore();
   });
 
   it("manages Product Master campaign membership without duplicating product details", async () => {
