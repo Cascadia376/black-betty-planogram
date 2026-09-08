@@ -35,7 +35,7 @@ export function ProductIntakeWorkspace(props: ProductIntakeWorkspaceProps) {
         <p className="mt-1 text-sm text-text-muted">Add existing Product Master records to this campaign.</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Upload spreadsheet</Button>
+        <Button type="button" variant="secondary" onClick={() => setImportOpen(true)} title="Imports the documented SKU, Role, Required, Notes workbook only"><Upload className="h-4 w-4" />Import known-format spreadsheet</Button>
         <Button type="button" variant="secondary" onClick={() => setBulkOpen(true)}><ClipboardList className="h-4 w-4" />Bulk add SKUs</Button>
         <Button type="button" onClick={() => setSearchOpen(true)}><Plus className="h-4 w-4" />Add products</Button>
       </div>

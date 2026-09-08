@@ -1,5 +1,6 @@
 import type {
   BridgeStrategy,
+  Campaign,
   CampaignAssignment,
   CampaignDisplay,
   CampaignDisplayAssignment,
@@ -59,6 +60,11 @@ export interface UpdateCampaignProductInput {
   patch: Pick<CampaignProduct, "role" | "required">;
 }
 
+export interface UpdateCampaignInput {
+  campaignId: UUID;
+  patch: Pick<NewCampaignInput, "name" | "type" | "description" | "startDate" | "endDate" | "owner" | "supplier">;
+}
+
 export interface CreateCampaignDisplayInput {
   campaignId: UUID;
   display: Omit<CampaignDisplay, "id" | "campaignId" | "sortOrder">;
@@ -82,7 +88,7 @@ export interface ReorderCampaignDisplayProductInput {
 export interface SetCampaignStoresInput { campaignId: UUID; storeIds: UUID[]; }
 export interface SuggestCampaignDisplayInput { campaignId: UUID; campaignDisplayId: UUID; storeIds?: UUID[]; }
 export interface UpdateCampaignDisplayAssignmentInput { campaignDisplayAssignmentId: UUID; status?: CampaignDisplayAssignment["status"]; displayAreaId?: UUID; note?: string; placementSource?: CampaignDisplayAssignment["placementSource"]; }
-export interface UpdateCampaignDisplayAssignmentProductInput { campaignDisplayAssignmentProductId: UUID; caseQuantity?: number; note?: string; }
+export interface UpdateCampaignDisplayAssignmentProductInput { campaignDisplayAssignmentProductId: UUID; caseQuantity?: number; note?: string; resetToDefault?: boolean; }
 export interface ApplyCampaignDisplayQuantityInput { campaignDisplayId: UUID; campaignDisplayProductId: UUID; caseQuantity: number; }
 
 export interface AssignCampaignProductsToDisplayInput {
@@ -194,6 +200,7 @@ export interface MerchandisingRepository {
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
+  updateCampaign(input: UpdateCampaignInput): Promise<Campaign>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;

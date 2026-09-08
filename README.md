@@ -8,6 +8,8 @@ It also models regular category homes through versioned `StoreLayout` and `Categ
 
 ## Current Scope
 
+Phase 0 reliability decisions, terminology, deferred controls, and the store quantity state model are documented in [`docs/PHASE_0_STABILIZATION.md`](docs/PHASE_0_STABILIZATION.md).
+
 The MVP supports the broader merchandising workflow:
 
 Plan -> Publish -> Order -> Execute -> Verify -> Measure -> Improve

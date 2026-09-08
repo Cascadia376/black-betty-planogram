@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Badge, Card, DataState, EmptyState, PageHeader, formatDate } from "../../components/ui";
 import type { Campaign, PlatformSnapshot } from "../../domain/types";
 import { productMasterStatusLabel, resolveCampaignProduct } from "../../domain/productMaster";
@@ -8,9 +8,11 @@ import { CampaignWorkflowStepper, campaignDisplayReadiness, campaignProductReadi
 
 export function CampaignOverviewPage() {
   const { campaignId } = useParams();
+  const location = useLocation();
   const { data, loading, error, role } = usePlatform();
   const campaign = data?.campaigns.find((item) => item.id === campaignId);
   const canEdit = role === "admin" || role === "merchandising";
+  const updatedName = (location.state as { updatedCampaignName?: string } | null)?.updatedCampaignName;
 
   return <DataState loading={loading} error={error}>{!campaign || !data ? <EmptyState title="Campaign not found" message="The requested campaign does not exist in this data adapter." /> : <div className="space-y-5">
     <PageHeader
@@ -18,11 +20,13 @@ export function CampaignOverviewPage() {
       title={campaign.name}
       description={campaign.description || `${formatDate(campaign.startDate)} to ${formatDate(campaign.endDate)}`}
       actions={canEdit && <div className="flex flex-wrap gap-2">
+        <WorkflowLink to={`/campaigns/${campaign.id}/edit`}>Edit details</WorkflowLink>
         <WorkflowLink to={`/campaigns/${campaign.id}/products`}>Products</WorkflowLink>
         <WorkflowLink to={`/campaigns/${campaign.id}/display`}>Build displays</WorkflowLink>
         <WorkflowLink to={`/campaigns/${campaign.id}/assign`}>Assign stores</WorkflowLink>
       </div>}
     />
+    {updatedName && <div role="status" aria-live="polite" className="rounded-md border border-success/30 bg-success-subtle p-4 text-sm font-semibold text-success">{updatedName} changes saved.</div>}
     <CampaignWorkflowStepper campaign={campaign} data={data} current="campaign" />
     <CampaignSummary campaign={campaign} data={data} />
     <CampaignAssortment campaign={campaign} data={data} />

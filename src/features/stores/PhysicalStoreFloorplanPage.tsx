@@ -22,8 +22,10 @@ export function PhysicalStoreFloorplanPage() {
   const { storeId } = useParams();
   const [params, setParams] = useSearchParams();
   const { data, loading, error, duplicateStoreLayout, setCurrentStoreLayout, updateCategorySpace } = usePlatform();
-  const [showCategories, setShowCategories] = useState(true);
+  const [showBase, setShowBase] = useState(true);
+  const [showCategories, setShowCategories] = useState(false);
   const [showDisplayAreas, setShowDisplayAreas] = useState(true);
+  const [showCampaignPlacements, setShowCampaignPlacements] = useState(true);
   const [editing, setEditing] = useState(false);
   const [mutationError, setMutationError] = useState<string>();
   const [saving, setSaving] = useState(false);
@@ -35,6 +37,7 @@ export function PhysicalStoreFloorplanPage() {
     ?? layouts[0];
   const spaces = data?.categorySpaces.filter((item) => item.layoutId === layout?.id && item.active) ?? [];
   const selectedProgram = data?.programs.find((item) => item.id === params.get("program"));
+  const selectedCampaign = data?.campaigns.find((item) => item.id === params.get("campaign"));
   const programAssignments = data?.displayAssignments.filter((item) => item.programId === selectedProgram?.id && item.storeId === storeId && item.status !== "cancelled") ?? [];
   const areas = data?.displayAreas.filter((item) => item.storeId === storeId && (item.active || programAssignments.some((assignment) => assignment.displayAreaId === item.id))) ?? [];
   const displayAreaSections = data?.displayAreaSections.filter((section) => areas.some((area) => area.id === section.displayAreaId)) ?? [];
@@ -56,6 +59,10 @@ export function PhysicalStoreFloorplanPage() {
   };
 
   const operationalStateFor = (areaId: string): DisplayAreaState => {
+    if (selectedCampaign && data) {
+      const planned = data.campaignDisplayAssignments.filter((assignment) => assignment.campaignId === selectedCampaign.id && assignment.storeId === storeId && assignment.displayAreaId === areaId && assignment.status === "ASSIGNED");
+      if (planned.length > 0) return selectedCampaign.status === "active" ? "active_campaign" : "upcoming_campaign";
+    }
     if (selectedProgram && data) {
       const scheduled = programAssignments.filter((assignment) => assignment.displayAreaId === areaId);
       if (scheduled.length === 0) return "available";
@@ -146,7 +153,7 @@ export function PhysicalStoreFloorplanPage() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
             <label className="flex items-center gap-2 text-sm font-semibold">
               Layout
-              <select className={inputClass} value={layout.id} onChange={(event) => setParams({ layout: event.target.value })}>
+              <select className={inputClass} value={layout.id} onChange={(event) => setParams((current) => { const next = new URLSearchParams(current); next.set("layout", event.target.value); next.delete("space"); next.delete("area"); return next; })}>
                 {layouts.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.status})</option>)}
               </select>
             </label>
@@ -163,14 +170,16 @@ export function PhysicalStoreFloorplanPage() {
             <Card className="min-w-0 overflow-hidden p-0">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
                 <div><h2 className="text-sm font-semibold">Store layout</h2><p className="mt-1 text-xs text-text-muted">{spaces.filter((space) => space.geometry).length} mapped · {spaces.length} source-backed category spaces · {areas.length} display areas</p></div>
-                <div className="flex gap-2" aria-label="Floorplan layers">
+                <div className="flex flex-wrap gap-2" aria-label="Floorplan layers">
+                  <button type="button" aria-pressed={showBase} onClick={() => setShowBase((value) => !value)} className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${showBase ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface"}`}><Layers3 className="h-4 w-4" />Base floorplan</button>
                   <button type="button" aria-pressed={showCategories} onClick={() => setShowCategories((value) => !value)} className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${showCategories ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface"}`}><Layers3 className="h-4 w-4" />Category layout</button>
                   <button type="button" aria-pressed={showDisplayAreas} onClick={() => setShowDisplayAreas((value) => !value)} className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${showDisplayAreas ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface"}`}><MapPin className="h-4 w-4" />Display areas</button>
+                  <button type="button" aria-pressed={showCampaignPlacements} onClick={() => setShowCampaignPlacements((value) => !value)} className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold ${showCampaignPlacements ? "border-primary bg-primary-subtle text-primary" : "border-border bg-surface"}`}><MapPin className="h-4 w-4" />Campaign placements</button>
                 </div>
               </div>
               <div className="p-4 sm:p-5">
-                <FloorplanCanvas storeName={store.name} zones={zones} fixtures={fixtures} areas={areas} displayAreaSections={displayAreaSections} categorySpaces={spaces} backgroundImageUrl={layout.backgroundImageUrl} backgroundAspectRatio={layout.backgroundAspectRatio} showCategories={showCategories} showDisplayAreas={showDisplayAreas} selectedAreaId={selectedArea?.id} selectedCategorySpaceId={selectedSpace?.id} stateFor={stateFor} onSelect={(id) => updateSelection("area", id)} onSelectCategorySpace={(id) => updateSelection("space", id)} />
-                <p className="mt-3 text-xs text-text-muted">The source floorplan is the visual base. Blue outlines are editable regular category homes; numbered pins remain promotional DisplayAreas.</p>
+                <FloorplanCanvas storeName={store.name} zones={zones} fixtures={fixtures} areas={areas} displayAreaSections={displayAreaSections} categorySpaces={spaces} backgroundImageUrl={layout.backgroundImageUrl} backgroundAspectRatio={layout.backgroundAspectRatio} showBase={showBase} showCategories={showCategories} showDisplayAreas={showDisplayAreas} showCampaignPlacements={showCampaignPlacements} selectedAreaId={selectedArea?.id} selectedCategorySpaceId={selectedSpace?.id} stateFor={stateFor} onSelect={(id) => updateSelection("area", id)} onSelectCategorySpace={(id) => updateSelection("space", id)} />
+                <p className="mt-3 text-xs text-text-muted">Display locations and campaign placements are emphasized by default. Turn on Category layout when regular shelf context is useful.</p>
               </div>
             </Card>
 
