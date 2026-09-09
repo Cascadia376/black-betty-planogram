@@ -87,7 +87,14 @@ export interface ReorderCampaignDisplayProductInput {
 
 export interface SetCampaignStoresInput { campaignId: UUID; storeIds: UUID[]; }
 export interface SuggestCampaignDisplayInput { campaignId: UUID; campaignDisplayId: UUID; storeIds?: UUID[]; }
-export interface UpdateCampaignDisplayAssignmentInput { campaignDisplayAssignmentId: UUID; status?: CampaignDisplayAssignment["status"]; displayAreaId?: UUID; note?: string; placementSource?: CampaignDisplayAssignment["placementSource"]; }
+export interface UpdateCampaignDisplayAssignmentInput {
+  campaignDisplayAssignmentId: UUID;
+  status?: CampaignDisplayAssignment["status"];
+  /** Null explicitly clears the physical placement; undefined leaves it unchanged. */
+  displayAreaId?: UUID | null;
+  note?: string;
+  placementSource?: CampaignDisplayAssignment["placementSource"];
+}
 export interface UpdateCampaignDisplayAssignmentProductInput { campaignDisplayAssignmentProductId: UUID; caseQuantity?: number; note?: string; resetToDefault?: boolean; }
 export interface ApplyCampaignDisplayQuantityInput { campaignDisplayId: UUID; campaignDisplayProductId: UUID; caseQuantity: number; }
 

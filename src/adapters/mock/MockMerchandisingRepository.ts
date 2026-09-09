@@ -517,7 +517,14 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
   async updateCampaignDisplayAssignment(input: UpdateCampaignDisplayAssignmentInput) {
     const assignment = this.state.campaignDisplayAssignments.find((item) => item.id === input.campaignDisplayAssignmentId);
     if (!assignment) throw new Error("Campaign display allocation was not found.");
-    if (input.displayAreaId) {
+    const nextDisplayAreaId = input.displayAreaId === null ? undefined : input.displayAreaId ?? assignment.displayAreaId;
+    if (input.status === "ASSIGNED" && !nextDisplayAreaId) throw new Error("Choose a physical display area before assigning.");
+    if (input.displayAreaId === null) {
+      assignment.displayAreaId = undefined;
+      assignment.compatibility = undefined;
+      assignment.placementSource = undefined;
+      assignment.status = input.status ?? "UNASSIGNED";
+    } else if (input.displayAreaId) {
       const area = this.state.displayAreas.find((item) => item.id === input.displayAreaId && item.storeId === assignment.storeId && item.active);
       const display = this.state.campaignDisplays.find((item) => item.id === assignment.campaignDisplayId)!;
       if (!area) throw new Error("Choose an active display area that belongs to this store.");
@@ -525,9 +532,10 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       if (compatibility.status === "incompatible") throw new Error(compatibility.reasons.join(" "));
       assignment.displayAreaId = area.id; assignment.compatibility = compatibility.status;
     }
-    Object.assign(assignment, input, { id: assignment.id, campaignDisplayAssignmentId: undefined, updatedAt: new Date().toISOString() });
-    delete (assignment as { campaignDisplayAssignmentId?: string }).campaignDisplayAssignmentId;
-    if (input.status === "ASSIGNED" && !assignment.displayAreaId) throw new Error("Choose a physical display area before assigning.");
+    if (input.status) assignment.status = input.status;
+    if (input.note !== undefined) assignment.note = input.note;
+    if (input.placementSource !== undefined && input.displayAreaId !== null) assignment.placementSource = input.placementSource;
+    assignment.updatedAt = new Date().toISOString();
     if (input.status === "ASSIGNED" && !input.placementSource) assignment.placementSource = assignment.displayAreaId === assignment.suggestionDisplayAreaId ? "AUTO_SUGGESTED" : "BUYER_SELECTED";
     this.persist(); return structuredClone(assignment);
   }
