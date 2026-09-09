@@ -44,7 +44,13 @@ export function PhysicalStoreFloorplanPage() {
   const zones = data?.zones.filter((item) => item.storeId === storeId) ?? [];
   const fixtures = data?.fixtures.filter((item) => item.storeId === storeId) ?? [];
   const selectedSpace = spaces.find((item) => item.id === params.get("space"));
-  const selectedArea = areas.find((item) => item.id === params.get("area"));
+  const selectedAssignment = data?.campaignDisplayAssignments.find((item) => (
+    item.id === params.get("assignment")
+    && item.storeId === storeId
+    && item.campaignId === selectedCampaign?.id
+  ));
+  const selectedCampaignDisplay = data?.campaignDisplays.find((item) => item.id === selectedAssignment?.campaignDisplayId);
+  const selectedArea = areas.find((item) => item.id === (params.get("area") ?? selectedAssignment?.displayAreaId));
   const selectedDisplayClass = data?.displayClassDefinitions.find((item) => item.id === selectedArea?.displayClassDefinitionId);
   const sections = data?.categorySpaceSections.filter((item) => item.categorySpaceId === selectedSpace?.id).sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
 
@@ -147,8 +153,26 @@ export function PhysicalStoreFloorplanPage() {
             eyebrow="Physical store layout"
             title={`${store.name} floorplan`}
             description="Regular category homes and persistent campaign display areas share one real floorplan without sharing domain semantics."
-            actions={<><Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/display-areas/new`}>New display area</Link><Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace</Link></>}
+            actions={<>{selectedCampaign && <Link className="inline-flex min-h-9 items-center rounded-md border border-primary bg-surface px-3 text-sm font-semibold text-primary hover:bg-primary-subtle" to={`/campaigns/${selectedCampaign.id}/assign`}>Back to store placements</Link>}<Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/display-areas/new`}>New display area</Link><Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace</Link></>}
           />
+
+          {selectedCampaign && (
+            <Card className="border-primary/30 bg-primary-subtle/40">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase text-primary">Campaign floorplan context</p>
+                  <h2 className="mt-1 font-semibold">{selectedCampaign.name} · {store.name}</h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {selectedCampaignDisplay ? `${selectedCampaignDisplay.name} · ` : ""}
+                    {selectedArea ? `${selectedArea.name} (${selectedArea.localCode ?? selectedArea.displayNumber})` : "No display area selected"}
+                  </p>
+                </div>
+                <Badge tone={selectedAssignment?.status === "ASSIGNED" ? "success" : "warning"}>
+                  {selectedAssignment?.status === "ASSIGNED" ? "Store placement" : "Not placed"}
+                </Badge>
+              </div>
+            </Card>
+          )}
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface p-3">
             <label className="flex items-center gap-2 text-sm font-semibold">

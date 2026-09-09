@@ -208,6 +208,41 @@ describe("mock merchandising workflow", () => {
     expect(selected).toEqual(allStoreIds.slice(1));
   });
 
+  it("rejects cross-store campaign placements, clears one store, and persists the change", async () => {
+    const repository = new MockMerchandisingRepository();
+    const state = await repository.load();
+    const campaign = state.campaigns.find((item) => item.id === IDS.octoberCampaign)!;
+    const display = state.campaignDisplays.find((item) => item.campaignId === campaign.id)!;
+    await repository.setCampaignStores({ campaignId: campaign.id, storeIds: [IDS.store, IDS.eagleStore] });
+    const assignments = await repository.suggestCampaignDisplay({ campaignId: campaign.id, campaignDisplayId: display.id });
+    const crownAssignment = assignments.find((item) => item.storeId === IDS.store)!;
+    const eagleArea = state.displayAreas.find((item) => item.storeId === IDS.eagleStore && item.active)!;
+
+    await expect(repository.updateCampaignDisplayAssignment({
+      campaignDisplayAssignmentId: crownAssignment.id,
+      displayAreaId: eagleArea.id,
+      status: "ASSIGNED",
+    })).rejects.toThrow("belongs to this store");
+
+    await repository.updateCampaignDisplayAssignment({
+      campaignDisplayAssignmentId: crownAssignment.id,
+      displayAreaId: crownAssignment.suggestionDisplayAreaId,
+      status: "ASSIGNED",
+    });
+    await repository.updateCampaignDisplayAssignment({
+      campaignDisplayAssignmentId: crownAssignment.id,
+      displayAreaId: null,
+      status: "UNASSIGNED",
+    });
+
+    const reloaded = await new MockMerchandisingRepository().load();
+    const reloadedAssignment = reloaded.campaignDisplayAssignments.find((item) => item.id === crownAssignment.id);
+    expect(reloadedAssignment).toEqual(expect.objectContaining({ status: "UNASSIGNED" }));
+    expect(reloadedAssignment?.displayAreaId).toBeUndefined();
+    expect(reloadedAssignment?.compatibility).toBeUndefined();
+    expect(reloaded.campaignDisplayAssignments.find((item) => item.storeId === IDS.eagleStore)?.status).toBe("SUGGESTED");
+  });
+
   it("creates a campaign, assignment, execution, and compliance review", async () => {
     const repository = new MockMerchandisingRepository();
     const source = seedSnapshot.campaigns.find((item) => item.id === IDS.beerCampaign)!;

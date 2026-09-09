@@ -32,7 +32,7 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
     { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns"), roles: planningRoles },
     ...(store ? [
       { to: `/stores/${store.id}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas"), roles: undefined },
-      { to: `/stores/${store.id}/workspace`, label: role === "store_manager" ? "My workspace" : "Stores", icon: Building2, matches: (path: string) => (path.startsWith("/stores") && !path.includes("/floorplan") && !path.includes("/orders")) || path.startsWith("/executions"), roles: undefined },
+      { to: role === "store_manager" ? `/stores/${store.id}/workspace` : "/stores", label: role === "store_manager" ? "My workspace" : "Stores", icon: Building2, matches: (path: string) => (path.startsWith("/stores") && !path.includes("/floorplan") && !path.includes("/orders")) || path.startsWith("/executions"), roles: undefined },
       { to: `/stores/${store.id}/orders${program ? `?program=${program.id}` : ""}`, label: "Orders", icon: ShoppingCart, matches: (path: string) => path.includes("/orders"), roles: undefined },
     ] : []),
     ...(execution ? [{ to: `/compliance/${execution.id}`, label: "Compliance", icon: ClipboardCheck, matches: (path: string) => path.startsWith("/compliance"), roles: reviewRoles }] : []),
