@@ -338,7 +338,7 @@ export interface Campaign {
   requirement: DisplayRequirement;
 }
 
-export type CampaignWorkbookKind = "flyer" | "campaign_planning";
+export type CampaignWorkbookKind = "monthly_flyer" | "ond";
 
 export interface CampaignImportStoreAllocation {
   sourceColumn: string;
@@ -377,6 +377,8 @@ export interface CampaignWorkbookImport {
   campaignId: UUID;
   formatId: "flyer-workbook-import-v1";
   workbookKind: CampaignWorkbookKind;
+  /** Workbook hash plus kind and normalized campaign period; used to prevent duplicate Apply. */
+  importKey: string;
   fingerprint: string;
   sourceFileName: string;
   sourceSheet: string;

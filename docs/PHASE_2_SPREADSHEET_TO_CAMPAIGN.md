@@ -34,13 +34,15 @@ The two June 2026 capacity workbooks remain physical-model references only. They
 
 ## Supported workbook contract
 
-`FlyerWorkbookImportV1` has format id `flyer-workbook-import-v1` and detects two known shapes.
+`FlyerWorkbookImportV1` has format id `flyer-workbook-import-v1` and detects two distinct workbook kinds: `monthly_flyer` and `ond`.
 
 ### Flyer product shape
 
 The audited flyer columns are recognized positionally and by known headers. It produces campaign products and promotional metadata but no store allocations or physical placements.
 
 ### Consolidated campaign-planning shape
+
+This is one OND campaign from October 1 through December 31, not three monthly campaigns. `Oct Flyer`, `Nov Flyer`, and `Dec Flyer` remain row-level participation metadata and never filter products out of the OND campaign.
 
 Required leading columns are:
 
@@ -67,11 +69,14 @@ Display | Display Area
 - Accept only non-negative whole case quantities.
 - Recalculate allocation totals from store cells.
 - Retain selling price, sale price, savings, wholesale LTO, TPR code, loyalty multiplier, vendor, size, and notes as import metadata.
-- Giveaway/non-product rows remain visible as information and are excluded from campaign products.
+- Monthly rows are informational only when explicit giveaway/information wording and the absence of product fields support that classification.
+- Blank, `TBD`, compound, duplicate, and unmatched OND SKUs are merchandising rows that remain blocked for review; compound values are never split automatically.
 
 ## Product reconciliation
 
-Exact active Product Master SKU is the only authoritative automatic product match. Product names are supporting evidence only. The production Product Master authority is Supabase; the current prototype uses whichever Product Master snapshot the active repository provides.
+Exact normalized active Product Master SKU is the only authoritative automatic product match. Product names are supporting evidence only. The importer uses a narrow `ProductMasterLookup` boundary: mock data is used only in tests/demo, while configured environments query `ursus_major.public.product` and never fall back to `public.products`.
+
+The live relation uses case-sensitive `sku` as its primary key but contains normalized collisions. A unique trim/uppercase match is therefore required; ambiguous normalized matches are blocked. External SKU-backed products receive a deterministic UUID-shaped Black Betty identity derived from the normalized SKU, preventing duplicate identities across repeated lookups. The browser adapter selects only the required product fields with a publishable/anonymous key under the table's enabled RLS and reviewed public SELECT policy. It never accepts or embeds a service-role credential.
 
 Duplicate, blank, compound, unknown, or inactive SKUs are not silently matched. They remain visible in review and are skipped only after the user explicitly acknowledges the skipped-row count.
 
@@ -128,7 +133,7 @@ After Apply, store placement opens in the store-first, Needs Attention view. Eac
 
 ## Apply and idempotency
 
-Apply creates one draft campaign transactionally:
+Apply creates one draft campaign transactionally. Monthly flyer workbooks produce a `Monthly flyer` campaign for the inferred calendar month; if month/year is not reliable, dates remain blank and Apply is blocked until Jeremy enters them. OND workbooks produce one `OND` campaign spanning October 1 through December 31 of the workbook year.
 
 - campaign products;
 - campaign display concepts;
@@ -138,16 +143,17 @@ Apply creates one draft campaign transactionally:
 - store-specific case quantities;
 - store/SKU case intent independent of physical display placement;
 - normalized provenance metadata;
-- one SHA-256 workbook fingerprint.
+- one SHA-256 workbook fingerprint;
+- a duplicate key containing schema version, hash, workbook kind, and normalized campaign period.
 
-Nothing is published. Any validation or persistence failure restores the prior repository state. Reapplying a fingerprint already recorded in `campaignImports` is rejected.
+Nothing is published. Any validation or persistence failure restores the prior repository state. Reapplying the same monthly workbook/month or OND workbook/season is rejected without forcing OND into a single-month identity.
 
 Raw workbook binaries are never stored in localStorage.
 
 ## Known limitations and deferred work
 
 - The Supabase merchandising repository remains intentionally disabled; Phase 2 does not introduce a database migration.
-- The prototype cannot match real flyer SKUs unless its active repository supplies the authoritative Product Master rows.
+- A configured Supabase URL and browser-safe publishable/anonymous key are required for real Product Master matching. Without them the explicitly mock-backed demo remains mock-only.
 - Current workbooks do not provide UPCs.
 - Product names are not used as authoritative fallbacks.
 - Physical capacity is not automatically calculated from case quantities.

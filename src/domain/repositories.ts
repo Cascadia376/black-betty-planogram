@@ -60,6 +60,7 @@ export interface ApplyCampaignProductImportInput {
 export interface ApplyCampaignWorkbookImportInput {
   formatId: "flyer-workbook-import-v1";
   workbookKind: CampaignWorkbookKind;
+  importKey: string;
   fingerprint: string;
   sourceFileName: string;
   sourceSheet: string;
@@ -67,6 +68,7 @@ export interface ApplyCampaignWorkbookImportInput {
   campaign: Omit<NewCampaignInput, "products">;
   rows: Array<{
     productId: UUID;
+    product: Product;
     role: CampaignProduct["role"];
     required: boolean;
     note?: string;

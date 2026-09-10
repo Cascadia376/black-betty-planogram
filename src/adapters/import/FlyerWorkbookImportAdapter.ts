@@ -11,6 +11,8 @@ import type {
   Store,
 } from "../../domain/types";
 import type { ImportAdapter, ImportIssue } from "../../services/imports/contracts";
+import type { ProductMasterLookup } from "../../services/products/ProductMasterLookup";
+import { normalizeProductSku } from "../../services/products/ProductMasterLookup";
 
 export const FLYER_WORKBOOK_FORMAT_ID = "flyer-workbook-import-v1" as const;
 
@@ -24,7 +26,8 @@ const STORE_ALIASES: Record<string, string> = {
 };
 
 export interface FlyerWorkbookImportContext {
-  snapshot: Pick<PlatformSnapshot, "products" | "stores" | "displayAreas">;
+  snapshot: Pick<PlatformSnapshot, "stores" | "displayAreas">;
+  productMaster: ProductMasterLookup;
 }
 
 export interface FlyerWorkbookReviewRow {
@@ -60,6 +63,7 @@ export interface FlyerWorkbookImportResult {
   sourceSheet: string;
   sheetNames: string[];
   suggestedCampaign: Pick<NewCampaignInput, "name" | "type" | "description" | "startDate" | "endDate" | "owner" | "supplier">;
+  campaignPeriodInferred: boolean;
   rows: FlyerWorkbookReviewRow[];
   placements: FlyerWorkbookPlacementReview[];
   issues: ImportIssue[];
@@ -91,19 +95,23 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
     });
   }
 
-  parseRows(sourceRows: unknown[][], context: FlyerWorkbookImportContext, options: FlyerWorkbookParseOptions): FlyerWorkbookImportResult {
+  async parseRows(sourceRows: unknown[][], context: FlyerWorkbookImportContext, options: FlyerWorkbookParseOptions): Promise<FlyerWorkbookImportResult> {
     const headers = (sourceRows[0] ?? []).map(cellText);
     const workbookKind = detectWorkbookKind(headers);
-    const suggestedCampaign = inferCampaign(options.sourceFileName, workbookKind);
+    const campaignInference = inferCampaign(options.sourceFileName, workbookKind);
+    const suggestedCampaign = campaignInference.campaign;
     if (!workbookKind) {
       const issue = makeIssue(1, "Header", "unsupported_workbook", "This is not a recognized flyer or campaign-planning workbook.", "error");
-      return { formatId: this.formatId, workbookKind: "flyer", fingerprint: options.fingerprint, sourceFileName: options.sourceFileName, sourceSheet: options.sourceSheet, sheetNames: options.sheetNames ?? [options.sourceSheet], suggestedCampaign, rows: [], placements: [], issues: [issue], fatal: true };
+      return { formatId: this.formatId, workbookKind: "monthly_flyer", fingerprint: options.fingerprint, sourceFileName: options.sourceFileName, sourceSheet: options.sourceSheet, sheetNames: options.sheetNames ?? [options.sourceSheet], suggestedCampaign, campaignPeriodInferred: false, rows: [], placements: [], issues: [issue], fatal: true };
     }
 
     const headerIndex = indexHeaders(headers);
-    const indexes = workbookKind === "flyer" ? flyerIndexes(headers, headerIndex) : planningIndexes(headerIndex);
-    const storeColumns = workbookKind === "campaign_planning" ? resolveStoreColumns(headers, context.snapshot.stores) : [];
-    const catalogBySku = new Map(context.snapshot.products.filter((product) => product.active).map((product) => [normalizeSku(product.sku), product]));
+    const indexes = workbookKind === "monthly_flyer" ? flyerIndexes(headers, headerIndex) : planningIndexes(headerIndex);
+    const storeColumns = workbookKind === "ond" ? resolveStoreColumns(headers, context.snapshot.stores) : [];
+    const lookupSkus = sourceRows.slice(1).map((cells) => normalizeSku(cells[indexes.sku])).filter(isLookupEligibleSku);
+    const lookup = await context.productMaster.findByExactSkus(lookupSkus);
+    const catalogBySku = new Map(lookup.products.map((product) => [normalizeSku(product.sku), product]));
+    const ambiguousMasterSkus = new Set(lookup.ambiguousSkus.map(normalizeSku));
     const seen = new Set<string>();
     const rows: FlyerWorkbookReviewRow[] = [];
     const issues: ImportIssue[] = [];
@@ -112,9 +120,10 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       const cells = sourceRows[index] ?? [];
       if (cells.every((cell) => cellText(cell) === "")) continue;
       const rowNumber = index + 1;
-      const sku = normalizeSku(cells[indexes.sku]);
+      const skuRaw = cellText(cells[indexes.sku]);
+      const sku = normalizeSku(skuRaw);
       const productName = cellText(cells[indexes.product]);
-      if (!sku && productName) {
+      if (workbookKind === "monthly_flyer" && !sku && isMonthlyInformationalRow(cells, indexes, productName)) {
         const informationIssue = makeIssue(rowNumber, "Product", "non_product_row", "Informational or giveaway row retained for review and excluded from campaign products.", "warning");
         const source = sourceMetadata(cells, indexes, [], options.sourceSheet, rowNumber, "", productName, [informationIssue.code]);
         rows.push({ rowNumber, sku: "", productName, status: "information", displayRequired: false, allocations: [], source, issues: [informationIssue] });
@@ -125,9 +134,12 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
 
       const rowIssues: ImportIssue[] = [];
       if (!sku) rowIssues.push(makeIssue(rowNumber, "SKU", "missing_sku", "SKU is required for authoritative Product Master matching.", "error"));
+      if (sku === "TBD") rowIssues.push(makeIssue(rowNumber, "SKU", "tbd_sku", "TBD identifies an unresolved merchandising product and must be corrected before import.", "error"));
+      if (isCompoundSku(sku)) rowIssues.push(makeIssue(rowNumber, "SKU", "compound_sku", "Compound SKUs must be reviewed and corrected; they are not split automatically.", "error"));
       if (!productName) rowIssues.push(makeIssue(rowNumber, "Product", "missing_product_name", "Product name is blank.", "warning"));
-      const product = catalogBySku.get(sku);
-      if (sku && !product) rowIssues.push(makeIssue(rowNumber, "SKU", "unmatched_sku", `SKU ${sku} was not found in the active Product Master.`, "error"));
+      const product = isLookupEligibleSku(sku) ? catalogBySku.get(sku) : undefined;
+      if (ambiguousMasterSkus.has(sku)) rowIssues.push(makeIssue(rowNumber, "SKU", "ambiguous_product_master_sku", `SKU ${sku} has multiple normalized matches in Product Master.`, "error"));
+      else if (isLookupEligibleSku(sku) && !product) rowIssues.push(makeIssue(rowNumber, "SKU", "unmatched_sku", `SKU ${sku} was not found in the active Product Master.`, "error"));
       if (sku && seen.has(sku)) rowIssues.push(makeIssue(rowNumber, "SKU", "duplicate_sku", `SKU ${sku} appears more than once; later rows are skipped.`, "error"));
       if (sku) seen.add(sku);
 
@@ -154,18 +166,18 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       const displayLocalCode = normalizeDisplayCode(displayCodeRaw, context.snapshot.displayAreas);
       const displayRequired = parseYes(displayRaw) || Boolean(displayLocalCode);
       if (displayCodeRaw && !displayLocalCode) rowIssues.push(makeIssue(rowNumber, "Display Area", "invalid_display_code", `${displayCodeRaw} is not a recognized display concept code.`, "warning"));
-      if (displayRequired && !displayLocalCode && workbookKind === "campaign_planning") rowIssues.push(makeIssue(rowNumber, "Display Area", "display_code_missing", "Display is required but no cross-store display code was supplied.", "warning"));
+      if (displayRequired && !displayLocalCode && workbookKind === "ond") rowIssues.push(makeIssue(rowNumber, "Display Area", "display_code_missing", "Display is required but no cross-store display code was supplied.", "warning"));
 
       const ltoRaw = cellText(cells[indexes.lto]);
       const note = cellText(cells[indexes.notes]);
       const wholesaleLtoAmount = parseLtoAmount(ltoRaw);
       const ltoCode = parseTprCode(note) ?? (wholesaleLtoAmount === undefined && ltoRaw && ltoRaw.toLocaleUpperCase() !== "NA" ? ltoRaw : undefined);
-      const source = sourceMetadata(cells, indexes, allocations, options.sourceSheet, rowNumber, sku, productName, rowIssues.map((issue) => issue.code), {
+      const source = sourceMetadata(cells, indexes, allocations, options.sourceSheet, rowNumber, skuRaw, productName, rowIssues.map((issue) => issue.code), {
         sellingPrice, savings, salePrice, loyaltyPointsMultiplier, wholesaleLtoAmount, ltoCode, displayRequired, displayLocalCode,
       });
       const status = rowIssues.some((issue) => issue.code === "duplicate_sku") ? "duplicate"
-        : !product ? "unmatched"
-          : rowIssues.some((issue) => issue.severity === "error") ? "invalid" : "ready";
+        : rowIssues.some((issue) => issue.code === "unmatched_sku" || issue.code === "ambiguous_product_master_sku") ? "unmatched"
+          : rowIssues.some((issue) => issue.severity === "error") || !product ? "invalid" : "ready";
       rows.push({ rowNumber, sku, productName, product, status, displayLocalCode, displayRequired, allocations, source, issues: rowIssues });
       issues.push(...rowIssues);
     }
@@ -178,7 +190,7 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
     return {
       formatId: this.formatId, workbookKind, fingerprint: options.fingerprint, sourceFileName: options.sourceFileName,
       sourceSheet: options.sourceSheet, sheetNames: options.sheetNames ?? [options.sourceSheet], suggestedCampaign,
-      rows, placements, issues, fatal: false,
+      campaignPeriodInferred: campaignInference.reliable, rows, placements, issues, fatal: false,
     };
   }
 }
@@ -187,12 +199,15 @@ export function toApplyCampaignWorkbookImport(
   result: FlyerWorkbookImportResult,
   campaign: Pick<NewCampaignInput, "name" | "type" | "description" | "startDate" | "endDate" | "owner" | "supplier">,
 ): ApplyCampaignWorkbookImportInput {
+  const periodErrors = validateWorkbookCampaignPeriod(result.workbookKind, campaign);
+  if (periodErrors.length) throw new Error(periodErrors.join(" "));
   const rows = result.rows.filter((row) => row.status === "ready" && row.product).map((row) => ({
     productId: row.product!.id,
+    product: row.product!,
     role: "Supporting" as const,
     required: true,
     note: row.source.additionalNotes,
-    merchandisingState: row.displayLocalCode ? "DISPLAY_ASSIGNED" as const : row.displayRequired ? "UNASSIGNED" as const : result.workbookKind === "campaign_planning" ? "SHELF_SUPPORTED" as const : "UNASSIGNED" as const,
+    merchandisingState: row.displayLocalCode ? "DISPLAY_ASSIGNED" as const : row.displayRequired ? "UNASSIGNED" as const : result.workbookKind === "ond" ? "SHELF_SUPPORTED" as const : "UNASSIGNED" as const,
     displayLocalCode: row.displayLocalCode,
     source: row.source,
     allocations: row.allocations.map((allocation) => ({ storeId: allocation.store.id, quantityCases: allocation.quantityCases })),
@@ -200,6 +215,7 @@ export function toApplyCampaignWorkbookImport(
   return {
     formatId: result.formatId,
     workbookKind: result.workbookKind,
+    importKey: campaignWorkbookImportKey(result, campaign),
     fingerprint: result.fingerprint,
     sourceFileName: result.sourceFileName,
     sourceSheet: result.sourceSheet,
@@ -216,8 +232,8 @@ export function toApplyCampaignWorkbookImport(
 
 function detectWorkbookKind(headers: string[]): CampaignWorkbookKind | undefined {
   const normalized = headers.map(normalizeHeader);
-  if (normalized[0] === "VENDOR" && normalized[2] === "SKU" && normalized[3] === "PRODUCT" && normalized.includes("SELLING PRICE")) return "flyer";
-  if (normalized[0] === "VENDOR" && normalized[1] === "CATEGORY" && ["INV NUM", "SKU"].includes(normalized[2]) && normalized[3] === "PRODUCT") return "campaign_planning";
+  if (normalized[0] === "VENDOR" && normalized[2] === "SKU" && normalized[3] === "PRODUCT" && normalized.includes("SELLING PRICE")) return "monthly_flyer";
+  if (normalized[0] === "VENDOR" && normalized[1] === "CATEGORY" && ["INV NUM", "SKU"].includes(normalized[2]) && normalized[3] === "PRODUCT") return "ond";
   return undefined;
 }
 
@@ -320,17 +336,46 @@ function buildPlacements(rows: FlyerWorkbookReviewRow[], stores: Store[], areas:
   return results;
 }
 
-function inferCampaign(fileName: string, kind?: CampaignWorkbookKind): FlyerWorkbookImportResult["suggestedCampaign"] {
-  const match = fileName.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b[^0-9]*(20\d{2})/i);
-  const monthIndex = match ? ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"].indexOf(match[1].toLocaleLowerCase()) : -1;
-  const year = match ? Number(match[2]) : new Date().getUTCFullYear();
-  const startDate = monthIndex >= 0 ? isoDate(year, monthIndex + 1, 1) : `${year}-10-01`;
-  const endDate = monthIndex >= 0 ? isoDate(year, monthIndex + 2, 0) : `${year}-12-31`;
+function inferCampaign(fileName: string, kind?: CampaignWorkbookKind) {
+  const monthMatch = fileName.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b[^0-9]*(20\d{2})/i);
+  const yearMatch = fileName.match(/\b(20\d{2})\b/);
+  const monthIndex = monthMatch ? ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"].indexOf(monthMatch[1].toLocaleLowerCase()) : -1;
+  const year = kind === "ond" ? Number(yearMatch?.[1]) : Number(monthMatch?.[2]);
+  const reliable = Number.isInteger(year) && (kind === "ond" || monthIndex >= 0);
+  const startDate = reliable ? kind === "ond" ? `${year}-10-01` : isoDate(year, monthIndex + 1, 1) : "";
+  const endDate = reliable ? kind === "ond" ? `${year}-12-31` : isoDate(year, monthIndex + 2, 0) : "";
   const baseName = fileName.replace(/\.xlsx$/i, "").trim();
   return {
-    name: baseName, type: kind === "campaign_planning" && /\bOND\b/i.test(fileName) ? "OND" : "Monthly flyer",
-    description: `Imported from ${fileName}.`, startDate, endDate, owner: "Jeremy", supplier: "Multiple vendors",
+    reliable,
+    campaign: {
+      name: baseName, type: kind === "ond" ? "OND" as const : "Monthly flyer" as const,
+      description: `Imported from ${fileName}.`, startDate, endDate, owner: "Jeremy", supplier: "Multiple vendors",
+    },
   };
+}
+
+export function campaignWorkbookImportKey(
+  result: Pick<FlyerWorkbookImportResult, "formatId" | "fingerprint" | "workbookKind">,
+  campaign: Pick<NewCampaignInput, "startDate" | "endDate">,
+): string {
+  const period = result.workbookKind === "monthly_flyer" ? campaign.startDate.slice(0, 7) : `${campaign.startDate}/${campaign.endDate}`;
+  return `${result.formatId} | ${result.fingerprint} | ${result.workbookKind} | ${period}`;
+}
+
+export function validateWorkbookCampaignPeriod(
+  kind: CampaignWorkbookKind,
+  campaign: Pick<NewCampaignInput, "startDate" | "endDate">,
+): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(campaign.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(campaign.endDate)) return ["Enter a valid campaign start and end date before Apply."];
+  if (kind === "ond") {
+    const year = campaign.startDate.slice(0, 4);
+    return campaign.startDate === `${year}-10-01` && campaign.endDate === `${year}-12-31`
+      ? [] : ["An OND campaign must span October 1 through December 31 of one year."];
+  }
+  const [year, month] = campaign.startDate.split("-").map(Number);
+  const expectedEnd = isoDate(year, month + 1, 0);
+  return campaign.startDate === isoDate(year, month, 1) && campaign.endDate === expectedEnd
+    ? [] : ["A monthly flyer campaign must span the first through last calendar day of one month."];
 }
 
 function chooseProductSheet(sheetNames: string[]) {
@@ -359,7 +404,14 @@ function parsePoints(value: string) { const match = value.match(/^\s*(\d+(?:\.\d
 function parseYes(value: unknown) { return ["Y", "YES", "TRUE", "1"].includes(cellText(value).toLocaleUpperCase()); }
 function parseWholeNumber(value: unknown) { if (value === null || value === undefined || cellText(value) === "") return 0; const number = typeof value === "number" ? value : Number(cellText(value)); return Number.isInteger(number) && number >= 0 ? number : undefined; }
 function parseMoney(value: unknown) { if (value === null || value === undefined || cellText(value) === "") return undefined; const number = typeof value === "number" ? value : Number(cellText(value).replace(/[$,]/g, "")); return Number.isFinite(number) ? number : undefined; }
-function normalizeSku(value: unknown) { return cellText(value).replace(/\s+/g, "").toLocaleUpperCase(); }
+function normalizeSku(value: unknown) { return normalizeProductSku(value); }
+function isLookupEligibleSku(sku: string) { return Boolean(sku) && sku !== "TBD" && !isCompoundSku(sku); }
+function isCompoundSku(sku: string) { return sku.includes("/"); }
+function isMonthlyInformationalRow(cells: unknown[], indexes: ColumnIndexes, productName: string) {
+  if (!/\b(giveaways?|informational?|prizes?|draw)\b/i.test(productName)) return false;
+  return [indexes.vendor, indexes.category, indexes.sellingPrice, indexes.savings, indexes.salePrice, indexes.size, indexes.lto]
+    .every((index) => !valueAt(cells, index));
+}
 function normalizeHeader(value: unknown) { return cellText(value).replace(/[_-]+/g, " ").replace(/\s+/g, " ").toLocaleUpperCase(); }
 function cellText(value: unknown) { return value === null || value === undefined ? "" : String(value).replace(/\u00a0/g, " ").trim(); }
 function valueAt(cells: unknown[], index: number) { const value = index >= 0 ? cellText(cells[index]) : ""; return value || undefined; }

@@ -337,15 +337,16 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
 
   async applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult> {
     if (!input.fingerprint.trim()) throw new Error("The workbook fingerprint is required.");
-    if (this.state.campaignImports.some((item) => item.fingerprint === input.fingerprint)) {
-      throw new Error("This workbook has already been applied.");
+    if (!input.importKey.trim()) throw new Error("The workbook import identity is required.");
+    if (this.state.campaignImports.some((item) => item.importKey === input.importKey)) {
+      throw new Error("This workbook has already been applied for this campaign period.");
     }
     if (!input.rows.length) throw new Error("The import has no reconciled products to apply.");
     const campaignErrors = validateCampaignDetails(input.campaign);
     if (campaignErrors.length) throw new Error(campaignErrors.join(" "));
     const productIds = input.rows.map((row) => row.productId);
     if (new Set(productIds).size !== productIds.length) throw new Error("The import contains duplicate Product Master identities.");
-    if (productIds.some((id) => !this.state.products.some((product) => product.id === id && product.active))) {
+    if (input.rows.some((row) => row.product.id !== row.productId || !row.product.active)) {
       throw new Error("Every imported SKU must resolve to an active Product Master item.");
     }
     const storeIds = new Set(input.rows.flatMap((row) => row.allocations.map((allocation) => allocation.storeId)));
@@ -353,6 +354,12 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
 
     const previous = structuredClone(this.state);
     try {
+      input.rows.forEach((row) => {
+        const normalizedSku = row.product.sku.trim().toLocaleUpperCase();
+        const existing = this.state.products.find((product) => product.sku.trim().toLocaleUpperCase() === normalizedSku);
+        if (existing && existing.id !== row.product.id) throw new Error(`Product identity conflict for SKU ${normalizedSku}.`);
+        if (!existing) this.state.products.push(structuredClone(row.product));
+      });
       const campaignId = crypto.randomUUID();
       const campaignProducts = input.rows.map((row): CampaignProduct => ({
         id: crypto.randomUUID(), campaignId, productId: row.productId, role: row.role, required: row.required,
@@ -436,7 +443,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
 
       const importId = crypto.randomUUID();
       this.state.campaignImports.push({
-        id: importId, campaignId, formatId: input.formatId, workbookKind: input.workbookKind,
+        id: importId, campaignId, formatId: input.formatId, workbookKind: input.workbookKind, importKey: input.importKey,
         fingerprint: input.fingerprint, sourceFileName: input.sourceFileName, sourceSheet: input.sourceSheet,
         importedAt: this.clock.now(), rows: structuredClone(input.reviewRows),
       });

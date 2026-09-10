@@ -3,6 +3,8 @@ import { useMemo, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   FlyerWorkbookImportAdapter,
+  campaignWorkbookImportKey,
+  validateWorkbookCampaignPeriod,
   toApplyCampaignWorkbookImport,
   type FlyerWorkbookImportResult,
   type FlyerWorkbookReviewRow,
@@ -17,7 +19,7 @@ type CampaignFields = Pick<NewCampaignInput, "name" | "type" | "description" | "
 
 export function FlyerWorkbookImportPage() {
   const navigate = useNavigate();
-  const { data, loading, error, applyCampaignWorkbookImport } = usePlatform();
+  const { data, loading, error, productMaster, applyCampaignWorkbookImport } = usePlatform();
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<FlyerWorkbookImportResult>();
   const [campaign, setCampaign] = useState<CampaignFields>();
@@ -33,9 +35,9 @@ export function FlyerWorkbookImportPage() {
     if (!file || !data) return;
     if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) { setParseError("This importer accepts .xlsx workbooks only."); return; }
     try {
-      const parsed = await adapter.parse(file, { snapshot: data });
+      const parsed = await adapter.parse(file, { snapshot: data, productMaster });
       setResult(parsed); setCampaign(parsed.suggestedCampaign);
-      if (data.campaignImports.some((item) => item.fingerprint === parsed.fingerprint)) setParseError("This exact workbook has already been applied.");
+      if (data.campaignImports.some((item) => item.importKey === campaignWorkbookImportKey(parsed, parsed.suggestedCampaign))) setParseError("This exact workbook has already been applied for this campaign period.");
     } catch (cause) {
       setParseError(cause instanceof Error ? cause.message : "The workbook could not be parsed.");
     }
@@ -43,8 +45,8 @@ export function FlyerWorkbookImportPage() {
 
   const readyRows = result?.rows.filter((row) => row.status === "ready") ?? [];
   const skippedRows = result?.rows.filter((row) => row.status !== "ready" && row.status !== "information") ?? [];
-  const duplicateApplied = Boolean(result && data?.campaignImports.some((item) => item.fingerprint === result.fingerprint));
-  const campaignErrors = campaign ? validateCampaignDetails(campaign) : [];
+  const duplicateApplied = Boolean(result && campaign && data?.campaignImports.some((item) => item.importKey === campaignWorkbookImportKey(result, campaign)));
+  const campaignErrors = campaign && result ? [...validateCampaignDetails(campaign), ...validateWorkbookCampaignPeriod(result.workbookKind, campaign)] : [];
   const apply = async () => {
     if (!result || !campaign || !readyRows.length || result.fatal || duplicateApplied || campaignErrors.length || (skippedRows.length && !confirmSkipped)) return;
     setApplying(true); setParseError("");
@@ -74,7 +76,7 @@ export function FlyerWorkbookImportPage() {
         {result && campaign && <>
           <CampaignDetails campaign={campaign} setCampaign={setCampaign} errors={campaignErrors} />
           <ImportSummary result={result} />
-          <div className="flex flex-wrap gap-2"><select aria-label="Row status filter" className={inputClass} value={rowFilter} onChange={(event) => setRowFilter(event.target.value)}><option value="all">All product rows</option><option value="ready">Ready</option><option value="unmatched">Unmatched</option><option value="duplicate">Duplicate</option><option value="invalid">Invalid</option><option value="information">Information only</option></select>{result.workbookKind === "campaign_planning" && <select aria-label="Store allocation filter" className={inputClass} value={storeFilter} onChange={(event) => setStoreFilter(event.target.value)}><option value="all">All stores</option>{data.stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select>}</div>
+          <div className="flex flex-wrap gap-2"><select aria-label="Row status filter" className={inputClass} value={rowFilter} onChange={(event) => setRowFilter(event.target.value)}><option value="all">All product rows</option><option value="ready">Ready</option><option value="unmatched">Unmatched</option><option value="duplicate">Duplicate</option><option value="invalid">Invalid</option><option value="information">Information only</option></select>{result.workbookKind === "ond" && <select aria-label="Store allocation filter" className={inputClass} value={storeFilter} onChange={(event) => setStoreFilter(event.target.value)}><option value="all">All stores</option>{data.stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select>}</div>
           <ProductReview rows={visibleRows} />
           {result.placements.length > 0 && <PlacementReview result={result} />}
         </>}
@@ -91,7 +93,7 @@ function ImportProgress({ result, applying }: { result?: FlyerWorkbookImportResu
 
 function CampaignDetails({ campaign, setCampaign, errors }: { campaign: CampaignFields; setCampaign(value: CampaignFields): void; errors: string[] }) {
   const set = <K extends keyof CampaignFields>(key: K, value: CampaignFields[K]) => setCampaign({ ...campaign, [key]: value });
-  return <Card><h2 className="font-semibold">Draft campaign details</h2><p className="mt-1 text-sm text-text-secondary">Dates inferred from a monthly flyer remain editable before Apply.</p><div className="mt-4 grid gap-4 md:grid-cols-2"><Field label="Campaign name"><input className={inputClass} value={campaign.name} onChange={(event) => set("name", event.target.value)} /></Field><Field label="Owner"><input className={inputClass} value={campaign.owner} onChange={(event) => set("owner", event.target.value)} /></Field><Field label="Start date"><input type="date" className={inputClass} value={campaign.startDate} onChange={(event) => set("startDate", event.target.value)} /></Field><Field label="End date"><input type="date" className={inputClass} value={campaign.endDate} onChange={(event) => set("endDate", event.target.value)} /></Field><Field label="Supplier / partner"><input className={inputClass} value={campaign.supplier} onChange={(event) => set("supplier", event.target.value)} /></Field><Field label="Description"><input className={inputClass} value={campaign.description} onChange={(event) => set("description", event.target.value)} /></Field></div>{errors.length > 0 && <p className="mt-3 text-sm text-error">{errors.join(" ")}</p>}</Card>;
+  return <Card><h2 className="font-semibold">Draft campaign details</h2><p className="mt-1 text-sm text-text-secondary">The workbook-specific campaign period remains editable before Apply.</p><div className="mt-4 grid gap-4 md:grid-cols-2"><Field label="Campaign name"><input className={inputClass} value={campaign.name} onChange={(event) => set("name", event.target.value)} /></Field><Field label="Owner"><input className={inputClass} value={campaign.owner} onChange={(event) => set("owner", event.target.value)} /></Field><Field label="Start date"><input type="date" className={inputClass} value={campaign.startDate} onChange={(event) => set("startDate", event.target.value)} /></Field><Field label="End date"><input type="date" className={inputClass} value={campaign.endDate} onChange={(event) => set("endDate", event.target.value)} /></Field><Field label="Supplier / partner"><input className={inputClass} value={campaign.supplier} onChange={(event) => set("supplier", event.target.value)} /></Field><Field label="Description"><input className={inputClass} value={campaign.description} onChange={(event) => set("description", event.target.value)} /></Field></div>{errors.length > 0 && <p className="mt-3 text-sm text-error">{errors.join(" ")}</p>}</Card>;
 }
 
 function ImportSummary({ result }: { result: FlyerWorkbookImportResult }) {
@@ -100,7 +102,7 @@ function ImportSummary({ result }: { result: FlyerWorkbookImportResult }) {
   const skipped = result.rows.filter((row) => ["duplicate", "invalid"].includes(row.status)).length;
   const stores = new Set(result.rows.flatMap((row) => row.allocations.map((allocation) => allocation.store.id))).size;
   const quantities = result.rows.reduce((sum, row) => sum + row.allocations.length, 0);
-  return <Card><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">Import review</h2><p className="text-sm text-text-secondary">{result.sourceFileName} · {result.sourceSheet} · {result.workbookKind === "flyer" ? "Flyer product workbook" : "Consolidated campaign-planning workbook"}</p></div><Badge tone={result.fatal ? "error" : unmatched || skipped ? "warning" : "success"}>{result.fatal ? "Unsupported" : `${ready} ready`}</Badge></div><dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6"><Metric label="Product rows" value={result.rows.filter((row) => row.status !== "information").length} /><Metric label="Matched" value={ready} /><Metric label="Unmatched" value={unmatched} /><Metric label="Skipped" value={skipped} /><Metric label="Stores" value={stores} /><Metric label="Quantities" value={quantities} /></dl></Card>;
+  return <Card><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">Import review</h2><p className="text-sm text-text-secondary">{result.sourceFileName} · {result.sourceSheet} · {result.workbookKind === "monthly_flyer" ? "Monthly flyer workbook" : "Consolidated OND workbook"}</p></div><Badge tone={result.fatal ? "error" : unmatched || skipped ? "warning" : "success"}>{result.fatal ? "Unsupported" : `${ready} ready`}</Badge></div><dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6"><Metric label="Product rows" value={result.rows.filter((row) => row.status !== "information").length} /><Metric label="Matched" value={ready} /><Metric label="Unmatched" value={unmatched} /><Metric label="Skipped" value={skipped} /><Metric label="Stores" value={stores} /><Metric label="Quantities" value={quantities} /></dl></Card>;
 }
 
 function ProductReview({ rows }: { rows: FlyerWorkbookReviewRow[] }) {
