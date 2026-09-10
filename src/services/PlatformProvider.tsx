@@ -1,19 +1,29 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
+import { MockProductMasterLookup } from "../adapters/mock/MockProductMasterLookup";
+import { SupabaseProductMasterLookup } from "../adapters/supabase/SupabaseProductMasterLookup";
 import type {
-  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
   ApplyCampaignDisplayQuantityInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput,
 } from "../domain/repositories";
 import type { Campaign, CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, NewCampaignInput, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
+import { readEnvironment } from "../lib/environment";
+import type { ProductMasterLookup } from "./products/ProductMasterLookup";
 
 const repository = new MockMerchandisingRepository();
+const environment = readEnvironment();
+const configuredProductMaster = environment.VITE_SUPABASE_URL && environment.VITE_SUPABASE_ANON_KEY
+  ? new SupabaseProductMasterLookup(createClient(environment.VITE_SUPABASE_URL, environment.VITE_SUPABASE_ANON_KEY))
+  : undefined;
 
 interface PlatformContextValue {
   data?: PlatformSnapshot;
   loading: boolean;
   error?: string;
   role: UserRole;
+  productMaster: ProductMasterLookup;
   setRole(role: UserRole): void;
   refresh(): Promise<void>;
   updateCategorySpace(input: UpdateCategorySpaceInput): Promise<CategorySpace>;
@@ -28,6 +38,7 @@ interface PlatformContextValue {
   updateCampaign(input: UpdateCampaignInput): Promise<Campaign>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
+  applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
   removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
   createCampaignDisplay(input: CreateCampaignDisplayInput): Promise<CampaignDisplay>;
@@ -62,7 +73,7 @@ interface PlatformContextValue {
 
 const PlatformContext = createContext<PlatformContextValue | null>(null);
 
-export function PlatformProvider({ children, adapter = repository }: { children: ReactNode; adapter?: MerchandisingRepository }) {
+export function PlatformProvider({ children, adapter = repository, productMaster }: { children: ReactNode; adapter?: MerchandisingRepository; productMaster?: ProductMasterLookup }) {
   const [data, setData] = useState<PlatformSnapshot>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -94,8 +105,13 @@ export function PlatformProvider({ children, adapter = repository }: { children:
     }
   }, [refresh]);
 
+  const effectiveProductMaster = useMemo(
+    () => productMaster ?? configuredProductMaster ?? new MockProductMasterLookup(data?.products ?? []),
+    [data?.products, productMaster],
+  );
+
   const value = useMemo<PlatformContextValue>(() => ({
-    data, loading, error, role, setRole, refresh,
+    data, loading, error, role, setRole, refresh, productMaster: effectiveProductMaster,
     updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutate(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
     duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutate(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
     setCurrentStoreLayout: (layoutId) => mutate(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
@@ -129,6 +145,12 @@ export function PlatformProvider({ children, adapter = repository }: { children:
       let products: CampaignProduct[] | undefined;
       await mutate(async () => { products = await adapter.applyCampaignProductImport(input); });
       return products ?? [];
+    },
+    applyCampaignWorkbookImport: async (input) => {
+      let result: ApplyCampaignWorkbookImportResult | undefined;
+      await mutate(async () => { result = await adapter.applyCampaignWorkbookImport(input); });
+      if (!result) throw new Error("Campaign workbook import did not return a result.");
+      return result;
     },
     updateCampaignProduct: async (input) => {
       let product: CampaignProduct | undefined;
@@ -178,7 +200,7 @@ export function PlatformProvider({ children, adapter = repository }: { children:
     updateRecommendation: (id, status, note) => mutate(() => adapter.updateRecommendation(id, status, note)).then(() => undefined),
     updateOrderRecommendation: (input) => mutate(() => adapter.updateOrderRecommendation(input)).then(() => undefined),
     resetDemo: () => mutate(() => adapter.reset()).then(() => undefined),
-  }), [adapter, data, error, loading, mutate, refresh, role]);
+  }), [adapter, data, effectiveProductMaster, error, loading, mutate, refresh, role]);
 
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }

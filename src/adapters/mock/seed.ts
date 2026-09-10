@@ -282,6 +282,8 @@ export const seedSnapshot: PlatformSnapshot = {
       requirement: { displayType: "endcap", priority: "high", signage: "Summer Refresh header", minimumSpace: "One full endcap", executionNotes: "Keep product chilled where possible.", prescriptive: false },
     },
   ],
+  campaignImports: [],
+  campaignStoreProductAllocations: [],
   campaignDisplays: [
     { id: "55000000-0000-4000-8000-000000000001", campaignId: IDS.octoberCampaign, name: "Feature Display", displayType: "feature_display", placementMode: "STANDARD", signage: "October feature header", minimumSpace: "One feature table", prescriptive: false, executionNotes: "Keep hero at eye level.", sortOrder: 0 },
     { id: "55000000-0000-4000-8000-000000000002", campaignId: IDS.octoberCampaign, name: "RTD Endcap", displayType: "endcap", placementMode: "STANDARD", prescriptive: false, sortOrder: 1 },

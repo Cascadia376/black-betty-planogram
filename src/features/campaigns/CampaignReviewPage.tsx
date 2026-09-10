@@ -24,6 +24,7 @@ export function CampaignReviewPage() {
   const excludedStores = data?.campaignStores.filter((item) => item.campaignId === campaign?.id && !item.included) ?? [];
   const allocations = data?.campaignDisplayAssignments.filter((item) => item.campaignId === campaign?.id && item.status === "ASSIGNED") ?? [];
   const products = data?.campaignDisplayAssignmentProducts.filter((item) => allocations.some((assignment) => assignment.id === item.campaignDisplayAssignmentId)) ?? [];
+  const storeProductAllocations = data?.campaignStoreProductAllocations.filter((item) => item.campaignId === campaign?.id) ?? [];
 
   return (
     <DataState loading={loading} error={error}>
@@ -58,6 +59,11 @@ export function CampaignReviewPage() {
               </div>
             )}
           </Card>
+
+          {storeProductAllocations.length > 0 && <Card>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Imported store case allocations</h2><p className="mt-1 text-sm text-text-secondary">Retained for displayed and shelf-supported products, independent of physical placement.</p></div><Badge tone="info">{storeProductAllocations.length} store/SKU rows</Badge></div>
+            <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead className="text-xs uppercase text-text-muted"><tr><th className="pb-2">Store</th><th className="pb-2">SKU / product</th><th className="pb-2">Cases</th><th className="pb-2">Display intent</th></tr></thead><tbody className="divide-y divide-border">{storeProductAllocations.map((item) => { const store = data.stores.find((candidate) => candidate.id === item.storeId); const product = data.products.find((candidate) => candidate.id === item.productId); return <tr key={item.id}><td className="py-2 pr-3">{store?.name ?? "Unknown store"}</td><td className="py-2 pr-3"><b>{product?.sku ?? "Unknown SKU"}</b><span className="block text-xs text-text-muted">{product?.name}</span></td><td className="py-2 pr-3">{item.caseQuantity}</td><td className="py-2">{item.displayRequired ? item.intendedDisplayCode ?? "Required, unassigned" : "Shelf promotion"}</td></tr>; })}</tbody></table></div>
+          </Card>}
 
           {excludedStores.length > 0 && (
             <Card>

@@ -228,6 +228,9 @@ export interface CampaignDisplay {
   executionNotes?: string;
   sortOrder: number;
   status?: "draft" | "ready";
+  /** Store-local display concept supplied by an import, for example W8 or BR2. */
+  sourceLocalCode?: string;
+  displayFamily?: DisplayFamily;
 }
 
 export interface CampaignDisplayProduct {
@@ -260,10 +263,12 @@ export interface CampaignDisplayAssignment {
   storeId: UUID;
   displayAreaId?: UUID;
   status: "UNASSIGNED" | "SUGGESTED" | "ASSIGNED" | "NEEDS_REVIEW" | "EXCLUDED";
-  placementSource?: "AUTO_SUGGESTED" | "BUYER_SELECTED" | "COPIED" | "LEGACY";
+  placementSource?: "AUTO_SUGGESTED" | "BUYER_SELECTED" | "COPIED" | "LEGACY" | "SPREADSHEET";
   compatibility?: "recommended" | "compatible" | "review" | "incompatible";
   suggestionDisplayAreaId?: UUID;
   suggestionReasons?: string[];
+  /** Original store-local target retained when a spreadsheet placement cannot map exactly. */
+  intendedDisplayCode?: string;
   startDate: string;
   endDate: string;
   note?: string;
@@ -278,7 +283,7 @@ export interface CampaignDisplayAssignmentProduct {
   productId: UUID;
   recommendedCases?: number;
   caseQuantity?: number;
-  quantitySource?: "RECOMMENDED" | "BUYER_OVERRIDE" | "MANUAL";
+  quantitySource?: "RECOMMENDED" | "BUYER_OVERRIDE" | "MANUAL" | "SPREADSHEET";
   buyerOverride: boolean;
   preferredSupplierId?: UUID;
   note?: string;
@@ -331,6 +336,67 @@ export interface Campaign {
   status: CampaignStatus;
   products: CampaignProduct[];
   requirement: DisplayRequirement;
+}
+
+export type CampaignWorkbookKind = "monthly_flyer" | "ond";
+
+export interface CampaignImportStoreAllocation {
+  sourceColumn: string;
+  sourceStoreName: string;
+  storeId?: UUID;
+  quantityCases: number;
+  sourceCell: string;
+}
+
+/** Normalized, audit-friendly row evidence. Raw workbook binaries are never persisted. */
+export interface CampaignImportRowMetadata {
+  sourceSheet: string;
+  sourceRow: number;
+  skuRaw: string;
+  productName: string;
+  vendor?: string;
+  category?: string;
+  size?: string;
+  sellingPrice?: number;
+  savings?: number;
+  salePrice?: number;
+  wholesaleLtoAmount?: number;
+  ltoCode?: string;
+  loyaltyPointsMultiplier?: number;
+  additionalNotes?: string;
+  orderFrom?: string;
+  displayRequired?: boolean;
+  displayLocalCode?: string;
+  flyerMonths?: string[];
+  allocations: CampaignImportStoreAllocation[];
+  issues: string[];
+}
+
+export interface CampaignWorkbookImport {
+  id: UUID;
+  campaignId: UUID;
+  formatId: "flyer-workbook-import-v1";
+  workbookKind: CampaignWorkbookKind;
+  /** Workbook hash plus kind and normalized campaign period; used to prevent duplicate Apply. */
+  importKey: string;
+  fingerprint: string;
+  sourceFileName: string;
+  sourceSheet: string;
+  importedAt: string;
+  rows: CampaignImportRowMetadata[];
+}
+
+/** Store/product case intent retained independently of whether the SKU receives a physical display. */
+export interface CampaignStoreProductAllocation {
+  id: UUID;
+  campaignId: UUID;
+  campaignProductId: UUID;
+  productId: UUID;
+  storeId: UUID;
+  caseQuantity: number;
+  displayRequired: boolean;
+  intendedDisplayCode?: string;
+  sourceCell: string;
 }
 
 export interface MerchandisingProgram {
@@ -649,6 +715,8 @@ export interface PlatformSnapshot {
   bridgeStrategies: BridgeStrategy[];
   residualDemandInputs: ResidualDemandInput[];
   campaigns: Campaign[];
+  campaignImports: CampaignWorkbookImport[];
+  campaignStoreProductAllocations: CampaignStoreProductAllocation[];
   campaignDisplays: CampaignDisplay[];
   campaignDisplayProducts: CampaignDisplayProduct[];
   campaignStores: CampaignStore[];

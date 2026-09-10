@@ -6,7 +6,10 @@ import type {
   CampaignDisplayAssignment,
   CampaignDisplayAssignmentProduct,
   CampaignDisplayProduct,
+  CampaignImportRowMetadata,
   CampaignProduct,
+  CampaignProductMerchandisingState,
+  CampaignWorkbookKind,
   CategorySpace,
   ComplianceCheck,
   DisplayAssignment,
@@ -53,6 +56,39 @@ export interface ApplyCampaignProductImportInput {
   campaignId: UUID;
   products: Array<Pick<CampaignProduct, "productId" | "role" | "required" | "note">>;
 }
+
+export interface ApplyCampaignWorkbookImportInput {
+  formatId: "flyer-workbook-import-v1";
+  workbookKind: CampaignWorkbookKind;
+  importKey: string;
+  fingerprint: string;
+  sourceFileName: string;
+  sourceSheet: string;
+  reviewRows: CampaignImportRowMetadata[];
+  campaign: Omit<NewCampaignInput, "products">;
+  rows: Array<{
+    productId: UUID;
+    product: Product;
+    role: CampaignProduct["role"];
+    required: boolean;
+    note?: string;
+    merchandisingState: CampaignProductMerchandisingState;
+    displayLocalCode?: string;
+    source: CampaignImportRowMetadata;
+    allocations: Array<{ storeId: UUID; quantityCases: number }>;
+  }>;
+  placements: Array<{
+    displayLocalCode: string;
+    displayFamily: CampaignDisplay["displayFamily"];
+    storeId: UUID;
+    status: CampaignDisplayAssignment["status"];
+    displayAreaId?: UUID;
+    suggestionDisplayAreaId?: UUID;
+    suggestionReasons?: string[];
+  }>;
+}
+
+export interface ApplyCampaignWorkbookImportResult { campaignId: UUID; importId: UUID; }
 
 export interface UpdateCampaignProductInput {
   campaignId: UUID;
@@ -210,6 +246,7 @@ export interface MerchandisingRepository {
   updateCampaign(input: UpdateCampaignInput): Promise<Campaign>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
+  applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
   removeCampaignProduct(campaignId: UUID, campaignProductId: UUID): Promise<void>;
   createCampaignDisplay(input: CreateCampaignDisplayInput): Promise<CampaignDisplay>;

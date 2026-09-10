@@ -8,11 +8,11 @@ export interface CampaignDisplayAreaCompatibility {
 export function campaignDisplayAreaCompatibility(display: CampaignDisplay, area: DisplayArea, data: Pick<PlatformSnapshot, "campaignDisplayAssignments" | "campaignDisplays" | "campaigns" | "zones">): CampaignDisplayAreaCompatibility {
   const reasons: string[] = [];
   if (!area.active) return { status: "incompatible", reasons: ["This physical display area is inactive."] };
-  const typeMatch = display.displayType === area.type || (display.displayType === "feature_display" && area.type === "feature_table");
+  const typeMatch = display.displayType === "flex" || display.displayType === area.type || (display.displayType === "feature_display" && area.type === "feature_table");
   if (!typeMatch && !area.flexible) return { status: "incompatible", reasons: ["Display type is not compatible with this physical area."] };
   reasons.push(typeMatch ? "Compatible display type." : "This display area can support an alternate display type.");
   const campaignLanguage = `${display.name} ${display.description ?? ""}`.toLocaleLowerCase();
-  const preferredFamily = campaignLanguage.includes("wine") ? "WINE" : /beer|rtd|cider/.test(campaignLanguage) ? "BEER_RTD" : campaignLanguage.includes("multi") ? "MULTI" : undefined;
+  const preferredFamily = display.displayFamily ?? (campaignLanguage.includes("wine") ? "WINE" : /beer|rtd|cider/.test(campaignLanguage) ? "BEER_RTD" : campaignLanguage.includes("multi") ? "MULTI" : undefined);
   if (preferredFamily && area.displayFamily === preferredFamily) reasons.push(`Recommended because this is a ${preferredFamily === "BEER_RTD" ? "Beer/RTD" : preferredFamily === "MULTI" ? "Multi" : "Wine"} display family.`);
   const zone = data.zones.find((item) => item.id === area.zoneId);
   if (area.primaryCategory && zone?.category && area.primaryCategory !== zone.category && zone.category !== "Promotional") reasons.push("Zone/category requires buyer review.");
