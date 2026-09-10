@@ -115,21 +115,29 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
     const seen = new Set<string>();
     const rows: FlyerWorkbookReviewRow[] = [];
     const issues: ImportIssue[] = [];
+    let inMonthlyInformationalSection = false;
 
     for (let index = 1; index < sourceRows.length; index += 1) {
       const cells = sourceRows[index] ?? [];
-      if (cells.every((cell) => cellText(cell) === "")) continue;
+      if (cells.every((cell) => cellText(cell) === "")) {
+        inMonthlyInformationalSection = false;
+        continue;
+      }
       const rowNumber = index + 1;
       const skuRaw = cellText(cells[indexes.sku]);
       const sku = normalizeSku(skuRaw);
       const productName = cellText(cells[indexes.product]);
-      if (workbookKind === "monthly_flyer" && !sku && isMonthlyInformationalRow(cells, indexes, productName)) {
-        const informationIssue = makeIssue(rowNumber, "Product", "non_product_row", "Informational or giveaway row retained for review and excluded from campaign products.", "warning");
+      const startsInformationSection = workbookKind === "monthly_flyer" && !sku && isMonthlyInformationHeading(productName) && !hasMonthlyProductSignals(cells, indexes);
+      const continuesInformationSection = workbookKind === "monthly_flyer" && inMonthlyInformationalSection && !sku && !hasMonthlyProductSignals(cells, indexes);
+      if (startsInformationSection || continuesInformationSection) {
+        inMonthlyInformationalSection = true;
+        const informationIssue = makeIssue(rowNumber, "Product", startsInformationSection ? "informational_section_heading" : "informational_section_row", "Informational giveaway content retained for review and excluded from campaign products.", "warning");
         const source = sourceMetadata(cells, indexes, [], options.sourceSheet, rowNumber, "", productName, [informationIssue.code]);
         rows.push({ rowNumber, sku: "", productName, status: "information", displayRequired: false, allocations: [], source, issues: [informationIssue] });
         issues.push(informationIssue);
         continue;
       }
+      if (workbookKind === "monthly_flyer" && hasMonthlyProductSignals(cells, indexes)) inMonthlyInformationalSection = false;
       if (!sku && !productName) continue;
 
       const rowIssues: ImportIssue[] = [];
@@ -407,10 +415,12 @@ function parseMoney(value: unknown) { if (value === null || value === undefined 
 function normalizeSku(value: unknown) { return normalizeProductSku(value); }
 function isLookupEligibleSku(sku: string) { return Boolean(sku) && sku !== "TBD" && !isCompoundSku(sku); }
 function isCompoundSku(sku: string) { return sku.includes("/"); }
-function isMonthlyInformationalRow(cells: unknown[], indexes: ColumnIndexes, productName: string) {
-  if (!/\b(giveaways?|informational?|prizes?|draw)\b/i.test(productName)) return false;
-  return [indexes.vendor, indexes.category, indexes.sellingPrice, indexes.savings, indexes.salePrice, indexes.size, indexes.lto]
-    .every((index) => !valueAt(cells, index));
+function isMonthlyInformationHeading(productName: string) {
+  return ["GIVEAWAY", "GIVEAWAYS", "PRIZE", "PRIZES", "CONTEST", "CONTESTS"].includes(normalizeHeader(productName));
+}
+function hasMonthlyProductSignals(cells: unknown[], indexes: ColumnIndexes) {
+  return [indexes.sku, indexes.vendor, indexes.category, indexes.sellingPrice, indexes.savings, indexes.salePrice, indexes.size, indexes.points, indexes.lto]
+    .some((index) => Boolean(valueAt(cells, index)));
 }
 function normalizeHeader(value: unknown) { return cellText(value).replace(/[_-]+/g, " ").replace(/\s+/g, " ").toLocaleUpperCase(); }
 function cellText(value: unknown) { return value === null || value === undefined ? "" : String(value).replace(/\u00a0/g, " ").trim(); }

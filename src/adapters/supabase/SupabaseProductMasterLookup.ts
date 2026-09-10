@@ -14,6 +14,8 @@ interface ProductMasterRow {
   is_active: boolean | null;
 }
 
+export const PRODUCT_MASTER_BATCH_SIZE = 50;
+
 /** Read-only browser adapter for ursus_major.public.product under its reviewed SELECT RLS policy. */
 export class SupabaseProductMasterLookup implements ProductMasterLookup {
   constructor(private readonly client: SupabaseClient) {}
@@ -21,15 +23,19 @@ export class SupabaseProductMasterLookup implements ProductMasterLookup {
   async findByExactSkus(skus: string[]): Promise<ProductMasterLookupResult> {
     const requested = [...new Set(skus.map(normalizeProductSku).filter(Boolean))];
     const groups = new Map<string, ProductMasterRow[]>();
-    await Promise.all(requested.map(async (sku) => {
+    requested.forEach((sku) => groups.set(sku, []));
+    for (const batch of batchesOf(requested, PRODUCT_MASTER_BATCH_SIZE)) {
       const { data, error } = await this.client
         .from("product")
         .select("sku,product_name,category,subcategory,size,units_per_case,supplier,is_active")
-        .ilike("sku", escapeLikePattern(sku));
-      if (error) throw new Error(`Product Master lookup failed for SKU ${sku}: ${error.message}`);
-      const matches = ((data ?? []) as ProductMasterRow[]).filter((row) => normalizeProductSku(row.sku) === sku);
-      groups.set(sku, matches);
-    }));
+        .or(batch.map((sku) => `sku.ilike.${quotePostgrestValue(escapeLikePattern(sku))}`).join(","));
+      if (error) throw new Error(`Product Master batch lookup failed: ${error.message}`);
+      const requestedBatch = new Set(batch);
+      ((data ?? []) as ProductMasterRow[]).forEach((row) => {
+        const normalized = normalizeProductSku(row.sku);
+        if (requestedBatch.has(normalized)) groups.set(normalized, [...(groups.get(normalized) ?? []), row]);
+      });
+    }
 
     const products = await Promise.all([...groups.values()].filter((matches) => matches.length === 1).map(async ([row]): Promise<Product> => ({
       id: await stableProductIdForSku(row.sku),
@@ -54,4 +60,14 @@ export class SupabaseProductMasterLookup implements ProductMasterLookup {
 
 function escapeLikePattern(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
+}
+
+function quotePostgrestValue(value: string): string {
+  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+}
+
+function batchesOf<T>(values: T[], size: number): T[][] {
+  const batches: T[][] = [];
+  for (let index = 0; index < values.length; index += size) batches.push(values.slice(index, index + size));
+  return batches;
 }

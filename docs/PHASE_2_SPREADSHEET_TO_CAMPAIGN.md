@@ -69,7 +69,7 @@ Display | Display Area
 - Accept only non-negative whole case quantities.
 - Recalculate allocation totals from store cells.
 - Retain selling price, sale price, savings, wholesale LTO, TPR code, loyalty multiplier, vendor, size, and notes as import metadata.
-- Monthly rows are informational only when explicit giveaway/information wording and the absence of product fields support that classification.
+- A recognized monthly heading such as `Giveaways` opens an informational section. Following blank-SKU rows without product signals remain informational even when their individual Product text has no giveaway keyword. Blank rows close the section; SKU, vendor, category, price, size, points, or LTO values override/close it and make the row subject to normal product validation.
 - Blank, `TBD`, compound, duplicate, and unmatched OND SKUs are merchandising rows that remain blocked for review; compound values are never split automatically.
 
 ## Product reconciliation
@@ -77,6 +77,8 @@ Display | Display Area
 Exact normalized active Product Master SKU is the only authoritative automatic product match. Product names are supporting evidence only. The importer uses a narrow `ProductMasterLookup` boundary: mock data is used only in tests/demo, while configured environments query `ursus_major.public.product` and never fall back to `public.products`.
 
 The live relation uses case-sensitive `sku` as its primary key but contains normalized collisions. A unique trim/uppercase match is therefore required; ambiguous normalized matches are blocked. External SKU-backed products receive a deterministic UUID-shaped Black Betty identity derived from the normalized SKU, preventing duplicate identities across repeated lookups. The browser adapter selects only the required product fields with a publishable/anonymous key under the table's enabled RLS and reviewed public SELECT policy. It never accepts or embeds a service-role credential.
+
+Supabase requests deduplicate requested SKUs and process sequential batches of at most 50 case-insensitive exact filters. Client-side normalized equality is the final acceptance check. This avoids an unbounded request fan-out while retaining case-insensitive exact matching, ambiguity detection, and no fallback table.
 
 Duplicate, blank, compound, unknown, or inactive SKUs are not silently matched. They remain visible in review and are skipped only after the user explicitly acknowledges the skipped-row count.
 

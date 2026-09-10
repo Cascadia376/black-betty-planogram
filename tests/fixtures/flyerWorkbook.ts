@@ -6,6 +6,9 @@ export const flyerWorkbookRows: (string | number)[][] = [
   ["Mock Coast", "BEER", "MOCK-1001", "Coastal Lager 12 Pack", 20.99, 2, 18.99, "12x355ml", "2X", 2, "September LTO, Preordered for you"],
   ["Mock Valley", "WINE", "MOCK-2001", "Harvest Red Blend", 24.99, 3, 21.99, "12x750ml", "", 3, "TPR SOND"],
   ["", "", "", "Giveaways", "", "", "", "", "", "", ""],
+  ["", "", "", "Tofino Oyster Festival Weekend Getaway with Driftwood Brewery", "", "", "", "", "", "", ""],
+  ["", "", "", "Two Nights at Wickaninnish Inn", "", "", "", "", "", "", "", ""],
+  ["", "", "", "Tickets for Two to the Event", "", "", "", "", "", "", "", ""],
 ];
 
 export function createFlyerWorkbook() {

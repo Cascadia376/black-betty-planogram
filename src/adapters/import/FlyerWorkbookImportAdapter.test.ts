@@ -26,6 +26,10 @@ describe("flyer workbook import adapter", () => {
       ["Vendor", "", "SKU", "Product", "Selling Price", "Savings", "Sale Price", "Size", "Points", "LTOs", "Additional Notes"],
       ["Mock Coast", "BEER", "mock-1001", "Different supporting name", 20.99, 2, 18.99, "12x355ml", "2X", 2, "September LTO, Preordered for you"],
       ["", "", "", "Giveaways", "", "", "", "", "", "", ""],
+      ["", "", "", "Tofino Oyster Festival Weekend Getaway with Driftwood Brewery", "", "", "", "", "", "", ""],
+      ["", "", "", "Two Nights at Wickaninnish Inn", "", "", "", "", "", "", ""],
+      ["", "", "", "Tickets for Two to the Event", "", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", "", "", "", ""],
       ["Mock Vendor", "BEER", "", "Product awaiting SKU", 15.99, "", 15.99, "6x355ml", "", "NA", ""],
     ], context, { sourceFileName: "09 September Flyer 2026.xlsx", sourceSheet: "September Flyer", fingerprint: "flyer-fingerprint" });
 
@@ -36,8 +40,13 @@ describe("flyer workbook import adapter", () => {
     expect(result.rows[0].source).toMatchObject({ skuRaw: "mock-1001", sellingPrice: 20.99, savings: 2, salePrice: 18.99, wholesaleLtoAmount: 2, loyaltyPointsMultiplier: 2, additionalNotes: "September LTO, Preordered for you" });
     expect(result.rows[0].allocations).toEqual([]);
     expect(result.placements).toEqual([]);
-    expect(result.rows[1]).toMatchObject({ status: "information", productName: "Giveaways" });
-    expect(result.rows[2]).toMatchObject({ status: "invalid", issues: [{ code: "missing_sku" }] });
+    expect(result.rows.slice(1, 5).map((row) => [row.productName, row.status, row.source.issues[0]])).toEqual([
+      ["Giveaways", "information", "informational_section_heading"],
+      ["Tofino Oyster Festival Weekend Getaway with Driftwood Brewery", "information", "informational_section_row"],
+      ["Two Nights at Wickaninnish Inn", "information", "informational_section_row"],
+      ["Tickets for Two to the Event", "information", "informational_section_row"],
+    ]);
+    expect(result.rows[5]).toMatchObject({ status: "invalid", issues: [{ code: "missing_sku" }] });
   });
 
   it("requires review when a monthly flyer period cannot be inferred", async () => {
@@ -54,7 +63,7 @@ describe("flyer workbook import adapter", () => {
     const file = new File([bytes.slice().buffer], "09 September Flyer 2026.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const result = await adapter.parse(file, context);
     expect(result.sheetNames).toEqual(["September Flyer"]);
-    expect(result.rows.map((row) => row.status)).toEqual(["ready", "ready", "information"]);
+    expect(result.rows.map((row) => row.status)).toEqual(["ready", "ready", "information", "information", "information", "information"]);
     expect(result.fingerprint).toMatch(/^[a-f0-9]{64}$/);
   });
 
