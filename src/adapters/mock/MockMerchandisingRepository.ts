@@ -1,6 +1,6 @@
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
-  ApplyCampaignDisplayQuantityInput, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput,
+  ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -9,7 +9,7 @@ import {
   validateDisplayAssignment,
   validateDisplayAssignmentProducts,
 } from "../../domain/rules";
-import type { BridgeStrategy, CampaignDisplay, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, DisplayRequirement, NewCampaignInput, OrderRecommendation, PlatformSnapshot, Product, RecommendationStatus, StoreLayout, UUID } from "../../domain/types";
+import type { BridgeStrategy, CampaignDisplay, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, DisplayRequirement, NewCampaignInput, OrderRecommendation, PlatformSnapshot, Product, PromotionOpportunity, RecommendationStatus, StoreLayout, UUID } from "../../domain/types";
 import { productDetails } from "../../features/programs/allocationPlanner";
 import type { BusinessClock } from "../../services/clock";
 import { mockBusinessClock } from "../../services/clock";
@@ -106,6 +106,8 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     displayAssignmentProducts: snapshot.displayAssignmentProducts ?? defaults.displayAssignmentProducts,
     suppliers: snapshot.suppliers ?? defaults.suppliers,
     supplierProductOptions: snapshot.supplierProductOptions ?? defaults.supplierProductOptions,
+    supplierSubmissions: (snapshot.supplierSubmissions ?? []).map((submission) => ({ ...submission, rows: submission.rows ?? [] })),
+    promotionOpportunities: snapshot.promotionOpportunities ?? [],
     inventoryPositions: snapshot.inventoryPositions ?? defaults.inventoryPositions,
     inboundOrders: snapshot.inboundOrders ?? defaults.inboundOrders,
     orderRecommendations: snapshot.orderRecommendations ?? defaults.orderRecommendations,
@@ -454,6 +456,67 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       if (cause instanceof Error) throw cause;
       throw new Error("The campaign import could not be applied.", { cause });
     }
+  }
+
+  async applySupplierSubmissionImport(input: ApplySupplierSubmissionImportInput): Promise<ApplySupplierSubmissionImportResult> {
+    if (!input.fingerprint.trim() || !input.importKey.trim()) throw new Error("Supplier submission provenance is required.");
+    if (!input.supplier.trim()) throw new Error("Supplier is required before Apply.");
+    if (!input.reviewRows.length) throw new Error("The supplier submission has no source rows to apply.");
+    if (input.rows.some(({ opportunity }) => opportunity.status !== "READY_FOR_REVIEW" || opportunity.provenance.issues.length > 0)) {
+      throw new Error("Only eligible READY_FOR_REVIEW rows may create Promotion Opportunities.");
+    }
+    if (this.state.supplierSubmissions.some((submission) => submission.importKey === input.importKey)) {
+      throw new Error("This supplier submission has already been applied.");
+    }
+
+    const previous = structuredClone(this.state);
+    try {
+      for (const row of input.rows) {
+        const { opportunity, product } = row;
+        if (opportunity.productId) {
+          if (!product || product.id !== opportunity.productId || !product.active) throw new Error(`Invalid Product Master link for ${opportunity.authoritativeSku ?? opportunity.supplierSku ?? "supplier row"}.`);
+          const normalizedSku = product.sku.trim().toLocaleUpperCase();
+          const existing = this.state.products.find((candidate) => candidate.sku.trim().toLocaleUpperCase() === normalizedSku);
+          if (existing && existing.id !== product.id) throw new Error(`Product identity conflict for SKU ${normalizedSku}.`);
+          if (!existing) this.state.products.push(structuredClone(product));
+        }
+      }
+      const now = this.clock.now();
+      const priorVersions = this.state.supplierSubmissions.filter((submission) => submission.supplier.trim().toLocaleUpperCase() === input.supplier.trim().toLocaleUpperCase());
+      const submissionId = crypto.randomUUID();
+      this.state.supplierSubmissions.push({
+        id: submissionId, formatId: input.formatId, importKey: input.importKey, fingerprint: input.fingerprint,
+        version: priorVersions.length + 1, sourceFileName: input.sourceFileName, sourceSheet: input.sourceSheet,
+        supplier: input.supplier.trim(), supplierContact: input.supplierContact, submittedAt: input.submittedAt,
+        proposedStartDate: input.proposedStartDate, proposedEndDate: input.proposedEndDate, notes: input.notes,
+        importedAt: now, rowCount: input.reviewRows.length,
+        rows: input.reviewRows.map((row) => ({
+          disposition: row.disposition,
+          provenance: { ...structuredClone(row.provenance), importedAt: now },
+        })),
+      });
+      const opportunities = input.rows.map(({ opportunity }): PromotionOpportunity => ({
+        ...structuredClone(opportunity), id: crypto.randomUUID(), sourceSubmissionId: submissionId,
+        provenance: { ...structuredClone(opportunity.provenance), importedAt: now }, createdAt: now, updatedAt: now,
+      }));
+      this.state.promotionOpportunities.push(...opportunities);
+      this.persist();
+      return { submissionId, opportunityIds: opportunities.map((opportunity) => opportunity.id) };
+    } catch (cause) {
+      this.state = previous;
+      if (cause instanceof Error) throw cause;
+      throw new Error("The supplier submission could not be applied.", { cause });
+    }
+  }
+
+  async updatePromotionOpportunity(input: UpdatePromotionOpportunityInput): Promise<PromotionOpportunity> {
+    const opportunity = this.state.promotionOpportunities.find((candidate) => candidate.id === input.opportunityId);
+    if (!opportunity) throw new Error("Promotion opportunity was not found.");
+    if (input.status !== undefined) opportunity.status = input.status;
+    if (input.jeremyComment !== undefined) opportunity.jeremyComment = input.jeremyComment.trim() || undefined;
+    opportunity.updatedAt = this.clock.now();
+    this.persist();
+    return structuredClone(opportunity);
   }
 
   async updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct> {

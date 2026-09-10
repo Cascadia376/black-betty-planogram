@@ -5,6 +5,7 @@ export type CampaignStatus = "draft" | "scheduled" | "active" | "completed";
 export type MerchandisingProgramStatus = "draft" | "planned" | "active" | "completed" | "archived";
 export type DisplayAssignmentStatus = "draft" | "planned" | "ready" | "active" | "completed" | "cancelled";
 export type SupplierAvailability = "available" | "limited" | "unavailable" | "unknown";
+export type PromotionOpportunityStatus = "NEW" | "NEEDS_REVIEW" | "READY_FOR_REVIEW" | "APPROVED" | "PASSED" | "DEFERRED";
 export type InboundOrderStatus = "draft" | "submitted" | "confirmed" | "received" | "cancelled";
 export type OrderRecommendationType = "opening_fill" | "replenishment" | "normal_replenishment" | "peak_build" | "bridge_buy" | "exit_control";
 export type ProductInventoryStrategy = "EXIT" | "NORMAL_CARRY" | "BRIDGE_BUY";
@@ -478,6 +479,96 @@ export interface SupplierProductOption {
   availableFrom?: string;
 }
 
+export interface SupplierSubmission {
+  id: UUID;
+  formatId: "supplier-submission-import-v1";
+  importKey: string;
+  fingerprint: string;
+  version: number;
+  sourceFileName: string;
+  sourceSheet: string;
+  supplier: string;
+  supplierContact?: string;
+  submittedAt?: string;
+  proposedStartDate?: string;
+  proposedEndDate?: string;
+  notes?: string;
+  importedAt: string;
+  rowCount: number;
+  rows: SupplierSubmissionSourceRow[];
+}
+
+export interface SupplierSubmissionSourceRow {
+  provenance: PromotionOpportunityProvenance;
+  disposition: "OPPORTUNITY_CREATED" | "SKIPPED_BLOCKING" | "SKIPPED_DUPLICATE";
+}
+
+export interface PromotionOpportunityProvenance {
+  formatId: "supplier-submission-import-v1";
+  workbookName: string;
+  workbookSha256: string;
+  sheet: string;
+  row: number;
+  importedAt: string;
+  sourceValues: Record<string, string>;
+  normalizedValues: Record<string, string | number | boolean | null>;
+  productMatchMethod: "EXACT_SKU" | "UNMATCHED" | "AMBIGUOUS" | "NOT_ATTEMPTED";
+  issues: string[];
+}
+
+/** Supplier evidence normalized for merchant review; it is not a campaign or execution instruction. */
+export interface PromotionOpportunity {
+  id: UUID;
+  sourceSubmissionId: UUID;
+  productId?: UUID;
+  authoritativeSku?: string;
+  supplierSku?: string;
+  productName: string;
+  supplierProductDescription?: string;
+  supplier: string;
+  vendor?: string;
+  supplierCategory?: string;
+  authoritativeCategory?: string;
+  proposedStartDate?: string;
+  proposedEndDate?: string;
+  promotionEvidence: {
+    wholesaleLto?: number;
+    tpr?: string;
+    proposedRetail?: number;
+    flyerRequest?: string;
+    promotionalMechanic?: string;
+    points?: string;
+  };
+  commercialTerms: {
+    caseCommitment?: number;
+    minimumOrder?: number;
+    preorderRequired?: boolean;
+    displaySupport?: string;
+    marketingSupport?: string;
+    supplierFundedSupport?: string;
+    assetsAvailable?: boolean;
+    sampleTastingSupport?: string;
+  };
+  merchandisingRequest: {
+    displayRequested?: boolean;
+    requestedDisplayFamily?: DisplayFamily;
+    requestedDisplayCount?: number;
+    notes?: string;
+  };
+  availability: {
+    availableFrom?: string;
+    quantity?: number;
+    restrictions?: string;
+    storesOrRegions?: string;
+  };
+  supplierEvidence: { claims?: string; notes?: string; rawText?: string };
+  status: PromotionOpportunityStatus;
+  jeremyComment?: string;
+  provenance: PromotionOpportunityProvenance;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Supplier {
   id: UUID;
   name: string;
@@ -707,6 +798,8 @@ export interface PlatformSnapshot {
   displayAssignmentProducts: DisplayAssignmentProduct[];
   suppliers: Supplier[];
   supplierProductOptions: SupplierProductOption[];
+  supplierSubmissions: SupplierSubmission[];
+  promotionOpportunities: PromotionOpportunity[];
   inventoryPositions: InventoryPosition[];
   inboundOrders: InboundOrder[];
   orderRecommendations: OrderRecommendation[];

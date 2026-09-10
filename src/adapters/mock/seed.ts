@@ -203,6 +203,8 @@ export const seedSnapshot: PlatformSnapshot = {
     { productId: IDS.ondExitProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 5, orderDays: ["Monday", "Thursday"], casePack: 6, availability: "available" },
     { productId: IDS.ondCiderProduct, supplierId: IDS.ondPreferredSupplier, supplierName: "Mock Coastal Distribution", preferred: true, leadTimeDays: 9, orderDays: ["Monday"], casePack: 6, availability: "unavailable" },
   ],
+  supplierSubmissions: [],
+  promotionOpportunities: [],
   inventoryPositions: [
     { storeId: IDS.store, productId: IDS.ondHarvestProduct, onHandCases: 5, reservedCases: 1, updatedAt: "2026-09-24T16:00:00Z" },
     { storeId: IDS.store, productId: IDS.ondBridgeProduct, onHandCases: 2, updatedAt: "2026-09-24T16:00:00Z" },

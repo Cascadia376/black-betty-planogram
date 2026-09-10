@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Layers3,
   Lightbulb,
+  ListChecks,
   Menu,
   Megaphone,
   Plus,
@@ -30,6 +31,7 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
   const items = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/", roles: undefined },
     { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns"), roles: planningRoles },
+    { to: "/opportunities", label: "Opportunities", icon: ListChecks, matches: (path: string) => path.startsWith("/opportunities"), roles: planningRoles },
     ...(store ? [
       { to: `/stores/${store.id}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas"), roles: undefined },
       { to: role === "store_manager" ? `/stores/${store.id}/workspace` : "/stores", label: role === "store_manager" ? "My workspace" : "Stores", icon: Building2, matches: (path: string) => (path.startsWith("/stores") && !path.includes("/floorplan") && !path.includes("/orders")) || path.startsWith("/executions"), roles: undefined },
