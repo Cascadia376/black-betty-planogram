@@ -1,5 +1,5 @@
 import type {
-  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
   ApplyCampaignDisplayQuantityInput, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput,
 } from "../../domain/repositories";
 import {
@@ -74,6 +74,8 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     ...snapshot,
     products,
     campaigns,
+    campaignImports: snapshot.campaignImports ?? [],
+    campaignStoreProductAllocations: snapshot.campaignStoreProductAllocations ?? [],
     campaignDisplays: snapshot.campaignDisplays ?? [],
     campaignDisplayProducts: snapshot.campaignDisplayProducts ?? [],
     campaignStores: snapshot.campaignStores ?? [],
@@ -331,6 +333,120 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     campaign.products.push(...created);
     this.persist();
     return structuredClone(created);
+  }
+
+  async applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult> {
+    if (!input.fingerprint.trim()) throw new Error("The workbook fingerprint is required.");
+    if (this.state.campaignImports.some((item) => item.fingerprint === input.fingerprint)) {
+      throw new Error("This workbook has already been applied.");
+    }
+    if (!input.rows.length) throw new Error("The import has no reconciled products to apply.");
+    const campaignErrors = validateCampaignDetails(input.campaign);
+    if (campaignErrors.length) throw new Error(campaignErrors.join(" "));
+    const productIds = input.rows.map((row) => row.productId);
+    if (new Set(productIds).size !== productIds.length) throw new Error("The import contains duplicate Product Master identities.");
+    if (productIds.some((id) => !this.state.products.some((product) => product.id === id && product.active))) {
+      throw new Error("Every imported SKU must resolve to an active Product Master item.");
+    }
+    const storeIds = new Set(input.rows.flatMap((row) => row.allocations.map((allocation) => allocation.storeId)));
+    if ([...storeIds].some((id) => !this.state.stores.some((store) => store.id === id))) throw new Error("The import contains an unknown store.");
+
+    const previous = structuredClone(this.state);
+    try {
+      const campaignId = crypto.randomUUID();
+      const campaignProducts = input.rows.map((row): CampaignProduct => ({
+        id: crypto.randomUUID(), campaignId, productId: row.productId, role: row.role, required: row.required,
+        note: row.note, merchandisingState: row.merchandisingState,
+      }));
+      this.state.campaigns.unshift({ ...input.campaign, requirement: input.campaign.requirement ?? structuredClone(defaultDisplayRequirement), id: campaignId, status: "draft", products: campaignProducts });
+
+      const rowsByCode = new Map<string, typeof input.rows>();
+      input.rows.filter((row) => row.displayLocalCode).forEach((row) => {
+        const code = row.displayLocalCode!.toLocaleUpperCase();
+        rowsByCode.set(code, [...(rowsByCode.get(code) ?? []), row]);
+      });
+      const displayIds = new Map<string, UUID>();
+      const displayProductIds = new Map<string, UUID>();
+      [...rowsByCode].forEach(([code, rows], index) => {
+        const placement = input.placements.find((item) => item.displayLocalCode.toLocaleUpperCase() === code);
+        const displayId = crypto.randomUUID();
+        displayIds.set(code, displayId);
+        this.state.campaignDisplays.push({
+          id: displayId, campaignId, name: `Display ${code}`, displayType: "flex", placementMode: "STANDARD",
+          description: `Imported cross-store display concept ${code}.`, prescriptive: true, sortOrder: index,
+          status: "draft", sourceLocalCode: code, displayFamily: placement?.displayFamily,
+        });
+        rows.forEach((row, productIndex) => {
+          const campaignProduct = campaignProducts.find((item) => item.productId === row.productId)!;
+          const id = crypto.randomUUID();
+          displayProductIds.set(`${code}|${row.productId}`, id);
+          this.state.campaignDisplayProducts.push({
+            id, campaignDisplayId: displayId, campaignProductId: campaignProduct.id, productId: row.productId,
+            role: "Supporting", required: row.required, sortOrder: productIndex, note: row.note,
+          });
+        });
+      });
+
+      this.state.stores.forEach((store) => this.state.campaignStores.push({
+        id: crypto.randomUUID(), campaignId, storeId: store.id, included: storeIds.has(store.id),
+        status: storeIds.has(store.id) ? "PLANNING" : "NOT_STARTED",
+      }));
+
+      input.rows.forEach((row) => {
+        const campaignProduct = campaignProducts.find((item) => item.productId === row.productId)!;
+        row.allocations.forEach((allocation) => {
+          const sourceAllocation = row.source.allocations.find((item) => item.storeId === allocation.storeId);
+          this.state.campaignStoreProductAllocations.push({
+            id: crypto.randomUUID(), campaignId, campaignProductId: campaignProduct.id, productId: row.productId,
+            storeId: allocation.storeId, caseQuantity: allocation.quantityCases,
+            displayRequired: row.merchandisingState === "DISPLAY_ASSIGNED" || row.merchandisingState === "UNASSIGNED",
+            intendedDisplayCode: row.displayLocalCode, sourceCell: sourceAllocation?.sourceCell ?? "Unknown source cell",
+          });
+        });
+      });
+
+      input.placements.forEach((placement) => {
+        const code = placement.displayLocalCode.toLocaleUpperCase();
+        const displayId = displayIds.get(code);
+        if (!displayId || !storeIds.has(placement.storeId)) return;
+        const areaId = placement.displayAreaId;
+        if (areaId && !this.state.displayAreas.some((area) => area.id === areaId && area.storeId === placement.storeId && area.active)) {
+          throw new Error(`Display ${code} does not belong to its imported store.`);
+        }
+        const assignmentId = crypto.randomUUID();
+        this.state.campaignDisplayAssignments.push({
+          id: assignmentId, campaignId, campaignDisplayId: displayId, storeId: placement.storeId,
+          displayAreaId: areaId, status: placement.status, placementSource: areaId ? "SPREADSHEET" : undefined,
+          compatibility: areaId ? "recommended" : placement.suggestionDisplayAreaId ? "review" : undefined,
+          suggestionDisplayAreaId: placement.suggestionDisplayAreaId, suggestionReasons: placement.suggestionReasons,
+          intendedDisplayCode: code, startDate: input.campaign.startDate, endDate: input.campaign.endDate,
+          createdAt: this.clock.now(), updatedAt: this.clock.now(),
+        });
+        const displayRows = rowsByCode.get(code) ?? [];
+        displayRows.forEach((row) => {
+          const displayProductId = displayProductIds.get(`${code}|${row.productId}`)!;
+          const cases = row.allocations.find((allocation) => allocation.storeId === placement.storeId)?.quantityCases ?? 0;
+          this.state.campaignDisplayAssignmentProducts.push({
+            id: crypto.randomUUID(), campaignDisplayAssignmentId: assignmentId, campaignDisplayProductId: displayProductId,
+            productId: row.productId, caseQuantity: cases, quantitySource: "SPREADSHEET", buyerOverride: false,
+            note: row.note,
+          });
+        });
+      });
+
+      const importId = crypto.randomUUID();
+      this.state.campaignImports.push({
+        id: importId, campaignId, formatId: input.formatId, workbookKind: input.workbookKind,
+        fingerprint: input.fingerprint, sourceFileName: input.sourceFileName, sourceSheet: input.sourceSheet,
+        importedAt: this.clock.now(), rows: structuredClone(input.reviewRows),
+      });
+      this.persist();
+      return { campaignId, importId };
+    } catch (cause) {
+      this.state = previous;
+      if (cause instanceof Error) throw cause;
+      throw new Error("The campaign import could not be applied.", { cause });
+    }
   }
 
   async updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct> {

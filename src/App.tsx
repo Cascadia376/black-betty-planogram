@@ -14,6 +14,7 @@ import { ExecutionPage } from "./features/execution/ExecutionPage";
 import { StoreOrdersPage } from "./features/orders/StoreOrdersPage";
 import { ImportsPage } from "./features/imports/ImportsPage";
 import { OndImportPage } from "./features/imports/OndImportPage";
+import { FlyerWorkbookImportPage } from "./features/imports/FlyerWorkbookImportPage";
 import { DisplayAreaProfilePage } from "./features/performance/PerformancePages";
 import { PerformancePage } from "./features/performance/OndPerformancePage";
 import { ProgramWorkspacePage } from "./features/programs/ProgramWorkspacePage";
@@ -40,6 +41,7 @@ export function App() {
     <Route path="programs/:programId/allocations" element={<AllocationPlannerPage />} />
     <Route path="programs/:programId/import" element={<OndImportPage />} />
     <Route path="imports" element={<ImportsPage />} />
+    <Route path="imports/flyer" element={<FlyerWorkbookImportPage />} />
     <Route path="stores" element={<StoreDirectoryPage />} />
     <Route path="stores/:storeId" element={<StoreOverviewPage />} />
     <Route path="stores/:storeId/floorplan" element={<PhysicalStoreFloorplanPage />} />
