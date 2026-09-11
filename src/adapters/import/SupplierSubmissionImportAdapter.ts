@@ -127,8 +127,8 @@ export class SupplierSubmissionImportAdapter implements ImportAdapter<{ productM
       const retail = parseNumber(valueRaw(cells, indexes.proposedRetail));
       const caseCommitment = parseWhole(valueRaw(cells, indexes.caseCommitment));
       const minimumOrder = parseWhole(valueRaw(cells, indexes.minimumOrder));
-      const displayCount = parseWhole(valueRaw(cells, indexes.displayCount));
-      const availableQuantity = parseWhole(valueRaw(cells, indexes.availableQuantity));
+      const displayCount = parseNonNegativeWhole(valueRaw(cells, indexes.displayCount));
+      const availableQuantity = parseNonNegativeWhole(valueRaw(cells, indexes.availableQuantity));
       addInvalidNumberIssue(rowIssues, rowNumber, "LTO", value(cells, indexes.lto), lto);
       addInvalidNumberIssue(rowIssues, rowNumber, "Proposed Retail", value(cells, indexes.proposedRetail), retail);
       addInvalidNumberIssue(rowIssues, rowNumber, "Case Commitment", value(cells, indexes.caseCommitment), caseCommitment);
@@ -136,6 +136,11 @@ export class SupplierSubmissionImportAdapter implements ImportAdapter<{ productM
       const preorder = parseBoolean(value(cells, indexes.preorder));
       const displayRequested = parseBoolean(value(cells, indexes.displayRequested));
       const assetsAvailable = parseBoolean(value(cells, indexes.assetsAvailable));
+      addInvalidWholeNumberIssue(rowIssues, rowNumber, "Display Count", value(cells, indexes.displayCount), displayCount, "invalid_display_count");
+      addInvalidWholeNumberIssue(rowIssues, rowNumber, "Available Quantity", value(cells, indexes.availableQuantity), availableQuantity, "invalid_available_quantity");
+      addInvalidBooleanIssue(rowIssues, rowNumber, "Preorder", value(cells, indexes.preorder), preorder, "invalid_preorder");
+      addInvalidBooleanIssue(rowIssues, rowNumber, "Display Requested", value(cells, indexes.displayRequested), displayRequested, "invalid_display_requested");
+      addInvalidBooleanIssue(rowIssues, rowNumber, "Assets Available", value(cells, indexes.assetsAvailable), assetsAvailable, "invalid_assets_available");
       const requestedDisplayFamily = parseDisplayFamily(value(cells, indexes.displayFamily));
       const availableFrom = parseDate(valueRaw(cells, indexes.availableFrom));
       addInvalidDateIssue(rowIssues, rowNumber, "Availability Date", value(cells, indexes.availableFrom), availableFrom);
@@ -213,7 +218,11 @@ export function toApplySupplierSubmissionImport(result: SupplierSubmissionImport
     proposedEndDate: result.proposedEndDate,
     reviewRows: result.rows.map((row) => ({
       provenance: row.provenance,
-      disposition: row.status === "ready" ? "OPPORTUNITY_CREATED" : row.issues.some((issue) => issue.code === "exact_duplicate_opportunity") ? "SKIPPED_DUPLICATE" : "SKIPPED_BLOCKING",
+      disposition: row.status === "ready"
+        ? "OPPORTUNITY_CREATED"
+        : row.issues.some((issue) => issue.severity === "error" && issue.code !== "exact_duplicate_opportunity")
+          ? "SKIPPED_BLOCKING"
+          : "SKIPPED_DUPLICATE",
     })),
     rows: result.rows.filter((row) => row.status === "ready" && row.product).map((row) => ({ opportunity: { ...row.opportunity, provenance: row.provenance }, product: row.product })),
   };
@@ -238,11 +247,14 @@ function isCompoundSku(sku: string) { return sku.includes("/"); }
 function isLookupEligibleSku(sku: string) { return Boolean(sku) && sku !== "TBD" && !isCompoundSku(sku); }
 function parseNumber(raw: unknown) { if (cellText(raw) === "") return undefined; const number = typeof raw === "number" ? raw : Number(cellText(raw).replace(/[$,]/g, "")); return Number.isFinite(number) && number >= 0 ? number : undefined; }
 function parseWhole(raw: unknown) { const number = parseNumber(raw); return number !== undefined && Number.isInteger(number) ? number : undefined; }
+function parseNonNegativeWhole(raw: unknown) { const text = cellText(raw); if (!text) return undefined; const number = typeof raw === "number" ? raw : /^\d+$/.test(text) ? Number(text) : Number.NaN; return Number.isSafeInteger(number) && number >= 0 ? number : undefined; }
 function parseBoolean(raw: string) { if (!raw) return undefined; if (["Y", "YES", "TRUE", "1"].includes(normalizeHeader(raw))) return true; if (["N", "NO", "FALSE", "0"].includes(normalizeHeader(raw))) return false; return undefined; }
 function parseDate(raw: unknown) { if (raw instanceof Date && !Number.isNaN(raw.valueOf())) return raw.toISOString().slice(0, 10); const text = cellText(raw); return /^\d{4}-\d{2}-\d{2}$/.test(text) && !Number.isNaN(Date.parse(`${text}T00:00:00Z`)) ? text : undefined; }
 function parseDisplayFamily(raw: string): DisplayFamily | undefined { const key = normalizeHeader(raw).replace(/[/ ]+/g, "_"); const aliases: Record<string, DisplayFamily> = { WINE: "WINE", BEER: "BEER_RTD", RTD: "BEER_RTD", BEER_RTD: "BEER_RTD", MULTI: "MULTI", SEASONAL: "SEASONAL", WINDOW: "WINDOW", OTHER: "OTHER" }; return aliases[key]; }
 function addInvalidDateIssue(issues: ImportIssue[], row: number, field: string, raw: string, parsed?: string) { if (raw && !parsed) issues.push(makeIssue(row, field, "invalid_date", `${field} must be an Excel date or YYYY-MM-DD.`, "error")); }
 function addInvalidNumberIssue(issues: ImportIssue[], row: number, field: string, raw: string, parsed?: number) { if (raw && parsed === undefined) issues.push(makeIssue(row, field, "invalid_number", `${field} must be a non-negative number.`, "error")); }
+function addInvalidWholeNumberIssue(issues: ImportIssue[], row: number, field: string, raw: string, parsed: number | undefined, code: string) { if (raw && parsed === undefined) issues.push(makeIssue(row, field, code, `${field} must be a non-negative whole number.`, "error")); }
+function addInvalidBooleanIssue(issues: ImportIssue[], row: number, field: string, raw: string, parsed: boolean | undefined, code: string) { if (raw && parsed === undefined) issues.push(makeIssue(row, field, code, `${field} must be Y, Yes, True, 1, N, No, False, or 0.`, "error")); }
 function columnName(index: number) { let value = index + 1; let name = ""; while (value > 0) { value -= 1; name = String.fromCharCode(65 + (value % 26)) + name; value = Math.floor(value / 26); } return name; }
 function makeIssue(row: number, field: string, code: string, message: string, severity: ImportIssue["severity"]): ImportIssue { return { row, field, code, message, severity }; }
 async function sha256(file: Blob) { const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer()); return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join(""); }

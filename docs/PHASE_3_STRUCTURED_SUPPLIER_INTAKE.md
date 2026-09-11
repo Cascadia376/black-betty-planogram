@@ -14,7 +14,7 @@ Phase 3 does not rank opportunities, create displays or store allocations, order
 
 `SupplierSubmissionImportV1` is the only supported format. The workbook is supplier evidence. `ursus_major.public.product`, accessed through the existing read-only `ProductMasterLookup`, remains authoritative for product identity, name, and category. Exact normalized SKU is the only automatic match. Supplier product names, descriptions, categories, terms, claims, and notes remain separately visible and never overwrite Product Master.
 
-Blank, TBD, compound, unmatched, and ambiguous SKUs create `NEEDS_REVIEW` opportunities. Product name is supporting evidence only. See [the template specification](./SUPPLIER_SUBMISSION_TEMPLATE.md).
+Blank, TBD, compound, unmatched, and ambiguous SKUs remain `NEEDS_REVIEW` source rows during review. They are preserved in `SupplierSubmission` provenance but do not create `PromotionOpportunity` records until a future resolution workflow exists. Product name is supporting evidence only. See [the template specification](./SUPPLIER_SUBMISSION_TEMPLATE.md).
 
 ## Parse, review, Apply
 
@@ -63,7 +63,8 @@ The additive opportunity structure can later hold enrichment and evidence refere
 3. Confirm Product Master identity/category appear only for the exact SKU and both original supplier values remain visible.
 4. Filter by supplier, category, status, promotion month, flyer request, and display request.
 5. Confirm Apply is gated until issue rows are acknowledged.
-6. Apply and verify `/opportunities` shows both records; no campaign appears.
-7. Approve, Pass, and Defer an opportunity; save a Jeremy comment; reload and verify persistence.
-8. Upload the identical file again and confirm replay is blocked.
-9. Change a commercial term and re-upload; confirm a new submission version is retained.
+6. Apply and confirm the `SupplierSubmission` retains both source rows while only the exact-match row creates a `PromotionOpportunity`.
+7. Verify `/opportunities` shows only the eligible opportunity, the invalid row remains in submission provenance, and no campaign appears.
+8. Approve, Pass, and Defer an opportunity; save a Jeremy comment; reload and verify persistence.
+9. Upload the identical file again and confirm replay is blocked.
+10. Change a commercial term and re-upload; confirm a new submission version is retained.
