@@ -36,13 +36,15 @@ function cloneSeed(): PlatformSnapshot {
   return structuredClone(seedSnapshot);
 }
 
+function mergeSeedRecords<T extends { id: UUID }>(stored: T[] | undefined, seeded: T[]): T[] {
+  const existing = stored ?? [];
+  const existingIds = new Set(existing.map((record) => record.id));
+  return [...existing, ...seeded.filter((record) => !existingIds.has(record.id))];
+}
+
 function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
   const defaults = cloneSeed();
-  const storedDisplayAreas = snapshot.displayAreas ?? [];
-  const mergedDisplayAreas = [
-    ...storedDisplayAreas,
-    ...defaults.displayAreas.filter((seeded) => !storedDisplayAreas.some((area) => area.id === seeded.id)),
-  ];
+  const mergedDisplayAreas = mergeSeedRecords(snapshot.displayAreas, defaults.displayAreas);
   const products: Product[] = (snapshot.products ?? defaults.products).map((product) => ({
     ...product,
     masterStatus: product.masterStatus ?? "verified",
@@ -72,6 +74,7 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
   }));
   return {
     ...snapshot,
+    stores: mergeSeedRecords(snapshot.stores, defaults.stores),
     products,
     campaigns,
     campaignImports: snapshot.campaignImports ?? [],
@@ -83,10 +86,10 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
     campaignDisplayAssignmentProducts: snapshot.campaignDisplayAssignmentProducts ?? [],
     campaignReleases: snapshot.campaignReleases ?? [],
     storeReleaseNotices: snapshot.storeReleaseNotices ?? [],
-    storeLayouts: snapshot.storeLayouts ?? defaults.storeLayouts,
-    categorySpaces: snapshot.categorySpaces ?? defaults.categorySpaces,
-    categorySpaceSections: snapshot.categorySpaceSections ?? defaults.categorySpaceSections,
-    displayClassDefinitions: snapshot.displayClassDefinitions ?? defaults.displayClassDefinitions,
+    storeLayouts: mergeSeedRecords(snapshot.storeLayouts, defaults.storeLayouts),
+    categorySpaces: mergeSeedRecords(snapshot.categorySpaces, defaults.categorySpaces),
+    categorySpaceSections: mergeSeedRecords(snapshot.categorySpaceSections, defaults.categorySpaceSections),
+    displayClassDefinitions: mergeSeedRecords(snapshot.displayClassDefinitions, defaults.displayClassDefinitions),
     displayAreas: mergedDisplayAreas.map((area) => {
       const seededArea = defaults.displayAreas.find((candidate) => candidate.id === area.id);
       return {
@@ -97,7 +100,7 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
         verificationStatus: area.verificationStatus ?? "unverified",
       };
     }),
-    displayAreaSections: snapshot.displayAreaSections ?? defaults.displayAreaSections,
+    displayAreaSections: mergeSeedRecords(snapshot.displayAreaSections, defaults.displayAreaSections),
     programs: snapshot.programs ?? defaults.programs,
     programPeriods: snapshot.programPeriods ?? defaults.programPeriods,
     programStores: snapshot.programStores ?? defaults.programStores,

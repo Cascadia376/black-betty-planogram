@@ -41,6 +41,39 @@ function ondAssignmentInput(startDate = "2026-10-01", endDate = "2026-11-11"): C
 describe("mock merchandising workflow", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("adds newly seeded stores and floorplans to an older saved snapshot", async () => {
+    const legacyStoreIds = new Set(seedSnapshot.stores.slice(0, 2).map((store) => store.id));
+    const legacyLayouts = seedSnapshot.storeLayouts.filter((layout) => legacyStoreIds.has(layout.storeId));
+    const legacyLayoutIds = new Set(legacyLayouts.map((layout) => layout.id));
+    const legacyCategorySpaces = seedSnapshot.categorySpaces.filter((space) => legacyLayoutIds.has(space.layoutId));
+    const legacyCategorySpaceIds = new Set(legacyCategorySpaces.map((space) => space.id));
+    const legacyDisplayAreas = seedSnapshot.displayAreas.filter((area) => legacyStoreIds.has(area.storeId));
+    const legacyDisplayAreaIds = new Set(legacyDisplayAreas.map((area) => area.id));
+    const legacySnapshot: PlatformSnapshot = {
+      ...structuredClone(seedSnapshot),
+      stores: seedSnapshot.stores.slice(0, 2).map((store, index) => (
+        index === 0 ? { ...store, address: "Saved browser address" } : store
+      )),
+      storeLayouts: legacyLayouts,
+      categorySpaces: legacyCategorySpaces,
+      categorySpaceSections: seedSnapshot.categorySpaceSections.filter((section) => legacyCategorySpaceIds.has(section.categorySpaceId)),
+      displayAreas: legacyDisplayAreas,
+      displayAreaSections: seedSnapshot.displayAreaSections.filter((section) => legacyDisplayAreaIds.has(section.displayAreaId)),
+    };
+    window.localStorage.setItem("cascadia-merchandising-platform-v1", JSON.stringify(legacySnapshot));
+
+    const state = await new MockMerchandisingRepository().load();
+
+    expect(state.stores).toHaveLength(seedSnapshot.stores.length);
+    expect(state.stores.find((store) => store.id === IDS.store)?.address).toBe("Saved browser address");
+    for (const store of state.stores) {
+      const currentLayout = state.storeLayouts.find((layout) => layout.storeId === store.id && layout.status === "current");
+      expect(currentLayout, store.name).toBeDefined();
+      expect(state.categorySpaces.some((space) => space.layoutId === currentLayout?.id), store.name).toBe(true);
+      expect(state.displayAreas.some((area) => area.storeId === store.id), store.name).toBe(true);
+    }
+  });
+
   it("updates category spaces, duplicates layouts, and preserves display/campaign data", async () => {
     const repository = new MockMerchandisingRepository();
     const before = await repository.load();
