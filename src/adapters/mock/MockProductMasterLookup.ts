@@ -9,12 +9,13 @@ export class MockProductMasterLookup implements ProductMasterLookup {
   async findByExactSkus(skus: string[]): Promise<ProductMasterLookupResult> {
     const requested = new Set(skus.map(normalizeProductSku).filter(Boolean));
     const grouped = new Map<string, Product[]>();
-    this.products.filter((product) => product.active).forEach((product) => {
+    this.products.forEach((product) => {
       const sku = normalizeProductSku(product.sku);
       if (requested.has(sku)) grouped.set(sku, [...(grouped.get(sku) ?? []), product]);
     });
     return {
-      products: [...grouped.values()].filter((matches) => matches.length === 1).map(([product]) => product),
+      products: [...grouped.values()].filter((matches) => matches.length === 1 && matches[0].active).map(([product]) => product),
+      inactiveSkus: [...grouped].filter(([, matches]) => matches.length === 1 && !matches[0].active).map(([sku]) => sku),
       ambiguousSkus: [...grouped].filter(([, matches]) => matches.length > 1).map(([sku]) => sku),
     };
   }

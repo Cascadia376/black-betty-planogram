@@ -45,7 +45,13 @@ describe("SupabaseProductMasterLookup", () => {
 
   it("does not choose between duplicate normalized Product Master SKUs", async () => {
     const stub = stubClient([[productRow("ABC", "First"), productRow("abc", "Second")]]);
-    await expect(new SupabaseProductMasterLookup(stub.client).findByExactSkus(["abc"])).resolves.toEqual({ products: [], ambiguousSkus: ["ABC"] });
+    await expect(new SupabaseProductMasterLookup(stub.client).findByExactSkus(["abc"])).resolves.toEqual({ products: [], ambiguousSkus: ["ABC"], inactiveSkus: [] });
+  });
+
+  it("reports inactive exact records separately without offering them as products", async () => {
+    const stub = stubClient([[{ ...productRow("OLD"), is_active: false }]]);
+    expect(await new SupabaseProductMasterLookup(stub.client).findByExactSkus(["OLD", "MISSING"])).toEqual({ products: [], ambiguousSkus: [], inactiveSkus: ["OLD"] });
+    expect(stub.tables).toEqual(["product"]);
   });
 
   it("uses sequential bounded batches when the request exceeds the batch size", async () => {

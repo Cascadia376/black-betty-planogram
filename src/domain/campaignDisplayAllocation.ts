@@ -17,7 +17,7 @@ export function campaignDisplayAreaCompatibility(display: CampaignDisplay, area:
   const zone = data.zones.find((item) => item.id === area.zoneId);
   if (area.primaryCategory && zone?.category && area.primaryCategory !== zone.category && zone.category !== "Promotional") reasons.push("Zone/category requires buyer review.");
   const campaign = data.campaigns.find((item) => item.id === display.campaignId);
-  const conflict = data.campaignDisplayAssignments.some((assignment) => assignment.displayAreaId === area.id && assignment.status === "ASSIGNED" && campaign && assignment.startDate <= campaign.endDate && assignment.endDate >= campaign.startDate);
+  const conflict = data.campaignDisplayAssignments.some((assignment) => assignment.campaignDisplayId !== display.id && assignment.displayAreaId === area.id && assignment.status === "ASSIGNED" && campaign && assignment.startDate <= campaign.endDate && assignment.endDate >= campaign.startDate);
   if (conflict) return { status: "incompatible", reasons: [...reasons, "An overlapping campaign allocation already uses this area."] };
   return { status: reasons.some((reason) => reason.includes("review")) ? "review" : typeMatch || reasons.some((reason) => reason.startsWith("Recommended")) ? "recommended" : "compatible", reasons };
 }

@@ -35,7 +35,7 @@ export interface FlyerWorkbookReviewRow {
   sku: string;
   productName: string;
   product?: Product;
-  status: "ready" | "unmatched" | "duplicate" | "invalid" | "information";
+  status: "ready" | "unmatched" | "inactive" | "duplicate" | "invalid" | "information";
   displayLocalCode?: string;
   displayRequired: boolean;
   allocations: Array<{ store: Store; quantityCases: number; sourceColumn: string; sourceCell: string }>;
@@ -147,6 +147,7 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       if (!productName) rowIssues.push(makeIssue(rowNumber, "Product", "missing_product_name", "Product name is blank.", "warning"));
       const product = isLookupEligibleSku(sku) ? catalogBySku.get(sku) : undefined;
       if (ambiguousMasterSkus.has(sku)) rowIssues.push(makeIssue(rowNumber, "SKU", "ambiguous_product_master_sku", `SKU ${sku} has multiple normalized matches in Product Master.`, "error"));
+      else if (lookup.inactiveSkus?.includes(sku)) rowIssues.push(makeIssue(rowNumber, "SKU", "inactive_sku", `SKU ${sku} is inactive. Confirm an active exact SKU with the catalog owner and correct the workbook.`, "error"));
       else if (isLookupEligibleSku(sku) && !product) rowIssues.push(makeIssue(rowNumber, "SKU", "unmatched_sku", `SKU ${sku} was not found in the active Product Master.`, "error"));
       if (sku && seen.has(sku)) rowIssues.push(makeIssue(rowNumber, "SKU", "duplicate_sku", `SKU ${sku} appears more than once; later rows are skipped.`, "error"));
       if (sku) seen.add(sku);
@@ -172,7 +173,7 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       const displayRaw = cellText(cells[indexes.display]);
       const displayCodeRaw = cellText(cells[indexes.displayArea]);
       const displayLocalCode = normalizeDisplayCode(displayCodeRaw, context.snapshot.displayAreas);
-      const displayRequired = parseYes(displayRaw) || Boolean(displayLocalCode);
+      const displayRequired = parseYes(displayRaw) || Boolean(displayCodeRaw);
       if (displayCodeRaw && !displayLocalCode) rowIssues.push(makeIssue(rowNumber, "Display Area", "invalid_display_code", `${displayCodeRaw} is not a recognized display concept code.`, "warning"));
       if (displayRequired && !displayLocalCode && workbookKind === "ond") rowIssues.push(makeIssue(rowNumber, "Display Area", "display_code_missing", "Display is required but no cross-store display code was supplied.", "warning"));
 
@@ -184,6 +185,7 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
         sellingPrice, savings, salePrice, loyaltyPointsMultiplier, wholesaleLtoAmount, ltoCode, displayRequired, displayLocalCode,
       });
       const status = rowIssues.some((issue) => issue.code === "duplicate_sku") ? "duplicate"
+        : rowIssues.some((issue) => issue.code === "inactive_sku") ? "inactive"
         : rowIssues.some((issue) => issue.code === "unmatched_sku" || issue.code === "ambiguous_product_master_sku") ? "unmatched"
           : rowIssues.some((issue) => issue.severity === "error") || !product ? "invalid" : "ready";
       rows.push({ rowNumber, sku, productName, product, status, displayLocalCode, displayRequired, allocations, source, issues: rowIssues });
@@ -301,7 +303,7 @@ function resolveStoreColumns(headers: string[], stores: Store[]) {
   });
 }
 
-function buildPlacements(rows: FlyerWorkbookReviewRow[], stores: Store[], areas: DisplayArea[]): FlyerWorkbookPlacementReview[] {
+export function buildPlacements(rows: FlyerWorkbookReviewRow[], stores: Store[], areas: DisplayArea[]): FlyerWorkbookPlacementReview[] {
   const codes = [...new Set(rows.map((row) => row.displayLocalCode).filter((code): code is string => Boolean(code)))];
   const participatingStoreIds = new Set(rows.flatMap((row) => row.allocations.map((allocation) => allocation.store.id)));
   const reserved = new Map<string, Set<string>>();
@@ -390,7 +392,7 @@ function chooseProductSheet(sheetNames: string[]) {
   return sheetNames.find((name) => /flyer|worksheet|plan/i.test(name)) ?? sheetNames[0];
 }
 
-function normalizeDisplayCode(value: string, areas: DisplayArea[]) {
+export function normalizeDisplayCode(value: string, areas: DisplayArea[]) {
   const normalized = normalizeHeader(value);
   if (!normalized) return undefined;
   const exactArea = areas.find((area) => normalizeHeader(area.code) === normalized);

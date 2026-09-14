@@ -3,6 +3,7 @@ import type { Product } from "../../domain/types";
 export interface ProductMasterLookupResult {
   products: Product[];
   ambiguousSkus: string[];
+  inactiveSkus?: string[];
 }
 
 /** Narrow read-only boundary for authoritative, exact-SKU Product Master reconciliation. */

@@ -1,0 +1,30 @@
+.execution-pack { max-width: 960px; margin: auto; padding: 24px; background: white; color: #111; font: 14px/1.45 Arial, sans-serif; }
+.execution-pack h1 { font-size: 28px; font-weight: bold; }
+.execution-pack h2 { font-size: 21px; font-weight: bold; margin: 16px 0 8px; }
+.execution-pack h3 { font-size: 17px; font-weight: bold; margin: 8px 0; }
+.execution-pack p { margin: 8px 0; }
+.execution-pack table { width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: fixed; overflow-wrap: anywhere; }
+.execution-pack th, .execution-pack td { border: 1px solid #aaa; padding: 8px; text-align: left; vertical-align: top; }
+.execution-pack th:nth-child(3) { width: 12%; }
+.execution-pack svg { width: 100%; height: auto; display: block; }
+.pack-controls { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.pack-controls button, .pack-controls a { border: 1px solid #6f1d36; padding: 10px; border-radius: 4px; }
+.pack-build, .pack-exception { border-top: 2px solid #444; padding: 12px 0; }
+.pack-location { width: 45%; margin-top: 16px; font-size: 12px; }
+@page { size: letter portrait; margin: 0.45in; }
+@media print {
+  body, #root { background: white !important; }
+  .execution-pack { width: auto; max-width: none; padding: 0; font-size: 10pt; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .pack-controls { display: none !important; }
+  .execution-pack h1 { font-size: 20pt; }
+  .execution-pack h2 { font-size: 16pt; break-after: avoid; }
+  .execution-pack h3 { font-size: 12pt; break-after: avoid; }
+  .pack-map-page { break-after: page; }
+  .pack-build { break-before: page; }
+  .pack-group { break-before: page; }
+  .pack-group > .pack-build:first-of-type { break-before: auto; }
+  .pack-location { width: 3in; break-inside: avoid; }
+  .execution-pack tr, .pack-exception { break-inside: avoid; }
+  .execution-pack thead { display: table-header-group; }
+  .execution-pack svg { max-height: 6.5in; }
+}

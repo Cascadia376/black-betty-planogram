@@ -22,6 +22,7 @@ export function ImportsPage() {
         actions={<Badge tone="info">Mock repository</Badge>}
       />
 
+      <Card className="mb-5 border-primary"><h2 className="text-lg font-semibold">Start here: consolidated OND workbook</h2><p className="my-3">One workbook → review product and display exceptions → print a selected store’s execution pack. Preserve each store’s case quantities. Supplier-by-supplier imports are not required.</p><Link className={linkClass(true)} to="/imports/flyer">Import consolidated OND workbook</Link></Card>
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="flex min-h-72 flex-col justify-between">
           <div>

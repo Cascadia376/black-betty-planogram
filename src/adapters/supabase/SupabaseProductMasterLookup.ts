@@ -53,6 +53,7 @@ export class SupabaseProductMasterLookup implements ProductMasterLookup {
     })));
     return {
       products: products.filter((product) => product.active),
+      inactiveSkus: products.filter((product) => !product.active).map((product) => product.sku),
       ambiguousSkus: [...groups].filter(([, matches]) => matches.length > 1).map(([sku]) => sku),
     };
   }

@@ -45,7 +45,7 @@ export function PhysicalStoreFloorplanPage() {
   const fixtures = data?.fixtures.filter((item) => item.storeId === storeId) ?? [];
   const selectedSpace = spaces.find((item) => item.id === params.get("space"));
   const selectedAssignment = data?.campaignDisplayAssignments.find((item) => (
-    item.id === params.get("assignment")
+    (params.get("area") ? item.displayAreaId === params.get("area") : item.id === params.get("assignment"))
     && item.storeId === storeId
     && item.campaignId === selectedCampaign?.id
   ));
@@ -208,6 +208,14 @@ export function PhysicalStoreFloorplanPage() {
             </Card>
 
             <aside>
+              {selectedArea && selectedAssignment && data && <Card className="mb-4 border-primary"><h2 className="text-lg font-semibold">Build this display</h2><p className="my-2 font-semibold">{selectedCampaignDisplay?.name} · {selectedArea.name}</p>
+                {data.campaignDisplayAssignmentProducts.filter((item) => item.campaignDisplayAssignmentId === selectedAssignment.id && item.caseQuantity !== 0).map((item) => {
+                  const product = data.products.find((candidate) => candidate.id === item.productId);
+                  return <div key={item.id} className="my-2 rounded border border-border p-3"><p className="font-semibold">{product?.name ?? "Unknown product"}</p><p>{product?.sku} · <strong>{item.caseQuantity ?? "Unresolved"} cases</strong></p>{item.note && <p className="text-sm">{item.note}</p>}</div>;
+                })}
+                <p className="my-2">Signage: {selectedCampaignDisplay?.signage || "Not specified"}</p><p>{selectedCampaignDisplay?.executionNotes}</p>
+                <Link className="mt-3 inline-block font-semibold text-primary underline" to={`/campaigns/${selectedCampaign?.id}/stores/${storeId}/pack`}>Open store execution pack</Link>
+              </Card>}
               {selectedSpace ? (
                 <Card className="overflow-hidden p-0 xl:sticky xl:top-24">
                   <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">

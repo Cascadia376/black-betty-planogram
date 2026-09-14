@@ -351,6 +351,10 @@ export interface CampaignImportStoreAllocation {
 
 /** Normalized, audit-friendly row evidence. Raw workbook binaries are never persisted. */
 export interface CampaignImportRowMetadata {
+  /** Explicit buyer decisions; original source cells remain unchanged. */
+  reviewedSku?: string;
+  originalIssues?: string[];
+  reviewedDisplay?: { code?: string; required: boolean };
   sourceSheet: string;
   sourceRow: number;
   skuRaw: string;

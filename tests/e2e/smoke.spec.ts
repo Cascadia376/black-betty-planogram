@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./localTest";
 import { createCascadiaOndWorkbook } from "../fixtures/cascadiaOndWorkbook";
 import { cascadiaOndRows } from "../fixtures/cascadiaOndRows";
 
@@ -104,13 +105,12 @@ test("links to available spreadsheet upload workflows", async ({ page }) => {
   await page.goto("/imports");
   await expect(page.getByRole("heading", { name: "Spreadsheet imports" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "OND allocation spreadsheet" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Monthly flyer spreadsheet" })).toBeVisible();
-  await expect(page.getByText("Available", { exact: true })).toBeVisible();
-  await expect(page.getByText("Planned", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Flyer and campaign-planning workbook" })).toBeVisible();
+  await expect(page.getByText("Available", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Upload OND spreadsheet" })).toHaveAttribute("href", ondImport);
-  await expect(page.getByRole("link", { name: "Create monthly flyer manually" })).toHaveAttribute("href", "/campaigns/new");
-  await page.getByRole("link", { name: "Upload OND spreadsheet" }).click();
-  await expect(page.getByRole("heading", { name: "OND 2026 legacy allocation import" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import consolidated OND workbook" })).toHaveAttribute("href", "/imports/flyer");
+  await page.getByRole("link", { name: "Import consolidated OND workbook" }).click();
+  await expect(page.getByRole("heading", { name: "Import merchandising workbook" })).toBeVisible();
 });
 
 test("creates campaign metadata and continues to the Product Master workspace", async ({ page }) => {
@@ -134,7 +134,7 @@ test("creates campaign metadata and continues to the Product Master workspace", 
   await expect(page.getByRole("button", { name: "Add products" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Bulk add SKUs" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Import known-format spreadsheet" })).toBeEnabled();
-  await expect(page.getByRole("status")).toContainText("Synthetic Phase 1 Campaign created and saved");
+  await expect(page.getByRole("status").filter({ hasText: "Synthetic Phase 1 Campaign created and saved" })).toBeVisible();
   const campaignUrl = page.url().replace(/\/products$/, "");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Synthetic Phase 1 Campaign" })).toBeVisible();
@@ -144,9 +144,10 @@ test("creates campaign metadata and continues to the Product Master workspace", 
   await page.getByRole("link", { name: "Edit details" }).click();
   await page.getByLabel("Description").fill("Updated and persisted campaign details");
   await page.getByRole("button", { name: "Save campaign" }).click();
-  await expect(page.getByRole("status")).toContainText("changes saved");
+  await expect(page.getByRole("status").filter({ hasText: "changes saved" })).toBeVisible();
   await page.reload();
   await expect(page.getByText("Updated and persisted campaign details", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Products", exact: true }).click();
   await expect(page.getByText("Total products", { exact: true })).toBeVisible();
   await expect(page.getByText("Pending", { exact: true })).toBeVisible();
   await expect(page.getByText("Review required", { exact: true })).toBeVisible();
@@ -229,7 +230,7 @@ test("reviews bulk SKUs and creates a pending campaign product", async ({ page }
 
   await bulkDialog.getByRole("button", { name: "Add matched products" }).click();
   await expect(page.getByRole("row", { name: /001234.*Synthetic Bulk Product.*New.*Needs Product Master Review/ })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("1 product need review");
+  await expect(page.getByRole("status").filter({ hasText: "1 product need review" })).toBeVisible();
 
   await page.getByRole("button", { name: "Bulk add SKUs" }).click();
   const duplicateDialog = page.getByRole("dialog", { name: "Bulk add SKUs" });
@@ -676,8 +677,10 @@ test("opens verified display metadata for Crown Isle, Eagle Creek, Royal Bay, an
 test("selects an active verified area during campaign allocation", async ({ page }) => {
   await page.goto("/campaigns/50000000-0000-4000-8000-000000000004/assign");
   await page.getByRole("button", { name: "Include all stores" }).click();
+  await page.getByRole("button", { name: "By display", exact: true }).click();
+  await page.getByLabel("Allocation filter").selectOption("all");
   await page.getByRole("button", { name: "Suggest for all stores" }).first().click();
-  await page.getByRole("button", { name: "Choose / quantities" }).first().click();
+  await page.getByRole("button", { name: "Store placement / quantities" }).first().click();
   const location = page.getByLabel("Physical display area").first();
   await location.selectOption("42000000-0000-4000-8000-000000000010");
   await expect(location).toHaveValue("42000000-0000-4000-8000-000000000010");

@@ -5,6 +5,7 @@ import { evaluateCampaignPublishReadiness, type PublishReadinessSection } from "
 import type { CampaignDisplay, PlatformSnapshot, Store } from "../../domain/types";
 import { usePlatform } from "../../services/PlatformProvider";
 import { CampaignWorkflowStepper } from "./campaignWorkflow";
+import { CampaignExceptionReview } from "./CampaignExceptionReview";
 
 const sections: Array<[PublishReadinessSection, string, string]> = [
   ["CAMPAIGN", "Campaign", ""],
@@ -32,6 +33,7 @@ export function CampaignReviewPage() {
         <div className="space-y-5">
           <PageHeader eyebrow="Review" title={campaign.name} description="Check products, quantities, and physical store placements before the future store-release step." />
           <CampaignWorkflowStepper campaign={campaign} data={data} current="review" />
+          <CampaignExceptionReview data={data} campaignId={campaign.id} />
 
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">

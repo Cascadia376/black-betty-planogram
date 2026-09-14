@@ -5,6 +5,7 @@ import { CompliancePage } from "./features/compliance/CompliancePage";
 import { CampaignBuilderPage } from "./features/campaigns/CampaignBuilderPage";
 import { CampaignStoreAllocationPage } from "./features/campaigns/CampaignStoreAllocationPage";
 import { CampaignReviewPage } from "./features/campaigns/CampaignReviewPage";
+import { StoreExecutionPackPage } from "./features/campaigns/StoreExecutionPackPage";
 import { CampaignDisplaysPage } from "./features/campaigns/CampaignDisplaysPage";
 import { CampaignOverviewPage } from "./features/campaigns/CampaignOverviewPage";
 import { CampaignProductsPage } from "./features/campaigns/CampaignProductsPage";
@@ -29,7 +30,7 @@ import { StoreWorkspacePage } from "./features/stores/OndStoreWorkspacePage";
 import { PlatformProvider } from "./services/PlatformProvider";
 
 export function App() {
-  return <PlatformProvider><BrowserRouter><Routes><Route element={<AppShell />}>
+  return <PlatformProvider><BrowserRouter><Routes><Route path="campaigns/:campaignId/stores/:storeId/pack" element={<StoreExecutionPackPage />} /><Route element={<AppShell />}>
     <Route index element={<DashboardPage />} />
     <Route path="campaigns" element={<CampaignsPage />} />
     <Route path="campaigns/new" element={<CampaignBuilderPage />} />

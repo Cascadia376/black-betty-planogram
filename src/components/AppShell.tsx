@@ -31,6 +31,7 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
   const items = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/", roles: undefined },
     { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns"), roles: planningRoles },
+    { to: "/imports/flyer", label: "Import OND workbook", icon: Plus, matches: (path: string) => path === "/imports/flyer", roles: planningRoles },
     { to: "/opportunities", label: "Opportunities", icon: ListChecks, matches: (path: string) => path.startsWith("/opportunities"), roles: planningRoles },
     ...(store ? [
       { to: `/stores/${store.id}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas"), roles: undefined },

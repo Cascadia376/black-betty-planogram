@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowLeft, Check, FileCheck2, Upload } from "lucide-react";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   FlyerWorkbookImportAdapter,
@@ -13,6 +13,7 @@ import { Badge, Button, Card, DataState, Field, PageHeader, inputClass } from ".
 import type { NewCampaignInput } from "../../domain/types";
 import { validateCampaignDetails } from "../../domain/rules";
 import { usePlatform } from "../../services/PlatformProvider";
+import { WorkbookExceptions } from "./WorkbookExceptions";
 
 const adapter = new FlyerWorkbookImportAdapter();
 type CampaignFields = Pick<NewCampaignInput, "name" | "type" | "description" | "startDate" | "endDate" | "owner" | "supplier">;
@@ -25,22 +26,28 @@ export function FlyerWorkbookImportPage() {
   const [campaign, setCampaign] = useState<CampaignFields>();
   const [parseError, setParseError] = useState("");
   const [applying, setApplying] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const uploadVersion = useRef(0);
   const [confirmSkipped, setConfirmSkipped] = useState(false);
   const [rowFilter, setRowFilter] = useState("all");
   const [storeFilter, setStoreFilter] = useState("all");
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const version = ++uploadVersion.current;
+    setParsing(false);
     const file = event.target.files?.[0];
     setResult(undefined); setCampaign(undefined); setParseError(""); setConfirmSkipped(false); setFileName(file?.name ?? "");
     if (!file || !data) return;
     if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) { setParseError("This importer accepts .xlsx workbooks only."); return; }
+    setParsing(true);
     try {
       const parsed = await adapter.parse(file, { snapshot: data, productMaster });
+      if (version !== uploadVersion.current) return;
       setResult(parsed); setCampaign(parsed.suggestedCampaign);
       if (data.campaignImports.some((item) => item.importKey === campaignWorkbookImportKey(parsed, parsed.suggestedCampaign))) setParseError("This exact workbook has already been applied for this campaign period.");
     } catch (cause) {
-      setParseError(cause instanceof Error ? cause.message : "The workbook could not be parsed.");
-    }
+      if (version === uploadVersion.current) setParseError(cause instanceof Error ? cause.message : "The workbook could not be parsed.");
+    } finally { if (version === uploadVersion.current) setParsing(false); }
   };
 
   const readyRows = result?.rows.filter((row) => row.status === "ready") ?? [];
@@ -52,7 +59,7 @@ export function FlyerWorkbookImportPage() {
     setApplying(true); setParseError("");
     try {
       const applied = await applyCampaignWorkbookImport(toApplyCampaignWorkbookImport(result, campaign));
-      navigate(result.placements.length ? `/campaigns/${applied.campaignId}/assign` : `/campaigns/${applied.campaignId}/products`);
+      navigate(`/campaigns/${applied.campaignId}/review`);
     } catch (cause) {
       setParseError(cause instanceof Error ? cause.message : "The approved workbook could not be applied.");
     } finally {
@@ -69,6 +76,7 @@ export function FlyerWorkbookImportPage() {
   return <DataState loading={loading} error={error}>{!data ? null : <div className="space-y-5">
     <PageHeader eyebrow="Spreadsheet → Campaign" title="Import merchandising workbook" description="Known-format flyer and consolidated campaign-planning workbooks · Parse, review, then apply." actions={<Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold" to="/imports"><ArrowLeft className="h-4 w-4" />Imports</Link>} />
     <ImportProgress result={result} applying={applying} />
+    {parsing && <p role="status">Reading workbook and checking exact Product Master SKUs…</p>}
     {parseError && <div role="alert" className="rounded-md border border-error/30 bg-error-subtle p-3 text-sm text-error">{parseError}</div>}
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-4">
@@ -76,6 +84,7 @@ export function FlyerWorkbookImportPage() {
         {result && campaign && <>
           <CampaignDetails campaign={campaign} setCampaign={setCampaign} errors={campaignErrors} />
           <ImportSummary result={result} />
+          <WorkbookExceptions result={result} data={data} onChange={(next) => { setResult(next); setConfirmSkipped(false); }} />
           <div className="flex flex-wrap gap-2"><select aria-label="Row status filter" className={inputClass} value={rowFilter} onChange={(event) => setRowFilter(event.target.value)}><option value="all">All product rows</option><option value="ready">Ready</option><option value="unmatched">Unmatched</option><option value="duplicate">Duplicate</option><option value="invalid">Invalid</option><option value="information">Information only</option></select>{result.workbookKind === "ond" && <select aria-label="Store allocation filter" className={inputClass} value={storeFilter} onChange={(event) => setStoreFilter(event.target.value)}><option value="all">All stores</option>{data.stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select>}</div>
           <ProductReview rows={visibleRows} />
           {result.placements.length > 0 && <PlacementReview result={result} />}
@@ -99,7 +108,7 @@ function CampaignDetails({ campaign, setCampaign, errors }: { campaign: Campaign
 function ImportSummary({ result }: { result: FlyerWorkbookImportResult }) {
   const ready = result.rows.filter((row) => row.status === "ready").length;
   const unmatched = result.rows.filter((row) => row.status === "unmatched").length;
-  const skipped = result.rows.filter((row) => ["duplicate", "invalid"].includes(row.status)).length;
+  const skipped = result.rows.filter((row) => ["duplicate", "invalid", "inactive"].includes(row.status)).length;
   const stores = new Set(result.rows.flatMap((row) => row.allocations.map((allocation) => allocation.store.id))).size;
   const quantities = result.rows.reduce((sum, row) => sum + row.allocations.length, 0);
   return <Card><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">Import review</h2><p className="text-sm text-text-secondary">{result.sourceFileName} · {result.sourceSheet} · {result.workbookKind === "monthly_flyer" ? "Monthly flyer workbook" : "Consolidated OND workbook"}</p></div><Badge tone={result.fatal ? "error" : unmatched || skipped ? "warning" : "success"}>{result.fatal ? "Unsupported" : `${ready} ready`}</Badge></div><dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6"><Metric label="Product rows" value={result.rows.filter((row) => row.status !== "information").length} /><Metric label="Matched" value={ready} /><Metric label="Unmatched" value={unmatched} /><Metric label="Skipped" value={skipped} /><Metric label="Stores" value={stores} /><Metric label="Quantities" value={quantities} /></dl></Card>;

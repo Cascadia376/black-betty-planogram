@@ -19,6 +19,7 @@ import { RuleBasedOrderRecommendationService } from "../../services/orders/Order
 import { calculateResidualInventory } from "../../services/orders/ResidualInventoryService";
 import { seedSnapshot } from "./seed";
 import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAllocation";
+import type { CampaignDisplayAssignmentProduct } from "../../domain/types";
 import { validateCategorySpace } from "../../domain/storeLayouts";
 import { displayAreaDependencies, validateDisplayArea } from "../../domain/displayAreas";
 
@@ -354,7 +355,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     if (input.rows.some((row) => row.product.id !== row.productId || !row.product.active)) {
       throw new Error("Every imported SKU must resolve to an active Product Master item.");
     }
-    const storeIds = new Set(input.rows.flatMap((row) => row.allocations.map((allocation) => allocation.storeId)));
+    const storeIds = new Set([...input.rows.flatMap((row) => row.allocations.map((allocation) => allocation.storeId)), ...input.reviewRows.flatMap((row) => row.allocations.flatMap((allocation) => allocation.storeId ? [allocation.storeId] : []))]);
     if ([...storeIds].some((id) => !this.state.stores.some((store) => store.id === id))) throw new Error("The import contains an unknown store.");
 
     const previous = structuredClone(this.state);
@@ -612,6 +613,11 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const ids = [...new Set(input.campaignProductIds)];
     const products = ids.map((id) => campaign.products.find((item) => item.id === id));
     if (!ids.length || products.some((item) => !item)) throw new Error("Select valid campaign products.");
+    const priorQuantities = new Map<string, CampaignDisplayAssignmentProduct>();
+    for (const quantity of this.state.campaignDisplayAssignmentProducts) {
+      const assignment = this.state.campaignDisplayAssignments.find((item) => item.id === quantity.campaignDisplayAssignmentId && item.campaignId === campaign.id);
+      if (assignment) priorQuantities.set(`${assignment.storeId}|${quantity.productId}`, quantity);
+    }
     this.state.campaignDisplayProducts = this.state.campaignDisplayProducts.filter((item) => !ids.includes(item.campaignProductId));
     const created = products.map((campaignProduct, index): CampaignDisplayProduct => ({
       id: crypto.randomUUID(), campaignDisplayId: display.id, campaignProductId: campaignProduct!.id, productId: campaignProduct!.productId,
@@ -623,7 +629,12 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     this.state.campaignDisplayAssignmentProducts = this.state.campaignDisplayAssignmentProducts.filter((item) => memberIds.has(item.campaignDisplayProductId));
     for (const assignment of this.state.campaignDisplayAssignments.filter((item) => item.campaignDisplayId === display.id)) {
       for (const member of created) {
-        this.state.campaignDisplayAssignmentProducts.push({ id: crypto.randomUUID(), campaignDisplayAssignmentId: assignment.id, campaignDisplayProductId: member.id, productId: member.productId, buyerOverride: false });
+        const previous = priorQuantities.get(`${assignment.storeId}|${member.productId}`);
+        const imported = this.state.campaignStoreProductAllocations.find((item) => item.campaignId === campaign.id && item.storeId === assignment.storeId && item.productId === member.productId);
+        this.state.campaignDisplayAssignmentProducts.push({
+          buyerOverride: false, caseQuantity: imported?.caseQuantity, quantitySource: imported ? "SPREADSHEET" : undefined,
+          ...previous, id: crypto.randomUUID(), campaignDisplayAssignmentId: assignment.id, campaignDisplayProductId: member.id, productId: member.productId,
+        });
       }
     }
     products.forEach((item) => { item!.merchandisingState = "DISPLAY_ASSIGNED"; });
