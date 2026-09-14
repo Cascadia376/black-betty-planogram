@@ -14,8 +14,9 @@ import type { ProductMasterLookup } from "./products/ProductMasterLookup";
 
 const repository = new MockMerchandisingRepository();
 const environment = readEnvironment();
-const configuredProductMaster = environment.VITE_SUPABASE_URL && environment.VITE_SUPABASE_ANON_KEY
-  ? new SupabaseProductMasterLookup(createClient(environment.VITE_SUPABASE_URL, environment.VITE_SUPABASE_ANON_KEY))
+const productMasterKey = environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
+const configuredProductMaster = environment.VITE_SUPABASE_URL && productMasterKey
+  ? new SupabaseProductMasterLookup(createClient(environment.VITE_SUPABASE_URL, productMasterKey))
   : undefined;
 
 interface PlatformContextValue {

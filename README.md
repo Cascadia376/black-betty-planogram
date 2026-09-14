@@ -143,6 +143,7 @@ The MVP defaults to mock data. Supabase configuration is optional until the adap
 ```bash
 VITE_DATA_ADAPTER=mock
 VITE_SUPABASE_URL=
+VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_SUPABASE_ANON_KEY=
 VITE_URSUS_MAJOR_BASE_URL=
 ```

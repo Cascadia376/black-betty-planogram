@@ -38,7 +38,23 @@ export class CampaignProductImportAdapter implements ImportAdapter<CampaignProdu
   parseRows(sourceRows: unknown[][], context: CampaignProductImportContext): CampaignProductImportResult {
     const headers = (sourceRows[0] ?? []).map(cellText);
     if (headers.length !== CAMPAIGN_PRODUCT_IMPORT_HEADERS.length || CAMPAIGN_PRODUCT_IMPORT_HEADERS.some((header, index) => headers[index] !== header)) {
-      return { formatId: this.formatId, rows: [], issues: [{ row: 1, field: "header", code: "invalid_headers", severity: "error", message: `Expected exactly: ${CAMPAIGN_PRODUCT_IMPORT_HEADERS.join(" | ")}.` }], sourceRows };
+      const isConsolidatedOndWorkbook = ["vendor", "category", "inv_num", "product"].every((header, index) => headers[index]?.toLocaleLowerCase() === header);
+      const issue = isConsolidatedOndWorkbook
+        ? {
+            row: 1,
+            field: "header",
+            code: "wrong_import_workflow",
+            severity: "error" as const,
+            message: "This is a consolidated OND planning workbook. Use the full workbook importer so store quantities and promotion details are preserved.",
+          }
+        : {
+            row: 1,
+            field: "header",
+            code: "invalid_headers",
+            severity: "error" as const,
+            message: `This quick-add import expects exactly: ${CAMPAIGN_PRODUCT_IMPORT_HEADERS.join(" | ")}.`,
+          };
+      return { formatId: this.formatId, rows: [], issues: [issue], sourceRows };
     }
     const catalogBySku = new Map(context.products.map((product) => [product.sku.toLocaleLowerCase(), product]));
     const addedProductIds = new Set(context.campaignProducts.map((product) => product.productId));

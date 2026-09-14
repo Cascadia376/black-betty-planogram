@@ -2,7 +2,7 @@
 
 The full merchandising repository remains intentionally non-operational in the MVP. UI code depends on `MerchandisingRepository`, not `supabase-js`.
 
-Product Master reconciliation is the one narrow read-only exception. `SupabaseProductMasterLookup` reads only the fields required from `ursus_major.public.product`, whose RLS and public SELECT policy were verified on September 10, 2026. It uses `VITE_SUPABASE_URL` plus a browser-safe publishable/anonymous key and never a service-role key. `public.products` is not a fallback. A unique trim/uppercase SKU match is required because the live table's case-sensitive primary key does not prevent normalized collisions.
+Product Master reconciliation is the one narrow read-only exception. `SupabaseProductMasterLookup` reads only the fields required from `ursus_major.public.product`, whose RLS and public SELECT policy were verified on September 14, 2026. It uses `VITE_SUPABASE_URL` plus the browser-safe `VITE_SUPABASE_PUBLISHABLE_KEY` (with `VITE_SUPABASE_ANON_KEY` retained for legacy compatibility) and never a service-role key. `public.products` is not a fallback. A unique trim/uppercase SKU match is required because the live table's case-sensitive primary key does not prevent normalized collisions.
 
 Before enabling this adapter:
 

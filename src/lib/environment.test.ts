@@ -14,7 +14,7 @@ describe("readEnvironment", () => {
 
   it("requires Supabase credentials when the Supabase adapter is selected", () => {
     expect(() => readEnvironment({ VITE_DATA_ADAPTER: "supabase" })).toThrow(
-      "VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required",
+      "VITE_SUPABASE_URL and a Supabase publishable key are required",
     );
   });
 
@@ -22,11 +22,19 @@ describe("readEnvironment", () => {
     expect(readEnvironment({
       VITE_DATA_ADAPTER: "supabase",
       VITE_SUPABASE_URL: "https://example.supabase.co",
-      VITE_SUPABASE_ANON_KEY: "public-anon-key",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "public-key",
     })).toMatchObject({
       VITE_DATA_ADAPTER: "supabase",
       VITE_SUPABASE_URL: "https://example.supabase.co",
-      VITE_SUPABASE_ANON_KEY: "public-anon-key",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "public-key",
     });
+  });
+
+  it("continues to accept the legacy anonymous key", () => {
+    expect(readEnvironment({
+      VITE_DATA_ADAPTER: "supabase",
+      VITE_SUPABASE_URL: "https://example.supabase.co",
+      VITE_SUPABASE_ANON_KEY: "legacy-anon-key",
+    }).VITE_SUPABASE_ANON_KEY).toBe("legacy-anon-key");
   });
 });

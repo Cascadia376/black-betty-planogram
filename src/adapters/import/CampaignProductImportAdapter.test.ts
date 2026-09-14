@@ -29,4 +29,19 @@ describe("campaign product import adapter", () => {
     expect(result.rows[0].status).toBe("duplicate");
     expect(result.rows[0].issues).toContainEqual(expect.objectContaining({ code: "already_added" }));
   });
+
+  it("routes consolidated OND workbooks to the importer that preserves store quantities", () => {
+    const result = adapter.parseRows([
+      ["Vendor", "Category", "INV_NUM", "Product", "Order From", "LTO Month", "Display", "Allandale"],
+      ["Supplier", "WINE", 796094, "Copper Moon Pinot Grigio", "", "OND", "", 6],
+    ], context);
+
+    expect(result.rows).toEqual([]);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: "wrong_import_workflow",
+        message: expect.stringContaining("full workbook importer"),
+      }),
+    ]);
+  });
 });
