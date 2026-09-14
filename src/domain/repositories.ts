@@ -137,6 +137,7 @@ export interface UpdateCampaignInput {
 
 export interface CreateCampaignDisplayInput {
   campaignId: UUID;
+  displayAreaId?: UUID;
   display: Omit<CampaignDisplay, "id" | "campaignId" | "sortOrder">;
 }
 

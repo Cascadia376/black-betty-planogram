@@ -543,7 +543,8 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
   }
 
   async createCampaignDisplay(input: CreateCampaignDisplayInput): Promise<CampaignDisplay> {
-    if (!this.state.campaigns.some((campaign) => campaign.id === input.campaignId)) throw new Error("Campaign was not found.");
+    const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
+    if (!campaign) throw new Error("Campaign was not found.");
     if (!input.display.name.trim()) throw new Error("Display name is required.");
     const display: CampaignDisplay = {
       ...input.display,
@@ -552,7 +553,23 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       name: input.display.name.trim(),
       sortOrder: this.state.campaignDisplays.filter((item) => item.campaignId === input.campaignId).length,
     };
+    const area = input.displayAreaId ? this.state.displayAreas.find((item) => item.id === input.displayAreaId && item.active) : undefined;
+    if (input.displayAreaId && !area) throw new Error("Choose an active permanent display area.");
+    const compatibility = area ? campaignDisplayAreaCompatibility(display, area, this.state) : undefined;
+    if (compatibility?.status === "incompatible") throw new Error(compatibility.reasons.join(" "));
     this.state.campaignDisplays.push(display);
+    if (area) {
+      const scope = this.state.campaignStores.find((item) => item.campaignId === campaign.id && item.storeId === area.storeId);
+      if (scope) scope.included = true;
+      else this.state.campaignStores.push({ id: crypto.randomUUID(), campaignId: campaign.id, storeId: area.storeId, included: true, status: "NOT_STARTED" });
+      const now = new Date().toISOString();
+      this.state.campaignDisplayAssignments.push({
+        id: crypto.randomUUID(), campaignId: campaign.id, campaignDisplayId: display.id,
+        storeId: area.storeId, displayAreaId: area.id, status: "ASSIGNED", placementSource: "BUYER_SELECTED",
+        compatibility: compatibility?.status, startDate: campaign.startDate, endDate: campaign.endDate,
+        createdAt: now, updatedAt: now,
+      });
+    }
     this.persist();
     return structuredClone(display);
   }
@@ -601,6 +618,14 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       role: "Supporting", required: campaignProduct!.required, sortOrder: index,
     }));
     this.state.campaignDisplayProducts.push(...created);
+    // Products can be added after a permanent area has already been placed.
+    const memberIds = new Set(this.state.campaignDisplayProducts.map((item) => item.id));
+    this.state.campaignDisplayAssignmentProducts = this.state.campaignDisplayAssignmentProducts.filter((item) => memberIds.has(item.campaignDisplayProductId));
+    for (const assignment of this.state.campaignDisplayAssignments.filter((item) => item.campaignDisplayId === display.id)) {
+      for (const member of created) {
+        this.state.campaignDisplayAssignmentProducts.push({ id: crypto.randomUUID(), campaignDisplayAssignmentId: assignment.id, campaignDisplayProductId: member.id, productId: member.productId, buyerOverride: false });
+      }
+    }
     products.forEach((item) => { item!.merchandisingState = "DISPLAY_ASSIGNED"; });
     this.persist();
     return structuredClone(created);
