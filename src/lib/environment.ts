@@ -2,7 +2,10 @@ import { z } from "zod";
 
 const optionalUrl = z.string().url().optional().or(z.literal(""));
 const environmentSchema = z.object({
-  VITE_DATA_ADAPTER: z.enum(["mock", "supabase"]).default("mock"),
+  VITE_DATA_ADAPTER: z.preprocess(
+    (value) => value === "" ? undefined : value,
+    z.enum(["mock", "supabase"]).default("mock"),
+  ),
   VITE_SUPABASE_URL: optionalUrl,
   VITE_SUPABASE_ANON_KEY: z.string().optional(),
   VITE_URSUS_MAJOR_BASE_URL: optionalUrl,
@@ -18,4 +21,3 @@ export function readEnvironment(source: Record<string, unknown> = import.meta.en
   }
   return result.data;
 }
-
