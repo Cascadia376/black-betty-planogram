@@ -186,7 +186,7 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       if (conflictingCodes) rowIssues.push(makeIssue(rowNumber, "Display", "conflicting_display_codes", `Display ${displayRaw} conflicts with Display Area ${areaCodeRaw}; approve one cross-store code.`, "warning"));
       const displayRequired = parseYes(displayRaw) || Boolean(displayCodeRaw);
       if (displayCodeRaw && !displayLocalCode) rowIssues.push(makeIssue(rowNumber, "Display Area", "invalid_display_code", `${displayCodeRaw} is not a recognized display concept code.`, "warning"));
-      if (displayRequired && !displayLocalCode && workbookKind === "ond") rowIssues.push(makeIssue(rowNumber, "Display Area", "display_code_missing", "Display is required but no cross-store display code was supplied.", "warning"));
+      if (displayRequired && !displayLocalCode && workbookKind === "ond" && !storeDisplayRows) rowIssues.push(makeIssue(rowNumber, "Display Area", "display_code_missing", "Display is required but no cross-store display code was supplied.", "warning"));
       if (storeDisplayRows) {
         const displayRow = storeDisplayRows.get(rowNumber);
         allocations = allocations.map((allocation) => {
@@ -429,7 +429,8 @@ function chooseProductSheet(sheetNames: string[]) {
 }
 
 function chooseStoreDisplaySheet(sheetNames: string[], sourceSheet: string) {
-  return sheetNames.find((name) => name !== sourceSheet && /display/i.test(name));
+  const candidates = sheetNames.filter((name) => name !== sourceSheet);
+  return candidates.find((name) => /display/i.test(name)) ?? (candidates.length === 1 ? candidates[0] : undefined);
 }
 
 function buildStoreDisplayRows(sourceRows: unknown[][] | undefined, stores: Store[], areas: DisplayArea[]) {

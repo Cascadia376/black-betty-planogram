@@ -44,8 +44,8 @@ describe("flyer workbook import adapter", () => {
   it("uses an optional second sheet for store-specific display codes and treats blanks as no display", async () => {
     const productRows = [
       planningHeaders,
-      planningRow("MOCK-2001", "Harvest Red", { display: "W8", months: ["OCT"], crown: 6, port: 3 }),
-      planningRow("MOCK-1001", "Coastal Lager", { display: "BR2", months: ["OCT"], crown: 2, port: 1 }),
+      planningRow("MOCK-2001", "Harvest Red", { display: "Y", months: ["OCT"], crown: 6, port: 3 }),
+      planningRow("MOCK-1001", "Coastal Lager", { display: "Y", months: ["OCT"], crown: 2, port: 1 }),
     ];
     const displayRows = [
       planningHeaders,
@@ -65,6 +65,7 @@ describe("flyer workbook import adapter", () => {
       ["Crown Isle", "BR2", true],
       ["Port Alberni", undefined, false],
     ]);
+    expect(result.issues.some((issue) => issue.code === "display_code_missing")).toBe(false);
     expect(result.placements).toEqual(expect.arrayContaining([
       expect.objectContaining({ store: expect.objectContaining({ name: "Crown Isle" }), displayLocalCode: "W8", status: "ASSIGNED", caseQuantity: 6 }),
       expect.objectContaining({ store: expect.objectContaining({ name: "Port Alberni" }), displayLocalCode: "W2", status: "ASSIGNED", caseQuantity: 3 }),
@@ -80,6 +81,20 @@ describe("flyer workbook import adapter", () => {
     const file = new File([bytes.slice().buffer], "OND 2026 store display test.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const result = await adapter.parse(file, context);
     expect(result.sheetNames).toEqual(["OND Worksheet", "Store Displays"]);
+    expect(result.rows[0].allocations.map((allocation) => [allocation.store.name, allocation.displayLocalCode])).toEqual([
+      ["Crown Isle", "W8"],
+      ["Port Alberni", "W2"],
+    ]);
+  });
+
+  it("treats a generic second sheet as the store display sheet when an OND workbook has exactly two tabs", async () => {
+    const bytes = createWorkbookWithSheets([
+      { name: "Sheet1", rows: [planningHeaders, planningRow("MOCK-2001", "Harvest Red", { display: "W8", crown: 6, port: 3 })] },
+      { name: "Sheet2", rows: [planningHeaders, planningRow("MOCK-2001", "Harvest Red", { display: "W8", crown: "W8", port: "W2" })] },
+    ]);
+    const file = new File([bytes.slice().buffer], "OND 2026 generic display sheet.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const result = await adapter.parse(file, context);
+    expect(result.sourceSheet).toBe("Sheet1");
     expect(result.rows[0].allocations.map((allocation) => [allocation.store.name, allocation.displayLocalCode])).toEqual([
       ["Crown Isle", "W8"],
       ["Port Alberni", "W2"],
