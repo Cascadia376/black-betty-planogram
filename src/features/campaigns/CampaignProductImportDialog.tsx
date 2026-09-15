@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowRight, Check, FileSpreadsheet, Pencil, Upload, X } from "lucide-react";
 import { useState, type ChangeEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { CampaignProductImportAdapter, CAMPAIGN_PRODUCT_IMPORT_HEADERS, type CampaignProductImportResult, type CampaignProductImportRow } from "../../adapters/import/CampaignProductImportAdapter";
 import type { ApplyCampaignProductImportInput, CreatePendingProductInput } from "../../domain/repositories";
 import type { CampaignProduct, Product } from "../../domain/types";
@@ -17,6 +17,8 @@ interface Props {
 }
 
 export function CampaignProductImportDialog({ products, assortment, onCreatePendingProduct, onApply, onClose }: Props) {
+  const { campaignId } = useParams();
+  const [sourceFile, setSourceFile] = useState<File>();
   const [result, setResult] = useState<CampaignProductImportResult>();
   const [fileName, setFileName] = useState("");
   const [omitted, setOmitted] = useState<Set<number>>(new Set());
@@ -28,6 +30,7 @@ export function CampaignProductImportDialog({ products, assortment, onCreatePend
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setSourceFile(file);
     setResult(undefined); setOmitted(new Set()); setResolved(new Map()); setError(""); setFileName(file?.name ?? "");
     if (!file) return;
     if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) { setError("This import accepts .xlsx workbooks only."); return; }
@@ -66,7 +69,7 @@ export function CampaignProductImportDialog({ products, assortment, onCreatePend
       <Progress parsed={Boolean(result)} failed={importFailed} ready={Boolean(result && !importFailed && !unresolved.length && !invalid.length)} />
       {error && <div role="alert" className="rounded-md border border-error/30 bg-error-subtle p-3 text-sm text-error">{error}</div>}
       {!result ? <><Card><label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border-strong bg-subtle px-4 text-center"><input className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void upload(event)} /><Upload className="h-5 w-5 text-primary" /><span className="mt-2 text-sm font-semibold">Choose campaign product workbook</span><span className="mt-1 text-xs text-text-muted">{fileName || ".xlsx only"}</span></label></Card><FormatCard /></> : <>
-        {importFailed ? <ImportFailure result={result} fileName={fileName} onClose={onClose} /> : <>
+        {importFailed ? <ImportFailure result={result} fileName={fileName} file={sourceFile} campaignId={campaignId} onClose={onClose} /> : <>
           <Summary rows={result.rows} omitted={omitted} resolved={resolved} />
           <div className="max-h-[45vh] space-y-3 overflow-y-auto">{result.rows.map((row) => <ImportRow key={row.rowNumber} row={row} omitted={omitted.has(row.rowNumber)} resolved={resolved.has(row.rowNumber)} onOmit={() => setOmitted((current) => new Set(current).add(row.rowNumber))} onEdit={() => setEditing(row)} onResolve={() => setResolving(row)} />)}</div>
           <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancel</Button><Button type="button" disabled={!eligible.length || unresolved.length > 0 || invalid.length > 0 || applying} onClick={() => void apply()}><Check className="h-4 w-4" />{applying ? "Applying..." : "Apply approved products"}</Button></div>
@@ -81,7 +84,7 @@ function Progress({ parsed, failed, ready }: { parsed: boolean; failed: boolean;
   return <ol aria-label="Campaign product import progress" className="grid grid-cols-5 gap-px overflow-hidden rounded-md border border-border bg-border">{["Upload", "Validate", "Review", "Resolve", "Apply"].map((step, index) => <li key={step} className="bg-surface p-2"><p className={`text-xs font-semibold ${index <= active ? "text-primary" : "text-text-muted"}`}>{step}</p></li>)}</ol>;
 }
 
-function ImportFailure({ result, fileName, onClose }: { result: CampaignProductImportResult; fileName: string; onClose(): void }) {
+function ImportFailure({ result, fileName, file, campaignId, onClose }: { result: CampaignProductImportResult; fileName: string; file?: File; campaignId?: string; onClose(): void }) {
   const useFullImporter = result.issues.some((issue) => issue.code === "wrong_import_workflow");
   return <>
     <div role="alert" className="rounded-md border border-warning/30 bg-warning-subtle p-4 text-sm text-warning">
@@ -89,7 +92,7 @@ function ImportFailure({ result, fileName, onClose }: { result: CampaignProductI
     </div>
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-      {useFullImporter && <Link to="/imports/flyer" className="inline-flex min-h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2">Open full workbook importer<ArrowRight className="h-4 w-4" /></Link>}
+      {useFullImporter && <Link to="/imports/flyer" state={{ workbookFile: file, sourceCampaignId: campaignId }} className="inline-flex min-h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2">Open full workbook importer<ArrowRight className="h-4 w-4" /></Link>}
     </div>
   </>;
 }

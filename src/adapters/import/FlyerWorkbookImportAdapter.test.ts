@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockMerchandisingRepository } from "../mock/MockMerchandisingRepository";
 import { MockProductMasterLookup } from "../mock/MockProductMasterLookup";
 import { IDS, seedSnapshot } from "../mock/seed";
@@ -19,6 +19,35 @@ function parsePlanning(rows: unknown[][], fingerprint = "planning-fingerprint", 
 }
 
 describe("flyer workbook import adapter", () => {
+  it("uses codes in Display without a Display Area column and retains missing-store exceptions", async () => {
+    const headers = planningHeaders.filter((header) => header !== "Display Area");
+    const row = planningRow("MOCK-2001", "Harvest Red", { display: "W8", crown: 6, port: 3 });
+    row.splice(7, 1);
+    const result = await adapter.parseRows([headers, row], context, { sourceFileName: "OND 2026.xlsx", sourceSheet: "Sheet1", fingerprint: "display-column" });
+    expect(result.rows[0]).toMatchObject({ displayRequired: true, displayLocalCode: "W8" });
+    expect(result.placements).toEqual(expect.arrayContaining([
+      expect.objectContaining({ store: expect.objectContaining({ name: "Crown Isle" }), status: "ASSIGNED", caseQuantity: 6 }),
+      expect.objectContaining({ store: expect.objectContaining({ name: "Port Alberni" }), status: "SUGGESTED", caseQuantity: 3 }),
+    ]));
+    expect(result.placements.find((item) => item.store.name === "Port Alberni")?.displayArea).toBeUndefined();
+  });
+
+  it("requires explicit review when the two display columns disagree", async () => {
+    const result = await parsePlanning([planningRow("MOCK-2001", "Harvest Red", { display: "W8", code: "W1", crown: 6 })]);
+    expect(result.rows[0].displayRequired).toBe(true);
+    expect(result.rows[0].displayLocalCode).toBeUndefined();
+    expect(result.rows[0].issues.some((issue) => issue.code === "conflicting_display_codes")).toBe(true);
+    expect(result.placements).toEqual([]);
+  });
+  it("defaults a yearless OND workbook to October–December of the current year", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2028-09-14T12:00:00"));
+    try {
+      const result = await parsePlanning([planningRow("MOCK-1001", "Coastal Lager", { crown: 6, port: 2 })], "yearless", "Black Betty OND Test Spreadsheet 2.xlsx");
+      expect(result.suggestedCampaign).toMatchObject({ startDate: "2028-10-01", endDate: "2028-12-31" });
+      expect(validateWorkbookCampaignPeriod("ond", result.suggestedCampaign)).toEqual([]);
+    } finally { vi.useRealTimers(); }
+  });
   beforeEach(() => window.localStorage.clear());
 
   it("reconciles a monthly flyer by exact SKU, infers dates, and preserves promotion metadata", async () => {

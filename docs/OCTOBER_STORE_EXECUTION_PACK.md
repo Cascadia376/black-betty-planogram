@@ -8,6 +8,8 @@ Protected floorplan images and generated layout/display seeds are unchanged. Map
 
 ## Decisions and provenance
 
+- Codes can be supplied directly in `Display` (Jeremy's workbook), or in `Display Area` with a yes/no `Display` flag. Conflicting columns require approval; `Y` without a code is a missing-display exception. Exact codes apply only to stores with positive workbook quantities; blank/zero quantities do not invent allocations.
+- The quick importer carries the selected file and existing campaign name/dates to full review. OND otherwise defaults to October 1–December 31 using the filename year, or the current calendar year if absent. Dates remain reviewable. Apply still creates a new draft; this handoff does not merge into the originating campaign.
 - Cross-store codes (for example W8 or BR2) create reusable campaign display concepts. Exact verified store codes retain the existing import mapping behavior.
 - The permanent-area picker only changes an existing campaign display assignment for one participating store. It cannot create a campaign concept, include additional stores, or move products. It shows the selected area before approval and links to the store pack after saving.
 - Product corrections require an exact active Product Master lookup, a visible candidate, and explicit approval. Inactive, unmatched, ambiguous, duplicate, and invalid rows cannot become imported products automatically.

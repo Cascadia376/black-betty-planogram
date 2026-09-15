@@ -16,7 +16,7 @@ export function resolveWorkbookRow(result: FlyerWorkbookImportResult, rowNumber:
     if (decision.code && !code) throw new Error("Enter a recognized cross-store display code, such as W8 or BR2.");
     row.displayLocalCode = code; row.displayRequired = Boolean(code);
     row.source.reviewedDisplay = { code, required: Boolean(code) };
-    row.issues = row.issues.filter((item) => !["invalid_display_code", "display_code_missing"].includes(item.code));
+    row.issues = row.issues.filter((item) => !["invalid_display_code", "display_code_missing", "conflicting_display_codes"].includes(item.code));
   } else {
     if (!decision.product.active) throw new Error("Inactive products cannot be approved.");
     if (result.rows.some((item) => item.rowNumber !== rowNumber && item.status === "ready" && item.sku === decision.product.sku)) throw new Error("This exact SKU is already approved on another workbook row. Correct the duplicate allocation in the source workbook.");

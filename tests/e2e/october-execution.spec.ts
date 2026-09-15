@@ -4,6 +4,28 @@ import { createOctoberExecutionWorkbook } from "../fixtures/octoberExecutionWork
 
 declare const Buffer: { from(input: Uint8Array): Uint8Array };
 
+test("quick importer carries the workbook and entered campaign dates into full review", async ({ page }) => {
+  await page.route("**/*.supabase.co/**", (route) => route.abort());
+  await page.goto("/campaigns/new");
+  await page.getByLabel("Campaign name").fill("OND handoff campaign");
+  await page.getByLabel("Campaign type").selectOption("OND");
+  await expect(page.getByLabel("Start date")).toHaveValue(/-10-01$/);
+  await expect(page.getByLabel("End date")).toHaveValue(/-12-31$/);
+  await page.getByLabel("Start date").fill("2027-10-01");
+  await page.getByLabel("End date").fill("2027-12-31");
+  await page.getByRole("button", { name: "Create campaign and continue" }).click();
+  await page.getByRole("button", { name: "Import known-format spreadsheet" }).click();
+  await page.getByRole("dialog").locator('input[type="file"]').setInputFiles({ name: "Black Betty OND Test Spreadsheet 2.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(createOctoberExecutionWorkbook()) as never });
+  await page.getByRole("link", { name: "Open full workbook importer" }).click();
+  await expect(page.getByRole("heading", { name: "Import review", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Start date")).toHaveValue("2027-10-01");
+  await expect(page.getByLabel("End date")).toHaveValue("2027-12-31");
+  await expect(page.getByLabel("Campaign name")).toHaveValue("OND handoff campaign");
+  await expect(page.getByText("Replace selected workbook")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Missing display code · row 6" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Apply and create draft campaign" })).toBeDisabled();
+});
+
 test("consolidated OND → explicit exception approval → Crown Isle and Port Alberni packs", async ({ page }, testInfo) => {
   // Network must never reach a live catalog in this synthetic acceptance test.
   await page.route("**/*.supabase.co/**", (route) => route.abort());
@@ -33,7 +55,7 @@ test("consolidated OND → explicit exception approval → Crown Isle and Port A
   }
   await expect(page.getByLabel("Execution pack store")).toHaveValue(/.+/);
   await page.getByRole("link", { name: "Open Crown Isle execution pack" }).click();
-  await expect(page.getByRole("heading", { name: "Crown Isle", exact: true })).toBeVisible();
+  await expect(page.locator(".execution-pack").getByRole("heading", { name: "Crown Isle", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Harvest Red Blend" })).toContainText("6");
   await expect(page.getByRole("row").filter({ hasText: "Coastal Lager 12 Pack" })).toContainText("12");
   await expect(page.getByRole("heading", { name: "Beer/RTD", exact: true })).toBeVisible();

@@ -171,8 +171,12 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       const loyaltyPointsMultiplier = parsePoints(pointsRaw);
       if (pointsRaw && loyaltyPointsMultiplier === undefined) rowIssues.push(makeIssue(rowNumber, "Points", "unknown_points", "Points value was retained as metadata but could not be parsed as a multiplier.", "warning"));
       const displayRaw = cellText(cells[indexes.display]);
-      const displayCodeRaw = cellText(cells[indexes.displayArea]);
-      const displayLocalCode = normalizeDisplayCode(displayCodeRaw, context.snapshot.displayAreas);
+      const areaCodeRaw = cellText(cells[indexes.displayArea]);
+      const displayIsFlag = !displayRaw || parseYes(displayRaw) || ["N", "NO", "FALSE", "0", "NA", "N/A"].includes(displayRaw.toLocaleUpperCase());
+      const displayCodeRaw = areaCodeRaw || (displayIsFlag ? "" : displayRaw);
+      const conflictingCodes = !displayIsFlag && Boolean(areaCodeRaw) && normalizeHeader(displayRaw) !== normalizeHeader(areaCodeRaw);
+      const displayLocalCode = conflictingCodes ? undefined : normalizeDisplayCode(displayCodeRaw, context.snapshot.displayAreas);
+      if (conflictingCodes) rowIssues.push(makeIssue(rowNumber, "Display", "conflicting_display_codes", `Display ${displayRaw} conflicts with Display Area ${areaCodeRaw}; approve one cross-store code.`, "warning"));
       const displayRequired = parseYes(displayRaw) || Boolean(displayCodeRaw);
       if (displayCodeRaw && !displayLocalCode) rowIssues.push(makeIssue(rowNumber, "Display Area", "invalid_display_code", `${displayCodeRaw} is not a recognized display concept code.`, "warning"));
       if (displayRequired && !displayLocalCode && workbookKind === "ond") rowIssues.push(makeIssue(rowNumber, "Display Area", "display_code_missing", "Display is required but no cross-store display code was supplied.", "warning"));
@@ -350,7 +354,7 @@ function inferCampaign(fileName: string, kind?: CampaignWorkbookKind) {
   const monthMatch = fileName.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b[^0-9]*(20\d{2})/i);
   const yearMatch = fileName.match(/\b(20\d{2})\b/);
   const monthIndex = monthMatch ? ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"].indexOf(monthMatch[1].toLocaleLowerCase()) : -1;
-  const year = kind === "ond" ? Number(yearMatch?.[1]) : Number(monthMatch?.[2]);
+  const year = kind === "ond" ? Number(yearMatch?.[1] ?? new Date().getFullYear()) : Number(monthMatch?.[2]);
   const reliable = Number.isInteger(year) && (kind === "ond" || monthIndex >= 0);
   const startDate = reliable ? kind === "ond" ? `${year}-10-01` : isoDate(year, monthIndex + 1, 1) : "";
   const endDate = reliable ? kind === "ond" ? `${year}-12-31` : isoDate(year, monthIndex + 2, 0) : "";

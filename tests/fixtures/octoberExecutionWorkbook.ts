@@ -12,4 +12,13 @@ export const octoberExecutionRows: (string | number)[][] = [
   ["Mock", "GIFTS", "MOCK-OLD-9001", "Mock Retired Seasonal Pack", "", "", "", "", "Y", "Y", "Y", "Inactive product review", 1, 1, 2],
 ];
 
-export function createOctoberExecutionWorkbook() { return createWorkbook(octoberExecutionRows, "OND Worksheet"); }
+export function createOctoberExecutionWorkbook() {
+  // Match Jeremy's workbook: Display contains the code, with no separate Display Area column.
+  const rows = octoberExecutionRows.map((row, index) => {
+    const cells = [...row];
+    if (index > 0 && cells[7]) cells[6] = cells[7];
+    cells.splice(7, 1);
+    return cells;
+  });
+  return createWorkbook(rows, "OND Worksheet");
+}

@@ -61,7 +61,13 @@ function CampaignDetailsForm({ existing }: { existing?: Campaign }) {
   const [formError, setFormError] = useState<string>();
   const submitting = useRef(false);
   const [input, setInput] = useState<NewCampaignInput>(() => initialCampaignInput(existing));
-  const set = <K extends keyof NewCampaignInput>(key: K, value: NewCampaignInput[K]) => setInput((current) => ({ ...current, [key]: value }));
+  const set = <K extends keyof NewCampaignInput>(key: K, value: NewCampaignInput[K]) => setInput((current) => {
+    if (!existing && key === "type" && value === "OND") {
+      const year = current.startDate.slice(0, 4) || String(new Date().getFullYear());
+      return { ...current, type: "OND", startDate: `${year}-10-01`, endDate: `${year}-12-31` };
+    }
+    return { ...current, [key]: value };
+  });
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (submitting.current) return;

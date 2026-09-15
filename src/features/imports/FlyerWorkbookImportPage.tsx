@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowLeft, Check, FileCheck2, Upload } from "lucide-react";
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   FlyerWorkbookImportAdapter,
   campaignWorkbookImportKey,
@@ -20,6 +20,9 @@ type CampaignFields = Pick<NewCampaignInput, "name" | "type" | "description" | "
 
 export function FlyerWorkbookImportPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const handoff = location.state as { workbookFile?: File; sourceCampaignId?: string } | null;
+  const consumedHandoff = useRef<string | undefined>(undefined);
   const { data, loading, error, productMaster, applyCampaignWorkbookImport } = usePlatform();
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<FlyerWorkbookImportResult>();
@@ -32,10 +35,9 @@ export function FlyerWorkbookImportPage() {
   const [rowFilter, setRowFilter] = useState("all");
   const [storeFilter, setStoreFilter] = useState("all");
 
-  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+  const upload = useCallback(async (file?: File, sourceCampaignId?: string) => {
     const version = ++uploadVersion.current;
     setParsing(false);
-    const file = event.target.files?.[0];
     setResult(undefined); setCampaign(undefined); setParseError(""); setConfirmSkipped(false); setFileName(file?.name ?? "");
     if (!file || !data) return;
     if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) { setParseError("This importer accepts .xlsx workbooks only."); return; }
@@ -43,12 +45,21 @@ export function FlyerWorkbookImportPage() {
     try {
       const parsed = await adapter.parse(file, { snapshot: data, productMaster });
       if (version !== uploadVersion.current) return;
-      setResult(parsed); setCampaign(parsed.suggestedCampaign);
-      if (data.campaignImports.some((item) => item.importKey === campaignWorkbookImportKey(parsed, parsed.suggestedCampaign))) setParseError("This exact workbook has already been applied for this campaign period.");
+      const sourceCampaign = data.campaigns.find((item) => item.id === sourceCampaignId);
+      const campaignDetails = sourceCampaign ? { ...parsed.suggestedCampaign, name: sourceCampaign.name, startDate: sourceCampaign.startDate, endDate: sourceCampaign.endDate } : parsed.suggestedCampaign;
+      setResult(parsed); setCampaign(campaignDetails);
     } catch (cause) {
       if (version === uploadVersion.current) setParseError(cause instanceof Error ? cause.message : "The workbook could not be parsed.");
     } finally { if (version === uploadVersion.current) setParsing(false); }
-  };
+  }, [data, productMaster]);
+
+  useEffect(() => {
+    if (!data || !(handoff?.workbookFile instanceof File) || consumedHandoff.current === location.key) return;
+    consumedHandoff.current = location.key;
+    void upload(handoff.workbookFile, handoff.sourceCampaignId);
+    // Consume the navigation payload so Back does not restart an old import.
+    navigate(location.pathname, { replace: true, state: null });
+  }, [data, handoff, location.key, location.pathname, navigate, upload]);
 
   const readyRows = result?.rows.filter((row) => row.status === "ready") ?? [];
   const skippedRows = result?.rows.filter((row) => row.status !== "ready" && row.status !== "information") ?? [];
@@ -80,7 +91,7 @@ export function FlyerWorkbookImportPage() {
     {parseError && <div role="alert" className="rounded-md border border-error/30 bg-error-subtle p-3 text-sm text-error">{parseError}</div>}
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-4">
-        <Card><div className="flex items-center gap-2"><Upload className="h-4 w-4 text-primary" /><h2 className="font-semibold">Upload source workbook</h2></div><label className="mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border-strong bg-subtle px-4 text-center focus-within:ring-2 focus-within:ring-focus"><input className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void upload(event)} /><span className="text-sm font-semibold">Choose Jeremy’s .xlsx workbook</span><span className="mt-1 text-xs text-text-muted">{fileName || "September flyer or consolidated campaign-planning format"}</span></label></Card>
+        <Card><div className="flex items-center gap-2"><Upload className="h-4 w-4 text-primary" /><h2 className="font-semibold">Upload source workbook</h2></div><label className="mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border-strong bg-subtle px-4 text-center focus-within:ring-2 focus-within:ring-focus"><input className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void upload(event.target.files?.[0])} /><span className="text-sm font-semibold">{fileName ? "Replace selected workbook" : "Choose Jeremy’s .xlsx workbook"}</span><span className="mt-1 text-xs text-text-muted">{fileName || "September flyer or consolidated campaign-planning format"}</span></label></Card>
         {result && campaign && <>
           <CampaignDetails campaign={campaign} setCampaign={setCampaign} errors={campaignErrors} />
           <ImportSummary result={result} />
@@ -102,7 +113,7 @@ function ImportProgress({ result, applying }: { result?: FlyerWorkbookImportResu
 
 function CampaignDetails({ campaign, setCampaign, errors }: { campaign: CampaignFields; setCampaign(value: CampaignFields): void; errors: string[] }) {
   const set = <K extends keyof CampaignFields>(key: K, value: CampaignFields[K]) => setCampaign({ ...campaign, [key]: value });
-  return <Card><h2 className="font-semibold">Draft campaign details</h2><p className="mt-1 text-sm text-text-secondary">The workbook-specific campaign period remains editable before Apply.</p><div className="mt-4 grid gap-4 md:grid-cols-2"><Field label="Campaign name"><input className={inputClass} value={campaign.name} onChange={(event) => set("name", event.target.value)} /></Field><Field label="Owner"><input className={inputClass} value={campaign.owner} onChange={(event) => set("owner", event.target.value)} /></Field><Field label="Start date"><input type="date" className={inputClass} value={campaign.startDate} onChange={(event) => set("startDate", event.target.value)} /></Field><Field label="End date"><input type="date" className={inputClass} value={campaign.endDate} onChange={(event) => set("endDate", event.target.value)} /></Field><Field label="Supplier / partner"><input className={inputClass} value={campaign.supplier} onChange={(event) => set("supplier", event.target.value)} /></Field><Field label="Description"><input className={inputClass} value={campaign.description} onChange={(event) => set("description", event.target.value)} /></Field></div>{errors.length > 0 && <p className="mt-3 text-sm text-error">{errors.join(" ")}</p>}</Card>;
+  return <Card><h2 className="font-semibold">Draft campaign details</h2><p className="mt-1 text-sm text-text-secondary">OND defaults to October 1–December 31 of the workbook year (current year if unspecified). Existing campaign dates are carried over; review before Apply.</p><div className="mt-4 grid gap-4 md:grid-cols-2"><Field label="Campaign name"><input className={inputClass} value={campaign.name} onChange={(event) => set("name", event.target.value)} /></Field><Field label="Owner"><input className={inputClass} value={campaign.owner} onChange={(event) => set("owner", event.target.value)} /></Field><Field label="Start date"><input type="date" className={inputClass} value={campaign.startDate} onChange={(event) => set("startDate", event.target.value)} /></Field><Field label="End date"><input type="date" className={inputClass} value={campaign.endDate} onChange={(event) => set("endDate", event.target.value)} /></Field><Field label="Supplier / partner"><input className={inputClass} value={campaign.supplier} onChange={(event) => set("supplier", event.target.value)} /></Field><Field label="Description"><input className={inputClass} value={campaign.description} onChange={(event) => set("description", event.target.value)} /></Field></div>{errors.length > 0 && <p className="mt-3 text-sm text-error">{errors.join(" ")}</p>}</Card>;
 }
 
 function ImportSummary({ result }: { result: FlyerWorkbookImportResult }) {
