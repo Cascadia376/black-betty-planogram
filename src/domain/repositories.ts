@@ -109,7 +109,7 @@ export interface ApplyCampaignWorkbookImportInput {
     merchandisingState: CampaignProductMerchandisingState;
     displayLocalCode?: string;
     source: CampaignImportRowMetadata;
-    allocations: Array<{ storeId: UUID; quantityCases: number }>;
+    allocations: Array<{ storeId: UUID; quantityCases: number; displayRequired?: boolean; displayLocalCode?: string }>;
   }>;
   placements: Array<{
     displayLocalCode: string;

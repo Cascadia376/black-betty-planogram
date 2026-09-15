@@ -15,6 +15,7 @@ export function resolveWorkbookRow(result: FlyerWorkbookImportResult, rowNumber:
     const code = decision.code ? normalizeDisplayCode(decision.code, snapshot.displayAreas) : undefined;
     if (decision.code && !code) throw new Error("Enter a recognized cross-store display code, such as W8 or BR2.");
     row.displayLocalCode = code; row.displayRequired = Boolean(code);
+    row.allocations = row.allocations.map((allocation) => ({ ...allocation, displayRequired: Boolean(code), displayLocalCode: code }));
     row.source.reviewedDisplay = { code, required: Boolean(code) };
     row.issues = row.issues.filter((item) => !["invalid_display_code", "display_code_missing", "conflicting_display_codes"].includes(item.code));
   } else {

@@ -347,6 +347,9 @@ export interface CampaignImportStoreAllocation {
   storeId?: UUID;
   quantityCases: number;
   sourceCell: string;
+  displayRequired?: boolean;
+  displayLocalCode?: string;
+  displaySourceCell?: string;
 }
 
 /** Normalized, audit-friendly row evidence. Raw workbook binaries are never persisted. */

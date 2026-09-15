@@ -60,7 +60,7 @@ export function buildStoreExecutionPack(data: PlatformSnapshot, campaignId: stri
   for (const allocation of allocations) {
     const member = data.campaignDisplayProducts.find((item) => item.campaignProductId === allocation.campaignProductId);
     const campaignProduct = campaign.products.find((item) => item.id === allocation.campaignProductId);
-    if (campaignProduct?.merchandisingState === "SHELF_SUPPORTED" || (!allocation.displayRequired && !member)) {
+    if (campaignProduct?.merchandisingState === "SHELF_SUPPORTED" || !allocation.displayRequired) {
       shelf.push(productLine(allocation.productId, allocation.caseQuantity));
     } else if (!member) {
       const item = productLine(allocation.productId, allocation.caseQuantity);
