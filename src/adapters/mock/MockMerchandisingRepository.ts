@@ -20,7 +20,7 @@ import { calculateResidualInventory } from "../../services/orders/ResidualInvent
 import { seedSnapshot } from "./seed";
 import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAllocation";
 import type { CampaignDisplayAssignmentProduct } from "../../domain/types";
-import { validateCategorySpace } from "../../domain/storeLayouts";
+import { isNormalizedGeometry, validateCategorySpace } from "../../domain/storeLayouts";
 import { displayAreaDependencies, validateDisplayArea } from "../../domain/displayAreas";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
@@ -227,6 +227,11 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     if (index < 0) throw new Error("Display area was not found.");
     const area = { ...this.state.displayAreas[index], ...input.patch };
     validateDisplayArea(area, this.state);
+    if (input.sectionGeometry) {
+      const section = this.state.displayAreaSections.find((item) => item.id === input.sectionGeometry?.sectionId && item.displayAreaId === area.id);
+      if (!section || !isNormalizedGeometry(input.sectionGeometry.geometry)) throw new Error("Display section must belong to this area and remain within floorplan bounds.");
+      section.geometry = { ...input.sectionGeometry.geometry };
+    }
     this.state.displayAreas[index] = area;
     this.persist();
     return structuredClone(area);

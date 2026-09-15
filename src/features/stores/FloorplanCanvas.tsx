@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { clsx } from "clsx";
 import { MapPin } from "lucide-react";
+import { Fragment } from "react";
+import { FloorplanViewport, type FloorplanGeometryEdit } from "./FloorplanViewport";
 import type { CategorySpace, DisplayArea, DisplayAreaSection, Fixture, Geometry, StoreZone } from "../../domain/types";
 import { humanize } from "../../components/ui";
 
@@ -59,6 +61,7 @@ export function FloorplanCanvas({
   stateFor,
   onSelect,
   onSelectCategorySpace,
+  onGeometrySave,
 }: {
   storeName: string;
   zones: StoreZone[];
@@ -77,6 +80,7 @@ export function FloorplanCanvas({
   stateFor(areaId: string): DisplayAreaState;
   onSelect(areaId: string): void;
   onSelectCategorySpace?(categorySpaceId: string): void;
+  onGeometrySave?(edit: FloorplanGeometryEdit): Promise<void>;
 }) {
   const hasRealBackground = Boolean(backgroundImageUrl);
   const displayHotspots = areas.flatMap((area) => [
@@ -87,6 +91,7 @@ export function FloorplanCanvas({
       .map((section) => ({ key: section.id, area, geometry: section.geometry, sectionLabel: section.label })),
   ]);
   return (
+    <FloorplanViewport aspectRatio={backgroundAspectRatio ?? 4 / 3} onSave={onGeometrySave}>{(editor) => (
     <div
       className="relative w-full overflow-hidden rounded-sm border-4 border-locked bg-surface"
       style={{ aspectRatio: backgroundAspectRatio ?? 4 / 3 }}
@@ -148,28 +153,41 @@ export function FloorplanCanvas({
       ))}
 
       {showDisplayAreas && displayHotspots.map(({ key, area, geometry, sectionLabel }) => {
+        const displayedGeometry = editor.draft?.key === key ? editor.draft.geometry : geometry;
+        const target = { key, areaId: area.id, sectionId: key === area.id ? undefined : key, geometry: displayedGeometry };
         const resolvedState = stateFor(area.id);
         const state = selectedAreaId === area.id ? "selected" : showCampaignPlacements ? resolvedState : "available";
         return (
-          <button
-            key={key}
+          <Fragment key={key}><button
+            data-display-hotspot={key}
             type="button"
             aria-label={`${area.localCode ?? area.displayNumber}, ${area.name}${sectionLabel ? `, ${sectionLabel}` : ""}, ${displayAreaStateLabels[state]}, ${humanize(area.type)}`}
             aria-pressed={selectedAreaId === area.id}
             title={`${area.name} · ${displayAreaStateLabels[state]}`}
             onClick={() => onSelect(area.id)}
+            onPointerDown={(event) => editor.start(event, target)}
+            onKeyDown={(event) => editor.keyboard(event, target)}
             className={clsx(
-              "absolute z-10 grid min-h-7 min-w-7 place-items-center rounded-sm border-2 text-[10px] font-bold shadow-sm transition hover:z-20 hover:scale-110 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus focus-visible:ring-offset-2",
+              "absolute z-10 grid min-h-7 min-w-7 place-items-center rounded-sm border-2 text-[10px] font-bold shadow-sm hover:z-20 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-focus focus-visible:ring-offset-2",
+              !editor.editing && "transition hover:scale-110",
               stateStyles[state],
             )}
-            style={constrainedGeometry(geometry, 0.045, 0.055)}
+            style={{ ...constrainedGeometry(displayedGeometry, onGeometrySave ? 0 : 0.045, onGeometrySave ? 0 : 0.055), ...(onGeometrySave ? { minWidth: 0, minHeight: 0 } : {}), ...(editor.editing ? { transition: "none", cursor: "move" } : {}) }}
           >
             <span className="sr-only">{area.name}</span>
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="absolute -right-1 -top-2 grid h-4 min-w-4 place-items-center rounded bg-text-primary px-1 text-[9px] leading-none text-primary-foreground" aria-hidden="true">{area.displayNumber}</span>
           </button>
+          {editor.editing && selectedAreaId === area.id && (!editor.draft || editor.draft.key === key) && <button
+            type="button" aria-label={`Resize ${area.localCode ?? area.displayNumber}${sectionLabel ? ` ${sectionLabel}` : ""}`}
+            className="absolute z-30 h-4 w-4 border-2 border-white bg-primary shadow"
+            style={{ left: `${(displayedGeometry.x + displayedGeometry.width) * 100}%`, top: `${(displayedGeometry.y + displayedGeometry.height) * 100}%`, transform: "translate(-50%, -50%)", cursor: "nwse-resize" }}
+            onPointerDown={(event) => editor.start(event, target, true)}
+            onKeyDown={(event) => editor.keyboard(event, target)} />}
+          </Fragment>
         );
       })}
     </div>
+    )}</FloorplanViewport>
   );
 }

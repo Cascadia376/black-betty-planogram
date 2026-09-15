@@ -261,6 +261,7 @@ export interface CreateDisplayAreaInput {
 export interface UpdateDisplayAreaInput {
   displayAreaId: UUID;
   patch: Partial<Omit<DisplayArea, "id" | "storeId">>;
+  sectionGeometry?: { sectionId: string; geometry: DisplayArea["geometry"] };
 }
 
 export interface MerchandisingRepository {

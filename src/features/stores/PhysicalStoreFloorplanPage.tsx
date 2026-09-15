@@ -21,7 +21,7 @@ function optionalNumber(value: FormDataEntryValue | null): number | undefined {
 export function PhysicalStoreFloorplanPage() {
   const { storeId } = useParams();
   const [params, setParams] = useSearchParams();
-  const { data, loading, error, duplicateStoreLayout, setCurrentStoreLayout, updateCategorySpace } = usePlatform();
+  const { data, loading, error, duplicateStoreLayout, setCurrentStoreLayout, updateCategorySpace, updateDisplayArea } = usePlatform();
   const [showBase, setShowBase] = useState(true);
   const [showCategories, setShowCategories] = useState(false);
   const [showDisplayAreas, setShowDisplayAreas] = useState(true);
@@ -202,7 +202,7 @@ export function PhysicalStoreFloorplanPage() {
                 </div>
               </div>
               <div className="p-4 sm:p-5">
-                <FloorplanCanvas storeName={store.name} zones={zones} fixtures={fixtures} areas={areas} displayAreaSections={displayAreaSections} categorySpaces={spaces} backgroundImageUrl={layout.backgroundImageUrl} backgroundAspectRatio={layout.backgroundAspectRatio} showBase={showBase} showCategories={showCategories} showDisplayAreas={showDisplayAreas} showCampaignPlacements={showCampaignPlacements} selectedAreaId={selectedArea?.id} selectedCategorySpaceId={selectedSpace?.id} stateFor={stateFor} onSelect={(id) => updateSelection("area", id)} onSelectCategorySpace={(id) => updateSelection("space", id)} />
+                <FloorplanCanvas key={layout.id} onGeometrySave={async (edit) => { await updateDisplayArea({ displayAreaId: edit.areaId, patch: edit.sectionId ? {} : { geometry: edit.geometry }, sectionGeometry: edit.sectionId ? { sectionId: edit.sectionId, geometry: edit.geometry } : undefined }); }} storeName={store.name} zones={zones} fixtures={fixtures} areas={areas} displayAreaSections={displayAreaSections} categorySpaces={spaces} backgroundImageUrl={layout.backgroundImageUrl} backgroundAspectRatio={layout.backgroundAspectRatio} showBase={showBase} showCategories={showCategories} showDisplayAreas={showDisplayAreas} showCampaignPlacements={showCampaignPlacements} selectedAreaId={selectedArea?.id} selectedCategorySpaceId={selectedSpace?.id} stateFor={stateFor} onSelect={(id) => updateSelection("area", id)} onSelectCategorySpace={(id) => updateSelection("space", id)} />
                 <p className="mt-3 text-xs text-text-muted">Display locations and campaign placements are emphasized by default. Turn on Category layout when regular shelf context is useful.</p>
               </div>
             </Card>
