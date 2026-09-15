@@ -1,20 +1,22 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { buildStoreExecutionPack, executionGroup, executionGroups, type ExecutionProduct } from "../../domain/storeExecutionPack";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { buildStoreExecutionPack, executionGroup, executionGroups, executionMonths, type ExecutionMonth, type ExecutionProduct } from "../../domain/storeExecutionPack";
 import type { DisplayArea, PlatformSnapshot, StoreLayout } from "../../domain/types";
 import { usePlatform } from "../../services/PlatformProvider";
 import "./executionPack.css";
 
 export function StoreExecutionPackPage() {
   const { campaignId = "", storeId = "" } = useParams();
+  const [searchParams] = useSearchParams();
   const { data, loading, error } = usePlatform();
   const [loadedMap, setLoadedMap] = useState("");
-  const pack = data && buildStoreExecutionPack(data, campaignId, storeId);
+  const month = parseExecutionMonth(searchParams.get("month"));
+  const pack = data && buildStoreExecutionPack(data, campaignId, storeId, month);
   if (loading) return <p>Loading store execution pack…</p>;
   if (!pack || !data) return <p role="alert">{error || "Campaign or participating store not found."}</p>;
   return <main className="execution-pack">
-    <nav className="pack-controls"><Link to={`/campaigns/${campaignId}/review`}>← Campaign Review</Link><button disabled={!loadedMap || loadedMap !== pack.layout?.backgroundImageUrl} onClick={() => window.print()}>Print / Save letter-size PDF</button></nav>
-    <header><p>Black Betty · Store execution pack · {pack.exceptions.length ? "DRAFT — unresolved exceptions" : "Reviewed planning copy"}</p><h1>{pack.campaign.name}</h1><h2>{pack.store.name}</h2><p>{pack.campaign.startDate} to {pack.campaign.endDate}</p><p>Planning copy, not a published release. Do not substitute products or locations.</p><p>Source: {pack.sources.join(", ") || "Manual campaign"}</p></header>
+    <nav className="pack-controls"><Link to={`/campaigns/${campaignId}/review`}>← Campaign Review</Link><div>{executionMonths.map((item) => <Link key={item} to={`/campaigns/${campaignId}/stores/${storeId}/pack?month=${item}`}>{monthLabel(item)}</Link>)}<Link to={`/campaigns/${campaignId}/stores/${storeId}/pack`}>All OND</Link></div><button disabled={!loadedMap || loadedMap !== pack.layout?.backgroundImageUrl} onClick={() => window.print()}>Print / Save letter-size PDF</button></nav>
+    <header><p>Black Betty · Store execution pack · {month ? `${monthLabel(month)} output` : "All OND output"} · {pack.exceptions.length ? "DRAFT — unresolved exceptions" : "Reviewed planning copy"}</p><h1>{pack.campaign.name}</h1><h2>{pack.store.name}</h2><p>{month ? monthLabel(month) : `${pack.campaign.startDate} to ${pack.campaign.endDate}`}</p><p>Planning copy, not a published release. Do not substitute products or locations.</p><p>Source: {pack.sources.join(", ") || "Manual campaign"}</p></header>
     <section className="pack-map-page"><h2>Full floor map</h2><p>Outlined markers identify approved campaign display areas. Suggested areas are not highlighted.</p><ExecutionMap key={pack.layout?.id} data={data} layout={pack.layout} storeName={pack.store.name} areas={pack.builds.map((item) => item.area)} onLoaded={setLoadedMap} /></section>
     {executionGroups.map((group) => {
       const builds = pack.builds.filter((build) => build.products.some((item) => executionGroup(item.category) === group) || (!build.products.length && group === "Category requires review")).map((build) => ({ ...build, products: build.products.filter((item) => executionGroup(item.category) === group) }));
@@ -32,6 +34,14 @@ export function StoreExecutionPackPage() {
 
 function ProductTable({ products }: { products: ExecutionProduct[] }) {
   return <table><thead><tr><th>SKU</th><th>Product</th><th>Cases</th><th>Product execution notes</th></tr></thead><tbody>{products.map((item) => <tr key={item.id}><td>{item.sku}</td><td>{item.name}</td><td><strong>{item.cases ?? "UNRESOLVED"}</strong></td><td>{item.notes || "None supplied"}</td></tr>)}</tbody></table>;
+}
+
+function parseExecutionMonth(value: string | null): ExecutionMonth | undefined {
+  return executionMonths.find((month) => month === value?.toUpperCase());
+}
+
+function monthLabel(month: ExecutionMonth) {
+  return { OCT: "October", NOV: "November", DEC: "December" }[month];
 }
 
 /** Uses the original full map and normalized source geometry, including split areas. */

@@ -1,5 +1,7 @@
 import type { CampaignDisplayAssignment, DisplayArea, PlatformSnapshot } from "./types";
 
+export const executionMonths = ["OCT", "NOV", "DEC"] as const;
+export type ExecutionMonth = typeof executionMonths[number];
 export type ExecutionExceptionKind = "Missing display code" | "Suggested alternative requiring approval" | "Missing store display" | "Unmatched SKU" | "Inactive SKU" | "Source row requires correction" | "Execution details missing";
 export interface ExecutionException {
   id: string; kind: ExecutionExceptionKind; message: string; action: string;
@@ -18,7 +20,7 @@ export function executionGroup(category: string): ExecutionGroup {
 }
 
 /** A read-only projection: store quantities are never inferred from campaign defaults. */
-export function buildStoreExecutionPack(data: PlatformSnapshot, campaignId: string, storeId: string) {
+export function buildStoreExecutionPack(data: PlatformSnapshot, campaignId: string, storeId: string, month?: ExecutionMonth) {
   const campaign = data.campaigns.find((item) => item.id === campaignId);
   const store = data.stores.find((item) => item.id === storeId);
   if (!campaign || !store || !data.campaignStores.some((item) => item.campaignId === campaignId && item.storeId === storeId && item.included)) return undefined;
@@ -28,9 +30,14 @@ export function buildStoreExecutionPack(data: PlatformSnapshot, campaignId: stri
   const assignments = data.campaignDisplayAssignments.filter((item) => item.campaignId === campaignId && item.storeId === storeId);
   const exceptions: ExecutionException[] = [];
   const shelf: ExecutionProduct[] = [];
+  const sourceForProduct = (productId: string) => {
+    const product = data.products.find((item) => item.id === productId);
+    return sourceRows.find((item) => (item.reviewedSku ?? item.skuRaw).trim().toUpperCase() === product?.sku.trim().toUpperCase());
+  };
+  const productInMonth = (productId: string) => rowInMonth(sourceForProduct(productId), month);
   const productLine = (productId: string, cases?: number, note?: string): ExecutionProduct => {
     const product = data.products.find((item) => item.id === productId);
-    const source = sourceRows.find((item) => (item.reviewedSku ?? item.skuRaw).trim().toUpperCase() === product?.sku.trim().toUpperCase());
+    const source = sourceForProduct(productId);
     const reviewedDisplay = source?.reviewedDisplay ? source.reviewedDisplay.required ? `Buyer approved display code ${source.reviewedDisplay.code}.` : "Buyer approved shelf support." : undefined;
     return { id: productId, name: product?.name ?? "Unknown product", sku: product?.sku ?? "Unknown SKU", cases,
       category: product?.category ?? "", notes: [note, source?.additionalNotes, reviewedDisplay].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).join(" · ") };
@@ -40,8 +47,10 @@ export function buildStoreExecutionPack(data: PlatformSnapshot, campaignId: stri
     const assignment = assignments.find((item) => item.campaignDisplayId === display.id);
     const area = data.displayAreas.find((item) => item.id === assignment?.displayAreaId && item.storeId === storeId && item.active);
     const memberIds = new Set(data.campaignDisplayProducts.filter((item) => item.campaignDisplayId === display.id).map((item) => item.id));
-    if (!assignment && imports.length && !data.campaignDisplayProducts.some((item) => memberIds.has(item.id) && allocations.some((allocation) => allocation.campaignProductId === item.campaignProductId))) continue;
-    const products = assignment ? data.campaignDisplayAssignmentProducts.filter((item) => item.campaignDisplayAssignmentId === assignment.id && memberIds.has(item.campaignDisplayProductId) && item.caseQuantity !== 0).map((item) => productLine(item.productId, item.caseQuantity, item.note)) : [];
+    const displayHasStoreProducts = data.campaignDisplayProducts.some((item) => memberIds.has(item.id) && productInMonth(item.productId) && allocations.some((allocation) => allocation.campaignProductId === item.campaignProductId));
+    if (imports.length && !displayHasStoreProducts) continue;
+    const products = assignment ? data.campaignDisplayAssignmentProducts.filter((item) => item.campaignDisplayAssignmentId === assignment.id && memberIds.has(item.campaignDisplayProductId) && item.caseQuantity !== 0 && productInMonth(item.productId)).map((item) => productLine(item.productId, item.caseQuantity, item.note)) : [];
+    if (month && assignment?.status === "ASSIGNED" && !products.length) continue;
     if (assignment?.status === "EXCLUDED") {
       shelf.push(...products.map((item) => ({ ...item, notes: ["No display in this store; shelf support approved.", assignment.note, item.notes].filter(Boolean).join(" ") })));
       continue;
@@ -58,6 +67,7 @@ export function buildStoreExecutionPack(data: PlatformSnapshot, campaignId: stri
     }
   }
   for (const allocation of allocations) {
+    if (!productInMonth(allocation.productId)) continue;
     const member = data.campaignDisplayProducts.find((item) => item.campaignProductId === allocation.campaignProductId);
     const campaignProduct = campaign.products.find((item) => item.id === allocation.campaignProductId);
     if (campaignProduct?.merchandisingState === "SHELF_SUPPORTED" || !allocation.displayRequired) {
@@ -68,11 +78,17 @@ export function buildStoreExecutionPack(data: PlatformSnapshot, campaignId: stri
     }
   }
   for (const [index, row] of sourceRows.entries()) {
+    if (!rowInMonth(row, month)) continue;
     if (row.allocations.length && !row.allocations.some((item) => item.storeId === storeId)) continue;
     const kind = row.issues.includes("inactive_sku") ? "Inactive SKU" : row.issues.some((item) => ["unmatched_sku", "ambiguous_product_master_sku", "missing_sku", "tbd_sku", "compound_sku"].includes(item)) ? "Unmatched SKU" : row.issues.some((item) => ["duplicate_sku", "invalid_case_quantity"].includes(item)) ? "Source row requires correction" : undefined;
     if (kind) exceptions.push({ id: `source-${index}`, kind, message: `${row.sourceSheet} row ${row.sourceRow}: ${row.skuRaw || "No SKU"} · ${row.productName} · ${row.allocations.find((item) => item.storeId === storeId)?.quantityCases ?? "unresolved"} cases. Not imported from this row.`, action: "Confirm the exact active SKU/quantity with the source owner, correct the consolidated workbook and import a new draft. Do not substitute by name." });
   }
   const layout = data.storeLayouts.find((item) => item.storeId === storeId && item.status === "current");
   if (!layout?.backgroundImageUrl) exceptions.push({ id: "map", kind: "Execution details missing", message: "No current source floor map is available.", action: "Ask the floorplan owner for a verified map before store execution." });
-  return { campaign, store, layout, builds, shelf: [...new Map(shelf.map((item) => [item.id, item])).values()], exceptions, sources: imports.map((item) => item.sourceFileName) };
+  return { campaign, store, layout, month, builds, shelf: [...new Map(shelf.map((item) => [item.id, item])).values()], exceptions, sources: imports.map((item) => item.sourceFileName) };
+}
+
+function rowInMonth(row: { flyerMonths?: string[] } | undefined, month?: ExecutionMonth) {
+  if (!month) return true;
+  return row?.flyerMonths?.includes(month) === true;
 }

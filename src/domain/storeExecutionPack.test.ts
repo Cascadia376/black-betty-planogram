@@ -30,6 +30,26 @@ describe("store execution pack and explicit workbook decisions", () => {
     expect(smallPack.exceptions).toContainEqual(expect.objectContaining({ kind: "Suggested alternative requiring approval", message: expect.stringContaining("3 cases") }));
     expect(smallPack.builds.some((item) => item.products.some((product) => product.sku === "MOCK-2001"))).toBe(false);
   });
+  it("filters store output maps and build sheets by flyer month", async () => {
+    const { data, campaignId } = await importedExecutionCase();
+    const crown = data.stores.find((item) => item.name === "Crown Isle")!;
+    const rows = data.campaignImports.find((item) => item.campaignId === campaignId)!.rows;
+    rows.find((item) => item.skuRaw === "MOCK-2001")!.flyerMonths = ["OCT", "DEC"];
+    rows.find((item) => item.skuRaw === "MOCK-1001")!.flyerMonths = ["NOV"];
+    rows.find((item) => item.skuRaw === "MOCK-3001")!.flyerMonths = ["DEC"];
+
+    const october = buildStoreExecutionPack(data, campaignId, crown.id, "OCT")!;
+    const november = buildStoreExecutionPack(data, campaignId, crown.id, "NOV")!;
+    const december = buildStoreExecutionPack(data, campaignId, crown.id, "DEC")!;
+    const allOnd = buildStoreExecutionPack(data, campaignId, crown.id)!;
+
+    expect(october.builds.flatMap((build) => build.products.map((product) => product.sku))).toContain("MOCK-2001");
+    expect(october.builds.flatMap((build) => build.products.map((product) => product.sku))).not.toContain("MOCK-1001");
+    expect(november.builds.flatMap((build) => build.products.map((product) => product.sku))).toContain("MOCK-1001");
+    expect(november.builds.flatMap((build) => build.products.map((product) => product.sku))).not.toContain("MOCK-2001");
+    expect(december.shelf).toContainEqual(expect.objectContaining({ sku: "MOCK-3001", cases: 4 }));
+    expect(allOnd.builds.flatMap((build) => build.products.map((product) => product.sku))).toEqual(expect.arrayContaining(["MOCK-2001", "MOCK-1001"]));
+  });
   it("changes only one store when approving an alternative and keeps its quantities", async () => {
     const { repo, data, campaignId } = await importedExecutionCase();
     const assignment = data.campaignDisplayAssignments.find((item) => item.campaignId === campaignId && item.intendedDisplayCode === "W8" && item.status === "SUGGESTED")!;

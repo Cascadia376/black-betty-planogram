@@ -54,7 +54,7 @@ test("consolidated OND → explicit exception approval → Crown Isle and Port A
     await instructions.getByRole("button", { name: "Save display instructions" }).click();
   }
   await expect(page.getByLabel("Execution pack store")).toHaveValue(/.+/);
-  await page.getByRole("link", { name: "Open Crown Isle execution pack" }).click();
+  await page.getByRole("link", { name: "Open Crown Isle October pack" }).click();
   await expect(page.locator(".execution-pack").getByRole("heading", { name: "Crown Isle", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Harvest Red Blend" })).toContainText("6");
   await expect(page.getByRole("row").filter({ hasText: "Coastal Lager 12 Pack" })).toContainText("12");
@@ -76,7 +76,7 @@ test("consolidated OND → explicit exception approval → Crown Isle and Port A
   await expect(exception).toContainText("3 cases");
   await exception.getByRole("button", { name: "Approve suggested area" }).click();
   await expect(exception).toHaveCount(0);
-  await page.getByRole("link", { name: "Open Port Alberni execution pack" }).click();
+  await page.getByRole("link", { name: "Open Port Alberni October pack" }).click();
   await expect(page.locator(".execution-pack").getByRole("heading", { name: "Port Alberni", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Harvest Red Blend" })).toContainText("3");
   await expect(page.getByRole("heading", { name: "No-display / shelf-support items" })).toBeVisible();
