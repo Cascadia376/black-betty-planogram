@@ -38,7 +38,7 @@ export interface FlyerWorkbookReviewRow {
   status: "ready" | "unmatched" | "inactive" | "duplicate" | "invalid" | "information";
   displayLocalCode?: string;
   displayRequired: boolean;
-  allocations: Array<{ store: Store; quantityCases: number; sourceColumn: string; sourceCell: string }>;
+  allocations: Array<{ store: Store; quantityCases: number; sourceColumn: string; sourceCell: string; displayRequired?: boolean; displayLocalCode?: string; displaySourceCell?: string }>;
   source: CampaignImportRowMetadata;
   issues: ImportIssue[];
 }
@@ -74,6 +74,8 @@ export interface FlyerWorkbookParseOptions {
   sourceFileName: string;
   sourceSheet: string;
   sheetNames?: string[];
+  storeDisplaySheet?: string;
+  storeDisplayRows?: unknown[][];
   fingerprint: string;
 }
 
@@ -86,10 +88,14 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
     const sheetNames = await readSheetNames(file);
     if (!sheetNames.length) throw new Error("The workbook does not contain a readable worksheet.");
     const sourceSheet = chooseProductSheet(sheetNames);
+    const storeDisplaySheet = chooseStoreDisplaySheet(sheetNames, sourceSheet);
     const rows = await readXlsxFile(file, { sheet: sourceSheet });
+    const storeDisplayRows = storeDisplaySheet ? await readXlsxFile(file, { sheet: storeDisplaySheet }) : undefined;
     return this.parseRows(rows, context, {
       sourceFileName: namedFile.name || "uploaded-workbook.xlsx",
       sourceSheet,
+      storeDisplaySheet,
+      storeDisplayRows,
       sheetNames,
       fingerprint: await sha256(file),
     });
@@ -108,6 +114,7 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
     const headerIndex = indexHeaders(headers);
     const indexes = workbookKind === "monthly_flyer" ? flyerIndexes(headers, headerIndex) : planningIndexes(headerIndex);
     const storeColumns = workbookKind === "ond" ? resolveStoreColumns(headers, context.snapshot.stores) : [];
+    const storeDisplayRows = workbookKind === "ond" ? buildStoreDisplayRows(options.storeDisplayRows, context.snapshot.stores, context.snapshot.displayAreas) : undefined;
     const lookupSkus = sourceRows.slice(1).map((cells) => normalizeSku(cells[indexes.sku])).filter(isLookupEligibleSku);
     const lookup = await context.productMaster.findByExactSkus(lookupSkus);
     const catalogBySku = new Map(lookup.products.map((product) => [normalizeSku(product.sku), product]));
@@ -152,7 +159,7 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       if (sku && seen.has(sku)) rowIssues.push(makeIssue(rowNumber, "SKU", "duplicate_sku", `SKU ${sku} appears more than once; later rows are skipped.`, "error"));
       if (sku) seen.add(sku);
 
-      const allocations = storeColumns.flatMap(({ index: columnIndex, store, sourceHeader }) => {
+      let allocations: FlyerWorkbookReviewRow["allocations"] = storeColumns.flatMap(({ index: columnIndex, store, sourceHeader }) => {
         const quantity = parseWholeNumber(cells[columnIndex]);
         if (quantity === undefined && cellText(cells[columnIndex])) {
           rowIssues.push(makeIssue(rowNumber, sourceHeader, "invalid_case_quantity", "Store allocation must be a non-negative whole number.", "error"));
@@ -180,19 +187,36 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       const displayRequired = parseYes(displayRaw) || Boolean(displayCodeRaw);
       if (displayCodeRaw && !displayLocalCode) rowIssues.push(makeIssue(rowNumber, "Display Area", "invalid_display_code", `${displayCodeRaw} is not a recognized display concept code.`, "warning"));
       if (displayRequired && !displayLocalCode && workbookKind === "ond") rowIssues.push(makeIssue(rowNumber, "Display Area", "display_code_missing", "Display is required but no cross-store display code was supplied.", "warning"));
+      if (storeDisplayRows) {
+        const displayRow = storeDisplayRows.get(rowNumber);
+        allocations = allocations.map((allocation) => {
+          const override = displayRow?.get(allocation.store.id);
+          if (!override) return { ...allocation, displayRequired: false, displayLocalCode: undefined, displaySourceCell: undefined };
+          if (override.raw && !override.displayLocalCode) {
+            rowIssues.push(makeIssue(rowNumber, override.sourceHeader, "invalid_store_display_code", `${override.raw} is not a recognized display code for ${allocation.store.name}.`, "warning"));
+          }
+          return { ...allocation, displayRequired: Boolean(override.raw), displayLocalCode: override.displayLocalCode, displaySourceCell: override.sourceCell };
+        });
+      } else {
+        allocations = allocations.map((allocation) => ({ ...allocation, displayRequired, displayLocalCode, displaySourceCell: displayCodeRaw ? `${columnName(indexes.displayArea >= 0 ? indexes.displayArea : indexes.display)}${rowNumber}` : undefined }));
+      }
+      const effectiveDisplayCodes = [...new Set(allocations.map((allocation) => allocation.displayLocalCode).filter((code): code is string => Boolean(code)))];
+      const effectiveDisplayRequired = allocations.some((allocation) => allocation.displayRequired) || (!allocations.length && displayRequired);
+      const effectiveDisplayLocalCode = storeDisplayRows ? effectiveDisplayCodes.length === 1 ? effectiveDisplayCodes[0] : undefined : displayLocalCode;
 
       const ltoRaw = cellText(cells[indexes.lto]);
       const note = cellText(cells[indexes.notes]);
       const wholesaleLtoAmount = parseLtoAmount(ltoRaw);
       const ltoCode = parseTprCode(note) ?? (wholesaleLtoAmount === undefined && ltoRaw && ltoRaw.toLocaleUpperCase() !== "NA" ? ltoRaw : undefined);
       const source = sourceMetadata(cells, indexes, allocations, options.sourceSheet, rowNumber, skuRaw, productName, rowIssues.map((issue) => issue.code), {
-        sellingPrice, savings, salePrice, loyaltyPointsMultiplier, wholesaleLtoAmount, ltoCode, displayRequired, displayLocalCode,
+        sellingPrice, savings, salePrice, loyaltyPointsMultiplier, wholesaleLtoAmount, ltoCode,
+        displayRequired: effectiveDisplayRequired, displayLocalCode: effectiveDisplayLocalCode,
       });
       const status = rowIssues.some((issue) => issue.code === "duplicate_sku") ? "duplicate"
         : rowIssues.some((issue) => issue.code === "inactive_sku") ? "inactive"
         : rowIssues.some((issue) => issue.code === "unmatched_sku" || issue.code === "ambiguous_product_master_sku") ? "unmatched"
           : rowIssues.some((issue) => issue.severity === "error") || !product ? "invalid" : "ready";
-      rows.push({ rowNumber, sku, productName, product, status, displayLocalCode, displayRequired, allocations, source, issues: rowIssues });
+      rows.push({ rowNumber, sku, productName, product, status, displayLocalCode: effectiveDisplayLocalCode, displayRequired: effectiveDisplayRequired, allocations, source, issues: rowIssues });
       issues.push(...rowIssues);
     }
 
@@ -221,10 +245,10 @@ export function toApplyCampaignWorkbookImport(
     role: "Supporting" as const,
     required: true,
     note: row.source.additionalNotes,
-    merchandisingState: row.displayLocalCode ? "DISPLAY_ASSIGNED" as const : row.displayRequired ? "UNASSIGNED" as const : result.workbookKind === "ond" ? "SHELF_SUPPORTED" as const : "UNASSIGNED" as const,
+    merchandisingState: row.allocations.some((allocation) => allocation.displayLocalCode) || row.displayLocalCode ? "DISPLAY_ASSIGNED" as const : row.displayRequired ? "UNASSIGNED" as const : result.workbookKind === "ond" ? "SHELF_SUPPORTED" as const : "UNASSIGNED" as const,
     displayLocalCode: row.displayLocalCode,
     source: row.source,
-    allocations: row.allocations.map((allocation) => ({ storeId: allocation.store.id, quantityCases: allocation.quantityCases })),
+    allocations: row.allocations.map((allocation) => ({ storeId: allocation.store.id, quantityCases: allocation.quantityCases, displayRequired: allocation.displayRequired, displayLocalCode: allocation.displayLocalCode })),
   }));
   return {
     formatId: result.formatId,
@@ -292,7 +316,11 @@ function sourceMetadata(
     vendor: valueAt(cells, indexes.vendor), category: valueAt(cells, indexes.category), size: valueAt(cells, indexes.size),
     additionalNotes: valueAt(cells, indexes.notes), orderFrom: valueAt(cells, indexes.orderFrom),
     flyerMonths: indexes.flyerMonths.filter(({ index }) => parseYes(cells[index])).map(({ month }) => month),
-    allocations: allocations.map((allocation) => ({ sourceColumn: allocation.sourceColumn, sourceStoreName: allocation.store.name, storeId: allocation.store.id, quantityCases: allocation.quantityCases, sourceCell: allocation.sourceCell })),
+    allocations: allocations.map((allocation) => ({
+      sourceColumn: allocation.sourceColumn, sourceStoreName: allocation.store.name, storeId: allocation.store.id,
+      quantityCases: allocation.quantityCases, sourceCell: allocation.sourceCell,
+      displayRequired: allocation.displayRequired, displayLocalCode: allocation.displayLocalCode, displaySourceCell: allocation.displaySourceCell,
+    })),
     issues: issueCodes,
     ...overrides,
   };
@@ -308,7 +336,7 @@ function resolveStoreColumns(headers: string[], stores: Store[]) {
 }
 
 export function buildPlacements(rows: FlyerWorkbookReviewRow[], stores: Store[], areas: DisplayArea[]): FlyerWorkbookPlacementReview[] {
-  const codes = [...new Set(rows.map((row) => row.displayLocalCode).filter((code): code is string => Boolean(code)))];
+  const codes = [...new Set(rows.flatMap((row) => row.allocations.map((allocation) => allocationDisplayCode(row, allocation))).filter((code): code is string => Boolean(code)))];
   const participatingStoreIds = new Set(rows.flatMap((row) => row.allocations.map((allocation) => allocation.store.id)));
   const reserved = new Map<string, Set<string>>();
   const results: FlyerWorkbookPlacementReview[] = [];
@@ -320,10 +348,10 @@ export function buildPlacements(rows: FlyerWorkbookReviewRow[], stores: Store[],
   }
 
   for (const code of codes) {
-    const codeRows = rows.filter((row) => row.displayLocalCode === code);
+    const codeRows = rows.filter((row) => row.allocations.some((allocation) => allocationDisplayCode(row, allocation) === code));
     const displayFamily = displayFamilyForCode(code);
     for (const store of stores.filter((candidate) => participatingStoreIds.has(candidate.id))) {
-      const allocations = codeRows.flatMap((row) => row.allocations.filter((allocation) => allocation.store.id === store.id));
+      const allocations = codeRows.flatMap((row) => row.allocations.filter((allocation) => allocation.store.id === store.id && allocationDisplayCode(row, allocation) === code));
       const caseQuantity = allocations.reduce((sum, allocation) => sum + allocation.quantityCases, 0);
       if (!caseQuantity) {
         results.push({ displayLocalCode: code, displayFamily, store, status: "EXCLUDED", reasons: ["No products in this display have a store allocation."], productCount: 0, caseQuantity: 0 });
@@ -348,6 +376,10 @@ export function buildPlacements(rows: FlyerWorkbookReviewRow[], stores: Store[],
     }
   }
   return results;
+}
+
+function allocationDisplayCode(row: FlyerWorkbookReviewRow, allocation: FlyerWorkbookReviewRow["allocations"][number]) {
+  return allocation.displayLocalCode ?? (!("displayRequired" in allocation) ? row.displayLocalCode : undefined);
 }
 
 function inferCampaign(fileName: string, kind?: CampaignWorkbookKind) {
@@ -393,7 +425,34 @@ export function validateWorkbookCampaignPeriod(
 }
 
 function chooseProductSheet(sheetNames: string[]) {
-  return sheetNames.find((name) => /flyer|worksheet|plan/i.test(name)) ?? sheetNames[0];
+  return sheetNames.find((name) => /flyer|worksheet|plan/i.test(name) && !/display/i.test(name)) ?? sheetNames[0];
+}
+
+function chooseStoreDisplaySheet(sheetNames: string[], sourceSheet: string) {
+  return sheetNames.find((name) => name !== sourceSheet && /display/i.test(name));
+}
+
+function buildStoreDisplayRows(sourceRows: unknown[][] | undefined, stores: Store[], areas: DisplayArea[]) {
+  if (!sourceRows?.length) return undefined;
+  const headers = (sourceRows[0] ?? []).map(cellText);
+  const storeColumns = resolveStoreColumns(headers, stores);
+  if (!storeColumns.length) return undefined;
+  const rows = new Map<number, Map<string, { raw: string; displayLocalCode?: string; sourceCell: string; sourceHeader: string }>>();
+  for (let index = 1; index < sourceRows.length; index += 1) {
+    const cells = sourceRows[index] ?? [];
+    const row = new Map<string, { raw: string; displayLocalCode?: string; sourceCell: string; sourceHeader: string }>();
+    for (const { index: columnIndex, store, sourceHeader } of storeColumns) {
+      const raw = cellText(cells[columnIndex]);
+      row.set(store.id, {
+        raw,
+        displayLocalCode: raw ? normalizeDisplayCode(raw, areas) : undefined,
+        sourceCell: `${columnName(columnIndex)}${index + 1}`,
+        sourceHeader,
+      });
+    }
+    rows.set(index + 1, row);
+  }
+  return rows;
 }
 
 export function normalizeDisplayCode(value: string, areas: DisplayArea[]) {

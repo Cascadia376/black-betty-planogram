@@ -4,13 +4,14 @@ import { MockProductMasterLookup } from "../mock/MockProductMasterLookup";
 import { IDS, seedSnapshot } from "../mock/seed";
 import { FlyerWorkbookImportAdapter, campaignWorkbookImportKey, toApplyCampaignWorkbookImport, validateWorkbookCampaignPeriod } from "./FlyerWorkbookImportAdapter";
 import { createFlyerWorkbook } from "../../../tests/fixtures/flyerWorkbook";
+import { createWorkbookWithSheets } from "../../../tests/fixtures/cascadiaOndWorkbook";
 import { stableProductIdForSku, type ProductMasterLookup } from "../../services/products/ProductMasterLookup";
 
 const adapter = new FlyerWorkbookImportAdapter();
 const context = { snapshot: seedSnapshot, productMaster: new MockProductMasterLookup(seedSnapshot.products) };
 const planningHeaders = ["Vendor", "Category", "INV_NUM", "Product", "Order From", "LTO Month", "Display", "Display Area", "Oct Flyer", "Nov Flyer", "Dec Flyer", "Notes", "Crown Isle", "Port Alberni", "Total Cases"];
 
-function planningRow(sku: string, product: string, options: { display?: string; code?: string; months?: string[]; crown?: unknown; port?: unknown } = {}) {
+function planningRow(sku: string, product: string, options: { display?: string; code?: string; months?: string[]; crown?: string | number; port?: string | number } = {}) {
   return ["Mock", "WINE", sku, product, "", "", options.display ?? "", options.code ?? "", options.months?.includes("OCT") ? "Y" : "", options.months?.includes("NOV") ? "Y" : "", options.months?.includes("DEC") ? "Y" : "", "", options.crown ?? "", options.port ?? "", ""];
 }
 
@@ -39,6 +40,52 @@ describe("flyer workbook import adapter", () => {
     expect(result.rows[0].issues.some((issue) => issue.code === "conflicting_display_codes")).toBe(true);
     expect(result.placements).toEqual([]);
   });
+
+  it("uses an optional second sheet for store-specific display codes and treats blanks as no display", async () => {
+    const productRows = [
+      planningHeaders,
+      planningRow("MOCK-2001", "Harvest Red", { display: "W8", months: ["OCT"], crown: 6, port: 3 }),
+      planningRow("MOCK-1001", "Coastal Lager", { display: "BR2", months: ["OCT"], crown: 2, port: 1 }),
+    ];
+    const displayRows = [
+      planningHeaders,
+      planningRow("MOCK-2001", "Harvest Red", { display: "W8", crown: "W8", port: "W2" }),
+      planningRow("MOCK-1001", "Coastal Lager", { display: "BR2", crown: "BR2", port: "" }),
+    ];
+    const result = await adapter.parseRows(productRows, context, {
+      sourceFileName: "OND 2026.xlsx", sourceSheet: "OND Worksheet", storeDisplaySheet: "Store Displays",
+      storeDisplayRows: displayRows, fingerprint: "store-display-sheet",
+    });
+
+    expect(result.rows[0].allocations.map((allocation) => [allocation.store.name, allocation.displayLocalCode, allocation.displayRequired])).toEqual([
+      ["Crown Isle", "W8", true],
+      ["Port Alberni", "W2", true],
+    ]);
+    expect(result.rows[1].allocations.map((allocation) => [allocation.store.name, allocation.displayLocalCode, allocation.displayRequired])).toEqual([
+      ["Crown Isle", "BR2", true],
+      ["Port Alberni", undefined, false],
+    ]);
+    expect(result.placements).toEqual(expect.arrayContaining([
+      expect.objectContaining({ store: expect.objectContaining({ name: "Crown Isle" }), displayLocalCode: "W8", status: "ASSIGNED", caseQuantity: 6 }),
+      expect.objectContaining({ store: expect.objectContaining({ name: "Port Alberni" }), displayLocalCode: "W2", status: "ASSIGNED", caseQuantity: 3 }),
+      expect.objectContaining({ store: expect.objectContaining({ name: "Port Alberni" }), displayLocalCode: "BR2", status: "EXCLUDED", caseQuantity: 0 }),
+    ]));
+  });
+
+  it("reads the optional store display sheet from a workbook file", async () => {
+    const bytes = createWorkbookWithSheets([
+      { name: "OND Worksheet", rows: [planningHeaders, planningRow("MOCK-2001", "Harvest Red", { display: "W8", crown: 6, port: 3 })] },
+      { name: "Store Displays", rows: [planningHeaders, planningRow("MOCK-2001", "Harvest Red", { display: "W8", crown: "W8", port: "W2" })] },
+    ]);
+    const file = new File([bytes.slice().buffer], "OND 2026 store display test.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const result = await adapter.parse(file, context);
+    expect(result.sheetNames).toEqual(["OND Worksheet", "Store Displays"]);
+    expect(result.rows[0].allocations.map((allocation) => [allocation.store.name, allocation.displayLocalCode])).toEqual([
+      ["Crown Isle", "W8"],
+      ["Port Alberni", "W2"],
+    ]);
+  });
+
   it("defaults a yearless OND workbook to October–December of the current year", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2028-09-14T12:00:00"));
@@ -127,7 +174,7 @@ describe("flyer workbook import adapter", () => {
     expect(port).toMatchObject({ status: "SUGGESTED", caseQuantity: 3 });
     expect(port.displayArea).toBeUndefined();
     const input = toApplyCampaignWorkbookImport(result, result.suggestedCampaign);
-    expect(input.rows[0].allocations).toEqual(expect.arrayContaining([{ storeId: IDS.store, quantityCases: 6 }]));
+    expect(input.rows[0].allocations).toEqual(expect.arrayContaining([expect.objectContaining({ storeId: IDS.store, quantityCases: 6 })]));
     expect(input.placements.find((item) => item.storeId === port.store.id)).toMatchObject({ status: "SUGGESTED", displayAreaId: undefined, suggestionDisplayAreaId: port.suggestion?.id });
   });
 
@@ -168,6 +215,36 @@ describe("flyer workbook import adapter", () => {
     expect(state.campaignDisplayAssignmentProducts.some((item) => item.caseQuantity === 6 && item.quantitySource === "SPREADSHEET")).toBe(true);
     expect(state.campaignDisplayAssignments.find((item) => item.campaignId === applied.campaignId && item.storeId === snapshot.stores.find((store) => store.name === "Port Alberni")?.id)).toMatchObject({ status: "SUGGESTED", displayAreaId: undefined });
     await expect(repository.applyCampaignWorkbookImport(input)).rejects.toThrow("already been applied");
+  });
+
+  it("applies store-specific display codes while preserving blank display cells as shelf support", async () => {
+    const repository = new MockMerchandisingRepository();
+    const snapshot = await repository.load();
+    const result = await new FlyerWorkbookImportAdapter().parseRows([
+      planningHeaders,
+      planningRow("MOCK-2001", "Harvest Red", { display: "W8", months: ["OCT"], crown: 6, port: 3 }),
+      planningRow("MOCK-1001", "Coastal Lager", { display: "BR2", months: ["OCT"], crown: 2, port: 1 }),
+    ], { snapshot, productMaster: new MockProductMasterLookup(snapshot.products) }, {
+      sourceFileName: "OND 2026 Worksheet.xlsx", sourceSheet: "OND Worksheet", fingerprint: "store-display-apply",
+      storeDisplaySheet: "Store Displays",
+      storeDisplayRows: [
+        planningHeaders,
+        planningRow("MOCK-2001", "Harvest Red", { display: "W8", crown: "W8", port: "W2" }),
+        planningRow("MOCK-1001", "Coastal Lager", { display: "BR2", crown: "BR2", port: "" }),
+      ],
+    });
+    const applied = await repository.applyCampaignWorkbookImport(toApplyCampaignWorkbookImport(result, result.suggestedCampaign));
+    const state = await repository.load();
+    const port = snapshot.stores.find((store) => store.name === "Port Alberni")!;
+
+    expect(state.campaignDisplayAssignments).toEqual(expect.arrayContaining([
+      expect.objectContaining({ campaignId: applied.campaignId, storeId: port.id, intendedDisplayCode: "W2", status: "ASSIGNED" }),
+      expect.objectContaining({ campaignId: applied.campaignId, storeId: port.id, intendedDisplayCode: "BR2", status: "EXCLUDED" }),
+    ]));
+    expect(state.campaignStoreProductAllocations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ campaignId: applied.campaignId, storeId: port.id, productId: IDS.harvestRedProduct, displayRequired: true, intendedDisplayCode: "W2" }),
+      expect.objectContaining({ campaignId: applied.campaignId, storeId: port.id, productId: IDS.coastalLagerProduct, displayRequired: false, intendedDisplayCode: undefined }),
+    ]));
   });
 
   it("blocks the same monthly flyer workbook and month twice", async () => {

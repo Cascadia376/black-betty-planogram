@@ -379,9 +379,12 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       this.state.campaigns.unshift({ ...input.campaign, requirement: input.campaign.requirement ?? structuredClone(defaultDisplayRequirement), id: campaignId, status: "draft", products: campaignProducts });
 
       const rowsByCode = new Map<string, typeof input.rows>();
-      input.rows.filter((row) => row.displayLocalCode).forEach((row) => {
-        const code = row.displayLocalCode!.toLocaleUpperCase();
-        rowsByCode.set(code, [...(rowsByCode.get(code) ?? []), row]);
+      input.rows.forEach((row) => {
+        const codes = new Set(row.allocations.map((allocation) => allocation.displayRequired !== undefined || allocation.displayLocalCode !== undefined ? allocation.displayLocalCode : row.displayLocalCode).filter((code): code is string => Boolean(code)));
+        codes.forEach((rawCode) => {
+          const code = rawCode.toLocaleUpperCase();
+          rowsByCode.set(code, [...(rowsByCode.get(code) ?? []), row]);
+        });
       });
       const displayIds = new Map<string, UUID>();
       const displayProductIds = new Map<string, UUID>();
@@ -414,11 +417,13 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
         const campaignProduct = campaignProducts.find((item) => item.productId === row.productId)!;
         row.allocations.forEach((allocation) => {
           const sourceAllocation = row.source.allocations.find((item) => item.storeId === allocation.storeId);
+          const allocationCode = allocation.displayRequired !== undefined || allocation.displayLocalCode !== undefined ? allocation.displayLocalCode : row.displayLocalCode;
           this.state.campaignStoreProductAllocations.push({
             id: crypto.randomUUID(), campaignId, campaignProductId: campaignProduct.id, productId: row.productId,
             storeId: allocation.storeId, caseQuantity: allocation.quantityCases,
-            displayRequired: row.merchandisingState === "DISPLAY_ASSIGNED" || row.merchandisingState === "UNASSIGNED",
-            intendedDisplayCode: row.displayLocalCode, sourceCell: sourceAllocation?.sourceCell ?? "Unknown source cell",
+            displayRequired: allocation.displayRequired ?? (row.merchandisingState === "DISPLAY_ASSIGNED" || row.merchandisingState === "UNASSIGNED"),
+            intendedDisplayCode: allocationCode,
+            sourceCell: sourceAllocation?.sourceCell ?? "Unknown source cell",
           });
         });
       });
@@ -443,7 +448,10 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
         const displayRows = rowsByCode.get(code) ?? [];
         displayRows.forEach((row) => {
           const displayProductId = displayProductIds.get(`${code}|${row.productId}`)!;
-          const cases = row.allocations.find((allocation) => allocation.storeId === placement.storeId)?.quantityCases ?? 0;
+          const cases = row.allocations.filter((allocation) => {
+            const allocationCode = allocation.displayRequired !== undefined || allocation.displayLocalCode !== undefined ? allocation.displayLocalCode : row.displayLocalCode;
+            return allocation.storeId === placement.storeId && allocationCode?.toLocaleUpperCase() === code;
+          }).reduce((sum, allocation) => sum + allocation.quantityCases, 0);
           this.state.campaignDisplayAssignmentProducts.push({
             id: crypto.randomUUID(), campaignDisplayAssignmentId: assignmentId, campaignDisplayProductId: displayProductId,
             productId: row.productId, caseQuantity: cases, quantitySource: "SPREADSHEET", buyerOverride: false,

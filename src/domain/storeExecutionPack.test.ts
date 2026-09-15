@@ -50,12 +50,13 @@ describe("store execution pack and explicit workbook decisions", () => {
     expect(pack.shelf).toContainEqual(expect.objectContaining({ sku: "MOCK-2001", cases: 3 }));
     expect(pack.exceptions.some((item) => item.id === assignment.id)).toBe(false);
   });
-  it("preserves original cells while explicitly resolving a missing cross-store code", async () => {
+  it("preserves source evidence while explicitly resolving a missing cross-store code", async () => {
     const { result } = await importedExecutionCase();
     const row = result.rows.find((item) => item.sku === "MOCK-1002")!;
     const resolved = resolveWorkbookRow(result, row.rowNumber, { kind: "display", code: "BR2" }, seedSnapshot);
     const updated = resolved.rows.find((item) => item.rowNumber === row.rowNumber)!;
-    expect(updated.allocations).toEqual(row.allocations);
+    expect(updated.source.allocations).toEqual(row.source.allocations);
+    expect(updated.allocations).toEqual(row.allocations.map((allocation) => ({ ...allocation, displayRequired: true, displayLocalCode: "BR2" })));
     expect(updated.source.displayLocalCode).toBeUndefined();
     expect(updated.source.reviewedDisplay).toEqual({ code: "BR2", required: true });
     expect(updated.displayLocalCode).toBe("BR2");
