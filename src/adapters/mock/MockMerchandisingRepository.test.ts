@@ -5,6 +5,7 @@ import { MockMerchandisingRepository } from "./MockMerchandisingRepository";
 import { IDS, seedSnapshot } from "./seed";
 import { cascadiaOndRows as fixture } from "../../../tests/fixtures/cascadiaOndRows";
 import { CascadiaOndAllocationImportAdapter } from "../import/CascadiaOndAllocationImportAdapter";
+import { deserializeSnapshot } from "./snapshotStorage";
 
 function ondAssignmentInput(startDate = "2026-10-01", endDate = "2026-11-11"): CreateDisplayAssignmentInput {
   return {
@@ -72,6 +73,22 @@ describe("mock merchandising workflow", () => {
       expect(state.categorySpaces.some((space) => space.layoutId === currentLayout?.id), store.name).toBe(true);
       expect(state.displayAreas.some((area) => area.storeId === store.id), store.name).toBe(true);
     }
+  });
+
+  it("compresses snapshots in localStorage and can reload them", async () => {
+    const repository = new MockMerchandisingRepository();
+    const pending = await repository.createPendingProduct({
+      sku: "COMPRESSED-001",
+      name: "Compression persistence test product",
+      category: "Test",
+      notes: "Repeated provenance text ".repeat(200),
+    });
+
+    const stored = window.localStorage.getItem("cascadia-merchandising-platform-v1");
+    expect(stored).toMatch(/^zlib-base64:/);
+    expect(stored!.length).toBeLessThan(JSON.stringify(await repository.load()).length);
+    expect(deserializeSnapshot(stored!).products.some((product) => product.id === pending.id)).toBe(true);
+    expect((await new MockMerchandisingRepository().load()).products.some((product) => product.id === pending.id)).toBe(true);
   });
 
   it("updates category spaces, duplicates layouts, and preserves display/campaign data", async () => {

@@ -22,6 +22,7 @@ import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAl
 import type { CampaignDisplayAssignmentProduct } from "../../domain/types";
 import { isNormalizedGeometry, validateCategorySpace } from "../../domain/storeLayouts";
 import { displayAreaDependencies, validateDisplayArea } from "../../domain/displayAreas";
+import { deserializeSnapshot, serializeSnapshot } from "./snapshotStorage";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
 const defaultDisplayRequirement: DisplayRequirement = {
@@ -130,7 +131,7 @@ function readInitialState(): PlatformSnapshot {
   if (typeof window === "undefined") return cloneSeed();
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored ? normalizeSnapshot(JSON.parse(stored) as PlatformSnapshot) : cloneSeed();
+    return stored ? normalizeSnapshot(deserializeSnapshot(stored)) : cloneSeed();
   } catch {
     return cloneSeed();
   }
@@ -141,8 +142,16 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
 
   constructor(private readonly clock: BusinessClock = mockBusinessClock) {}
 
-  private persist() {
-    if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+  private persist(): void {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, serializeSnapshot(this.state));
+    } catch (cause) {
+      if (cause instanceof DOMException && (cause.name === "QuotaExceededError" || cause.name === "NS_ERROR_DOM_QUOTA_REACHED")) {
+        throw new Error("Browser storage is full. Remove older local site data or connect a persistent repository, then try again.", { cause });
+      }
+      throw cause;
+    }
   }
 
   async load(): Promise<PlatformSnapshot> {
