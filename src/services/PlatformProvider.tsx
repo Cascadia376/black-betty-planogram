@@ -294,24 +294,51 @@ function AuthStatus({ message, canSignOut = false }: { message: string; canSignO
 
 function BlackBettySignIn({ error }: { error?: string }) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const [message, setMessage] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
 
-  const signIn = async () => {
+  const submit = async () => {
     if (!configuredSupabase) return;
+    if (creatingAccount && password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
     setSubmitting(true);
     setMessage(undefined);
-    const { error: signInError } = await configuredSupabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        emailRedirectTo: window.location.origin,
-        shouldCreateUser: true,
-      },
-    });
-    setSubmitting(false);
-    setMessage(signInError ? signInError.message : "Check your email for a secure sign-in link.");
+    try {
+      const credentials = { email: email.trim().toLowerCase(), password };
+      const result = creatingAccount
+        ? await configuredSupabase.auth.signUp(credentials)
+        : await configuredSupabase.auth.signInWithPassword(credentials);
+      if (result.error) setMessage(result.error.message);
+      else if (creatingAccount && !result.data.session) setMessage("Account created. Confirm your email before signing in.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to sign in.");
+    } finally {
+      setSubmitting(false);
+    }
   };
-  return <AuthFrame><h1 className="mt-2 text-xl font-semibold">Sign in to Black Betty</h1><p className="mt-3 text-sm text-text-secondary">Enter your approved Cascadia or Truffles email. Access is managed separately from Ursus Major.</p>{error && <p role="alert" className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}<form className="mt-5 space-y-3" onSubmit={(event) => { event.preventDefault(); void signIn(); }}><label className="block text-sm font-medium" htmlFor="black-betty-email">Email</label><input id="black-betty-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" /><button type="submit" disabled={submitting} className="min-h-10 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">{submitting ? "Sending link…" : "Email me a sign-in link"}</button></form>{message && <p role="status" className="mt-4 text-sm text-text-secondary">{message}</p>}</AuthFrame>;
+  return (
+    <AuthFrame>
+      <h1 className="mt-2 text-xl font-semibold">{creatingAccount ? "Create your Black Betty account" : "Sign in to Black Betty"}</h1>
+      <p className="mt-3 text-sm text-text-secondary">Use your approved Cascadia or Truffles email. Access is managed separately from Ursus Major.</p>
+      {error && <p role="alert" className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+      <form className="mt-5 space-y-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+        <label className="block text-sm font-medium" htmlFor="black-betty-email">Email</label>
+        <input id="black-betty-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" />
+        <label className="block text-sm font-medium" htmlFor="black-betty-password">Password</label>
+        <input id="black-betty-password" type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" />
+        {creatingAccount && <><label className="block text-sm font-medium" htmlFor="black-betty-confirm-password">Confirm password</label><input id="black-betty-confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" /></>}
+        <button type="submit" disabled={submitting} className="min-h-10 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">{submitting ? "Working…" : creatingAccount ? "Create account" : "Sign in"}</button>
+      </form>
+      <button type="button" disabled={submitting} onClick={() => { setCreatingAccount((value) => !value); setMessage(undefined); }} className="mt-4 text-sm font-semibold text-primary hover:underline disabled:opacity-60">{creatingAccount ? "Already have an account? Sign in" : "New to Black Betty? Create account"}</button>
+      {message && <p role="status" className="mt-4 text-sm text-text-secondary">{message}</p>}
+    </AuthFrame>
+  );
 }
 
 export function usePlatform() {
