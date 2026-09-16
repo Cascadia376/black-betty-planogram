@@ -85,7 +85,7 @@ describe("mock merchandising workflow", () => {
     });
 
     const stored = window.localStorage.getItem("cascadia-merchandising-platform-v1");
-    expect(stored).toMatch(/^zlib-base64:/);
+    expect(stored).toMatch(/^zlib-utf16:/);
     expect(stored!.length).toBeLessThan(JSON.stringify(await repository.load()).length);
     expect(deserializeSnapshot(stored!).products.some((product) => product.id === pending.id)).toBe(true);
     expect((await new MockMerchandisingRepository().load()).products.some((product) => product.id === pending.id)).toBe(true);
@@ -340,6 +340,18 @@ describe("mock merchandising workflow", () => {
     const storage = vi.spyOn(window.localStorage, "setItem").mockImplementationOnce(() => { throw new DOMException("Quota exceeded", "QuotaExceededError"); });
     await expect(repository.createCampaign({ name: "Unsaved campaign", type: "Monthly flyer", description: "", startDate: "2026-10-01", endDate: "2026-10-31", owner: "Jeremy", supplier: "", products: [] })).rejects.toThrow("storage failed");
     expect((await repository.load()).campaigns).toHaveLength(before);
+    storage.mockRestore();
+  });
+
+  it("reports quota failures that originate outside the current DOM realm", async () => {
+    const repository = new MockMerchandisingRepository();
+    const quotaError = Object.assign(new Error("Setting the value exceeded the quota."), { name: "QuotaExceededError" });
+    const storage = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => { throw quotaError; });
+
+    await expect(repository.createCampaign({ name: "Unsaved campaign", type: "Monthly flyer", description: "", startDate: "2026-10-01", endDate: "2026-10-31", owner: "Jeremy", supplier: "", products: [] }))
+      .rejects.toThrow("Campaign storage failed");
+    await expect(repository.createPendingProduct({ sku: "QUOTA-001", name: "Quota test", category: "Test" }))
+      .rejects.toThrow("Browser storage is full");
     storage.mockRestore();
   });
 

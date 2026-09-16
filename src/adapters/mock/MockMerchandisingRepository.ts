@@ -137,6 +137,13 @@ function readInitialState(): PlatformSnapshot {
   }
 }
 
+function isStorageQuotaError(cause: unknown): boolean {
+  if (!cause || typeof cause !== "object") return false;
+  const name = "name" in cause ? cause.name : undefined;
+  const code = "code" in cause ? cause.code : undefined;
+  return name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED" || code === 22 || code === 1014;
+}
+
 export class MockMerchandisingRepository implements MerchandisingRepository {
   private state = readInitialState();
 
@@ -147,7 +154,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     try {
       window.localStorage.setItem(STORAGE_KEY, serializeSnapshot(this.state));
     } catch (cause) {
-      if (cause instanceof DOMException && (cause.name === "QuotaExceededError" || cause.name === "NS_ERROR_DOM_QUOTA_REACHED")) {
+      if (isStorageQuotaError(cause)) {
         throw new Error("Browser storage is full. Remove older local site data or connect a persistent repository, then try again.", { cause });
       }
       throw cause;
