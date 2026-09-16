@@ -1,4 +1,4 @@
-import { Copy, Edit3, Layers3, MapPin, Save, X } from "lucide-react";
+import { Copy, Download, Edit3, Layers3, MapPin, Save, X } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Badge, Card, DataState, EmptyState, PageHeader, humanize, inputClass } from "../../components/ui";
@@ -7,6 +7,7 @@ import { usePlatform } from "../../services/PlatformProvider";
 import { FloorplanCanvas, type DisplayAreaState } from "./FloorplanCanvas";
 import { ProgramDisplaySchedulePanel } from "./ProgramDisplaySchedulePanel";
 import { orderStatusForAssignment } from "./programSchedule";
+import { downloadFloorplanExport } from "./floorplanExport";
 
 const numericFields = ["shelfWidthIn", "shelfDepthIn", "shelfCount", "maxFacings", "coolerDoorEquivalent"] as const;
 
@@ -143,6 +144,16 @@ export function PhysicalStoreFloorplanPage() {
     }
   };
 
+  const exportFloorplans = () => {
+    if (!data) return;
+    setMutationError(undefined);
+    try {
+      downloadFloorplanExport(data);
+    } catch (cause) {
+      setMutationError(cause instanceof Error ? cause.message : "Unable to export floorplans from this browser.");
+    }
+  };
+
   return (
     <DataState loading={loading} error={error}>
       {!store ? <EmptyState title="Store not found" message="The requested store is not available." /> : !layout ? (
@@ -153,7 +164,7 @@ export function PhysicalStoreFloorplanPage() {
             eyebrow="Physical store layout"
             title={`${store.name} floorplan`}
             description="Regular category homes and persistent campaign display areas share one real floorplan without sharing domain semantics."
-            actions={<>{selectedCampaign && <Link className="inline-flex min-h-9 items-center rounded-md border border-primary bg-surface px-3 text-sm font-semibold text-primary hover:bg-primary-subtle" to={`/campaigns/${selectedCampaign.id}/assign`}>Back to store placements</Link>}<Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/display-areas/new`}>New display area</Link><Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace</Link></>}
+            actions={<><button type="button" onClick={exportFloorplans} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle"><Download className="h-4 w-4" />Export floorplans</button>{selectedCampaign && <Link className="inline-flex min-h-9 items-center rounded-md border border-primary bg-surface px-3 text-sm font-semibold text-primary hover:bg-primary-subtle" to={`/campaigns/${selectedCampaign.id}/assign`}>Back to store placements</Link>}<Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/display-areas/new`}>New display area</Link><Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace</Link></>}
           />
 
           {selectedCampaign && (

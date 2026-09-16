@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type Session } from "@supabase/supabase-js";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import { MockProductMasterLookup } from "../adapters/mock/MockProductMasterLookup";
 import { SupabaseProductMasterLookup } from "../adapters/supabase/SupabaseProductMasterLookup";
@@ -15,17 +15,26 @@ import type { ProductMasterLookup } from "./products/ProductMasterLookup";
 const repository = new MockMerchandisingRepository();
 const environment = readEnvironment();
 const productMasterKey = environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
-const configuredProductMaster = environment.VITE_SUPABASE_URL && productMasterKey
-  ? new SupabaseProductMasterLookup(createClient(environment.VITE_SUPABASE_URL, productMasterKey))
+const configuredSupabase = environment.VITE_SUPABASE_URL && productMasterKey
+  ? createClient(environment.VITE_SUPABASE_URL, productMasterKey)
   : undefined;
+const configuredProductMaster = configuredSupabase
+  ? new SupabaseProductMasterLookup(configuredSupabase)
+  : undefined;
+
+type BlackBettyRole = "buyer" | "admin";
 
 interface PlatformContextValue {
   data?: PlatformSnapshot;
   loading: boolean;
   error?: string;
   role: UserRole;
+  authEnabled: boolean;
+  userEmail?: string;
+  blackBettyRole?: BlackBettyRole;
   productMaster: ProductMasterLookup;
   setRole(role: UserRole): void;
+  signOut(): Promise<void>;
   refresh(): Promise<void>;
   updateCategorySpace(input: UpdateCategorySpaceInput): Promise<CategorySpace>;
   duplicateStoreLayout(layoutId: UUID, name?: string): Promise<StoreLayout>;
@@ -81,6 +90,49 @@ export function PlatformProvider({ children, adapter = repository, productMaster
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [role, setRole] = useState<UserRole>("merchandising");
+  const [session, setSession] = useState<Session | null | undefined>(configuredSupabase ? undefined : null);
+  const [access, setAccess] = useState<{ userId: string; role?: BlackBettyRole }>();
+  const [authError, setAuthError] = useState<string>();
+  const blackBettyRole = access && access.userId === session?.user.id ? access.role : undefined;
+
+  useEffect(() => {
+    if (!configuredSupabase) return undefined;
+
+    void configuredSupabase.auth.getSession().then(({ data: { session: currentSession }, error: sessionError }) => {
+      if (sessionError) setAuthError(sessionError.message);
+      setSession(currentSession);
+    });
+    const { data: { subscription } } = configuredSupabase.auth.onAuthStateChange((_event, currentSession) => {
+      setAuthError(undefined);
+      setSession(currentSession);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!configuredSupabase || session === undefined) return;
+    if (!session) return;
+
+    let active = true;
+    void configuredSupabase
+      .from("black_betty_user_access")
+      .select("role")
+      .eq("email", session.user.email?.trim().toLowerCase() ?? "")
+      .maybeSingle()
+      .then(({ data: access, error: accessError }) => {
+        if (!active) return;
+        if (accessError) {
+          setAuthError(accessError.message);
+          setAccess({ userId: session.user.id });
+          return;
+        }
+        const accessRole = access?.role === "admin" || access?.role === "buyer" ? access.role : undefined;
+        setAccess({ userId: session.user.id, role: accessRole });
+        setRole(accessRole === "admin" ? "admin" : "merchandising");
+        setAuthError(undefined);
+      });
+    return () => { active = false; };
+  }, [session]);
 
   const refresh = useCallback(async () => {
     try {
@@ -115,6 +167,14 @@ export function PlatformProvider({ children, adapter = repository, productMaster
 
   const value = useMemo<PlatformContextValue>(() => ({
     data, loading, error, role, setRole, refresh, productMaster: effectiveProductMaster,
+    authEnabled: Boolean(configuredSupabase),
+    userEmail: session?.user.email,
+    blackBettyRole,
+    signOut: async () => {
+      if (!configuredSupabase) return;
+      const { error: signOutError } = await configuredSupabase.auth.signOut();
+      if (signOutError) throw signOutError;
+    },
     updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutate(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
     duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutate(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
     setCurrentStoreLayout: (layoutId) => mutate(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
@@ -215,9 +275,43 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     updateRecommendation: (id, status, note) => mutate(() => adapter.updateRecommendation(id, status, note)).then(() => undefined),
     updateOrderRecommendation: (input) => mutate(() => adapter.updateOrderRecommendation(input)).then(() => undefined),
     resetDemo: () => mutate(() => adapter.reset()).then(() => undefined),
-  }), [adapter, data, effectiveProductMaster, error, loading, mutate, refresh, role]);
+  }), [adapter, blackBettyRole, data, effectiveProductMaster, error, loading, mutate, refresh, role, session?.user.email]);
+
+  if (configuredSupabase && session === undefined) return <AuthStatus message="Checking Black Betty access…" />;
+  if (configuredSupabase && !session) return <BlackBettySignIn error={authError} />;
+  if (configuredSupabase && !blackBettyRole) return <AuthStatus message={authError ?? "Your account does not have Black Betty access."} canSignOut />;
 
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
+}
+
+function AuthFrame({ children }: { children: ReactNode }) {
+  return <main className="grid min-h-screen place-items-center bg-page-canvas p-6"><section className="w-full max-w-md rounded-lg border border-border bg-surface p-8 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-primary">Black Betty</p>{children}</section></main>;
+}
+
+function AuthStatus({ message, canSignOut = false }: { message: string; canSignOut?: boolean }) {
+  return <AuthFrame><h1 className="mt-2 text-xl font-semibold">Merchandising operations</h1><p className="mt-3 text-sm text-text-secondary">{message}</p>{canSignOut && <button type="button" className="mt-5 min-h-10 w-full rounded-md border border-border px-4 text-sm font-semibold" onClick={() => { void configuredSupabase?.auth.signOut(); }}>Sign out</button>}</AuthFrame>;
+}
+
+function BlackBettySignIn({ error }: { error?: string }) {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+
+  const signIn = async () => {
+    if (!configuredSupabase) return;
+    setSubmitting(true);
+    setMessage(undefined);
+    const { error: signInError } = await configuredSupabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: window.location.origin,
+        shouldCreateUser: true,
+      },
+    });
+    setSubmitting(false);
+    setMessage(signInError ? signInError.message : "Check your email for a secure sign-in link.");
+  };
+  return <AuthFrame><h1 className="mt-2 text-xl font-semibold">Sign in to Black Betty</h1><p className="mt-3 text-sm text-text-secondary">Enter your approved Cascadia or Truffles email. Access is managed separately from Ursus Major.</p>{error && <p role="alert" className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}<form className="mt-5 space-y-3" onSubmit={(event) => { event.preventDefault(); void signIn(); }}><label className="block text-sm font-medium" htmlFor="black-betty-email">Email</label><input id="black-betty-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" /><button type="submit" disabled={submitting} className="min-h-10 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">{submitting ? "Sending link…" : "Email me a sign-in link"}</button></form>{message && <p role="status" className="mt-4 text-sm text-text-secondary">{message}</p>}</AuthFrame>;
 }
 
 export function usePlatform() {
