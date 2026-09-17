@@ -1,10 +1,20 @@
-import { expect } from "@playwright/test";
+import { expect, type Locator } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { test } from "./localTest";
 
 const ondProgramId = "c0000000-0000-4000-8000-000000000001";
 const crownIsleId = "10000000-0000-4000-8000-000000000001";
 const ordersPath = `/stores/${crownIsleId}/orders?program=${ondProgramId}`;
+
+function metric(card: Locator, label: string) {
+  return card.locator("dt", { hasText: label }).filter({ hasText: new RegExp(`^${label}import { expect, type Locator } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { test } from "./localTest";
+
+const ondProgramId = "c0000000-0000-4000-8000-000000000001";
+const crownIsleId = "10000000-0000-4000-8000-000000000001";
+) }).locator("xpath=following-sibling::dd[1]");
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/?sandbox=1&scenario=opening-order");
@@ -35,23 +45,23 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
   for (const [name, recommended] of cases) {
     const card = page.getByRole("heading", { name }).locator("xpath=ancestor::section[1]");
     await expect(card).toBeVisible();
-    await expect(card.getByText(recommended, { exact: true })).toBeVisible();
+    await expect(metric(card, "Recommended order")).toHaveText(recommended);
   }
 
   const partial = page.getByRole("heading", { name: "TEST Partial Stock Feature" }).locator("xpath=ancestor::section[1]");
-  await expect(partial).toContainText("2 cases");
-  await expect(partial).toContainText("3 cases");
-  await expect(partial).toContainText("6 cases");
+  await expect(metric(partial, "On hand")).toHaveText("2 cases");
+  await expect(metric(partial, "On order")).toHaveText("3 cases");
+  await expect(metric(partial, "Recommended order")).toHaveText("6 cases");
 
   const inboundCovered = page.getByRole("heading", { name: "TEST Inbound Covered Feature" }).locator("xpath=ancestor::section[1]");
-  await expect(inboundCovered).toContainText("4 cases");
-  await expect(inboundCovered).toContainText("6 cases");
-  await expect(inboundCovered).toContainText("0 cases");
+  await expect(metric(inboundCovered, "On hand")).toHaveText("4 cases");
+  await expect(metric(inboundCovered, "On order")).toHaveText("6 cases");
+  await expect(metric(inboundCovered, "Recommended order")).toHaveText("0 cases");
 
   const reserved = page.getByRole("heading", { name: "TEST Reserved Stock Feature" }).locator("xpath=ancestor::section[1]");
-  await expect(reserved).toContainText("6 cases");
-  await expect(reserved).toContainText("2 reserved");
-  await expect(reserved).toContainText("2 cases");
+  await expect(metric(reserved, "On hand")).toHaveText("6 cases");
+  await expect(reserved.getByText("2 reserved", { exact: true })).toBeVisible();
+  await expect(metric(reserved, "Recommended order")).toHaveText("2 cases");
 
   const alternate = page.getByRole("heading", { name: "TEST Alternate Supplier Feature" }).locator("xpath=ancestor::section[1]");
   await expect(alternate).toContainText("Mock Island Wholesale");
@@ -63,7 +73,7 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
 
   const bridge = page.getByRole("heading", { name: "Mock Cream Liqueur Gift Pack" }).locator("xpath=ancestor::section[1]");
   await expect(bridge).toContainText("Buying strategy: intentional bridge");
-  await expect(bridge).toContainText("24 cases");
+  await expect(metric(bridge, "Recommended order")).toHaveText("24 cases");
 
   const exit = page.getByRole("heading", { name: "Mock Seasonal Gift Set" }).locator("xpath=ancestor::section[1]");
   await expect(exit).toContainText("Exit strategy: minimize post-program stock");
@@ -96,7 +106,7 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
 
   await page.screenshot({ path: testInfo.outputPath("07-purchase-order-created.png"), fullPage: true });
 
-  await expect(batches.getByText("Mock Coastal Distribution", { exact: true }).filter({ visible: true })).toHaveCount(1);
+  await expect(batches.getByText("Mock Coastal Distribution", { exact: true })).toHaveCount(1);
   const remainingCreateButtons = batches.getByRole("button", { name: "Create supplier order" });
   await expect(remainingCreateButtons).toHaveCount(1);
   const alternateBatch = batches.locator("div").filter({ has: page.getByText("Mock Island Wholesale", { exact: true }) }).filter({ has: page.getByRole("button", { name: "Create supplier order" }) }).first();
