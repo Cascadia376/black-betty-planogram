@@ -50,6 +50,7 @@ describe("floorplan recovery", () => {
       localCode: "W99",
       displayNumber: "W99",
       name: "Recovered Only Display",
+      updatedAt: "2026-09-17T14:35:00.000Z",
       geometry: { x: 0.4, y: 0.4, width: 0.08, height: 0.08 },
     };
     legacy.displayAreas.push(recoveredOnly);
@@ -64,6 +65,7 @@ describe("floorplan recovery", () => {
       label: "W99 · Recovered Only Display",
       recoveredGeometry: recoveredOnly.geometry,
       recoveredDisplayArea: recoveredOnly,
+      lastEditedAt: "2026-09-17T14:35:00.000Z",
     }));
   });
 
