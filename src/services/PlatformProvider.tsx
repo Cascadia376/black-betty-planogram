@@ -14,8 +14,18 @@ import { readEnvironment } from "../lib/environment";
 import type { ProductMasterLookup } from "./products/ProductMasterLookup";
 
 const environment = readEnvironment();
+
+function sandboxModeRequested() {
+  if (typeof window === "undefined") return false;
+  const request = new URLSearchParams(window.location.search).get("sandbox");
+  if (request === "1") window.sessionStorage.setItem("black-betty-sandbox", "1");
+  if (request === "0") window.sessionStorage.removeItem("black-betty-sandbox");
+  return request === "1" || (request !== "0" && window.sessionStorage.getItem("black-betty-sandbox") === "1");
+}
+
+const sandboxMode = sandboxModeRequested();
 const productMasterKey = environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
-const configuredSupabase = environment.VITE_SUPABASE_URL && productMasterKey
+const configuredSupabase = !sandboxMode && environment.VITE_SUPABASE_URL && productMasterKey
   ? createClient(environment.VITE_SUPABASE_URL, productMasterKey)
   : undefined;
 const configuredProductMaster = configuredSupabase
