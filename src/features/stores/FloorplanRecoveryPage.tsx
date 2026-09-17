@@ -12,6 +12,13 @@ import {
   type FloorplanRecoveryChange,
 } from "./floorplanExport";
 
+function editTimeLabel(change: FloorplanRecoveryChange): string {
+  if (!change.lastEditedAt) return "Not recorded in legacy snapshot";
+  const parsed = new Date(change.lastEditedAt);
+  if (Number.isNaN(parsed.getTime())) return change.lastEditedAt;
+  return parsed.toLocaleString();
+}
+
 function geometryLabel(change: FloorplanRecoveryChange): string {
   const value = change.recoveredGeometry;
   return `${Math.round(value.x * 100)}%, ${Math.round(value.y * 100)}% · ${Math.round(value.width * 100)}×${Math.round(value.height * 100)}%`;
@@ -151,7 +158,7 @@ export function FloorplanRecoveryPage() {
           </div>
           <div className="max-h-[34rem] overflow-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="sticky top-0 bg-subtle text-xs uppercase text-text-muted"><tr><th className="p-3">Restore</th><th className="p-3">Store</th><th className="p-3">Type</th><th className="p-3">Item</th><th className="p-3">Recovered position</th><th className="p-3">Details</th></tr></thead>
+              <thead className="sticky top-0 bg-subtle text-xs uppercase text-text-muted"><tr><th className="p-3">Restore</th><th className="p-3">Store</th><th className="p-3">Type</th><th className="p-3">Item</th><th className="p-3">Recovered position</th><th className="p-3">Last edit</th><th className="p-3">Details</th></tr></thead>
               <tbody>{changes.map((change) => <tr key={change.key} className="border-t border-border">
                 <td className="p-3">{change.kind === "missing_display_area"
                   ? <Badge tone="warning">Review</Badge>
@@ -160,6 +167,7 @@ export function FloorplanRecoveryPage() {
                 <td className="p-3">{change.kind === "missing_display_area" ? "new recovered display" : change.kind.replaceAll("_", " ")}</td>
                 <td className="p-3 font-semibold">{change.label}</td>
                 <td className="p-3">{geometryLabel(change)}</td>
+                <td className="p-3 text-xs text-text-secondary">{change.kind === "missing_display_area" ? editTimeLabel(change) : "—"}</td>
                 <td className="p-3 text-xs text-text-secondary">{change.kind === "missing_display_area"
                   ? [change.recoveredDisplayArea?.type, change.recoveredDisplayArea?.displayFamily, change.recoveredDisplayArea?.description].filter(Boolean).join(" · ") || "Recovered display definition is not present in shared data."
                   : "Existing shared record"}</td>
