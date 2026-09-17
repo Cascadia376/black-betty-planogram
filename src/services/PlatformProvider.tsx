@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient, type Session } from "@supabase/supabase-js";
-import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";\nimport { buildOpeningOrderSandboxSnapshot } from "../adapters/mock/openingOrderSandbox";
+import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
+import { buildOpeningOrderSandboxSnapshot } from "../adapters/mock/openingOrderSandbox";
 import { MockProductMasterLookup } from "../adapters/mock/MockProductMasterLookup";
 import { createSupabaseMerchandisingRepository } from "../adapters/supabase/SupabaseMerchandisingRepository";
 import { SupabaseProductMasterLookup } from "../adapters/supabase/SupabaseProductMasterLookup";
