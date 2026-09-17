@@ -47,6 +47,8 @@ export interface FloorplanRecoveryChange {
   currentGeometry?: Geometry;
   recoveredGeometry: Geometry;
   recoveredDisplayArea?: PlatformSnapshot["displayAreas"][number];
+  /** Present only when the historical record itself carried an edit timestamp. */
+  lastEditedAt?: string;
 }
 
 function floorplansFromSnapshot(snapshot: PlatformSnapshot): FloorplanCollections {
@@ -137,6 +139,16 @@ export function parseFloorplanRecoveryInput(value: string): FloorplanExport {
   }
 }
 
+function recoveredEditTimestamp(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const candidate = value as Record<string, unknown>;
+  for (const key of ["lastEditedAt", "updatedAt", "modifiedAt"]) {
+    const timestamp = candidate[key];
+    if (typeof timestamp === "string" && timestamp.trim()) return timestamp;
+  }
+  return undefined;
+}
+
 function geometryEquals(left?: Geometry, right?: Geometry): boolean {
   if (!left || !right) return left === right;
   return left.x === right.x
@@ -167,6 +179,7 @@ export function compareFloorplanRecovery(current: PlatformSnapshot, recovery: Fl
         label: `${recoveredArea.localCode ?? recoveredArea.displayNumber} · ${recoveredArea.name}`,
         recoveredGeometry: recoveredArea.geometry,
         recoveredDisplayArea: recoveredArea,
+        lastEditedAt: recoveredEditTimestamp(recoveredArea),
       });
       continue;
     }
