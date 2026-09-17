@@ -1,8 +1,10 @@
 import { expect } from "@playwright/test";
 import { test } from "./localTest";
 
+const crownIsleFloorplan = "/stores/10000000-0000-4000-8000-000000000001/floorplan";
+
 test("moves, resizes, cancels, saves and pans Crown Isle displays", async ({ page }, testInfo) => {
-  await page.goto("/stores/10000000-0000-4000-8000-000000000001/floorplan");
+  await page.goto(`${crownIsleFloorplan}?mode=layout`);
   await page.getByRole("button", { name: "Edit display positions", exact: true }).click();
   const area = page.locator("[data-display-hotspot]").first();
   const id = await area.getAttribute("data-display-hotspot");
@@ -22,7 +24,7 @@ test("moves, resizes, cancels, saves and pans Crown Isle displays", async ({ pag
   await page.mouse.up();
   await expect(area).not.toHaveAttribute("style", original!);
   await page.getByRole("button", { name: "Save display position", exact: true }).click();
-  await expect(page.locator('p[role="status"]')).toContainText("Display geometry saved");
+  await expect(page.getByRole("status").filter({ hasText: "Display geometry saved" })).toBeVisible();
   await area.click();
   const handle = page.getByRole("button", { name: /^Resize / }).first();
   const handleBox = (await handle.boundingBox())!;
@@ -34,7 +36,7 @@ test("moves, resizes, cancels, saves and pans Crown Isle displays", async ({ pag
   await expect(area).not.toHaveAttribute("style", movedStyle!);
   const savedStyle = await area.getAttribute("style");
   await page.getByRole("button", { name: "Save display position", exact: true }).click();
-  await expect(page.locator('p[role="status"]')).toContainText("Display geometry saved");
+  await expect(page.getByRole("status").filter({ hasText: "Display geometry saved" })).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Edit display positions", exact: true }).click();
   await expect(page.locator(`[data-display-hotspot="${id}"]`)).toHaveAttribute("style", savedStyle!);
@@ -51,4 +53,14 @@ test("moves, resizes, cancels, saves and pans Crown Isle displays", async ({ pag
   await page.getByRole("button", { name: "Fit floorplan", exact: true }).click();
   await expect(page.getByLabel("Floorplan zoom")).toHaveText("100%");
   await page.screenshot({ path: testInfo.outputPath("floorplan-editor.png"), fullPage: true });
+});
+
+test("keeps campaign floorplans read-only even when layout mode is requested", async ({ page }) => {
+  await page.goto(`${crownIsleFloorplan}?campaign=50000000-0000-4000-8000-000000000004&area=42000000-0000-4000-8000-000000000020&mode=layout`);
+
+  await expect(page.getByRole("heading", { name: "October Flyer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit display positions" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Manage physical layout" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Edit Display Area" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit category space" })).toHaveCount(0);
 });

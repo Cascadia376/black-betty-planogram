@@ -290,7 +290,9 @@ describe("mock merchandising workflow", () => {
     expect(reloadedAssignment).toEqual(expect.objectContaining({ status: "UNASSIGNED" }));
     expect(reloadedAssignment?.displayAreaId).toBeUndefined();
     expect(reloadedAssignment?.compatibility).toBeUndefined();
-    expect(reloaded.campaignDisplayAssignments.find((item) => item.storeId === IDS.eagleStore)?.status).toBe("SUGGESTED");
+    expect(reloaded.campaignDisplayAssignments.find((item) => (
+      item.campaignDisplayId === display.id && item.storeId === IDS.eagleStore
+    ))?.status).toBe("SUGGESTED");
   });
 
   it("creates a campaign, assignment, execution, and compliance review", async () => {

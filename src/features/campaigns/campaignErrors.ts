@@ -1,6 +1,7 @@
 export function campaignSaveError(cause: unknown): string {
   const message = cause instanceof Error ? cause.message : "";
   if (/required|date must|date range/i.test(message)) return message;
+  if (/changed after you opened|stale.*save|conflict/i.test(message)) return message;
   if (/storage|quota|persist|database/i.test(message)) {
     return "The campaign could not be saved. Your browser storage may be unavailable or full. Please try again or contact support.";
   }

@@ -23,6 +23,7 @@ export function ImportsPage() {
       />
 
       <Card className="mb-5 border-primary"><h2 className="text-lg font-semibold">Start here: consolidated OND workbook</h2><p className="my-3">One workbook → review product and display exceptions → print a selected store’s execution pack. Preserve each store’s case quantities. Supplier-by-supplier imports are not required.</p><Link className={linkClass(true)} to="/imports/flyer">Import consolidated OND workbook</Link></Card>
+      <Card className="mb-5"><h2 className="text-lg font-semibold">Store-level OND display workbook</h2><p className="my-3">One sheet per store for display codes, cases, and build notes. Pending products remain plannable; ambiguous source values remain in review.</p><Link className={linkClass(true)} to="/imports/store-displays">Import store display workbook</Link></Card>
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="flex min-h-72 flex-col justify-between">
           <div>

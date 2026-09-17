@@ -33,5 +33,9 @@ export function applyPublishedFloorplans(snapshot: PlatformSnapshot): PlatformSn
   return {
     ...snapshot,
     ...structuredClone(publishedFloorplans),
+    // Store identity and business metadata are not floorplan geometry. The
+    // normalization step has already added any newly seeded stores, so retain
+    // existing store records while replacing only the published layout data.
+    stores: structuredClone(snapshot.stores),
   };
 }

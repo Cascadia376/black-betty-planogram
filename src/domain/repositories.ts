@@ -164,6 +164,8 @@ export interface UpdateCampaignDisplayAssignmentInput {
   /** Null explicitly clears the physical placement; undefined leaves it unchanged. */
   displayAreaId?: UUID | null;
   note?: string;
+  executionNotes?: string;
+  hasConflictingExecutionNotes?: boolean;
   placementSource?: CampaignDisplayAssignment["placementSource"];
 }
 export interface UpdateCampaignDisplayAssignmentProductInput { campaignDisplayAssignmentProductId: UUID; caseQuantity?: number; note?: string; resetToDefault?: boolean; }
@@ -264,8 +266,8 @@ export interface UpdateDisplayAreaInput {
   sectionGeometry?: { sectionId: string; geometry: DisplayArea["geometry"] };
 }
 
-export interface MerchandisingRepository {
-  load(): Promise<PlatformSnapshot>;
+/** Canonical physical-layout API. Production mutations require an admin role. */
+export interface PhysicalLayoutRepository {
   getStoreLayouts(storeId: UUID): Promise<StoreLayout[]>;
   getStoreLayout(layoutId: UUID): Promise<StoreLayout | undefined>;
   getCategorySpaces(layoutId: UUID): Promise<CategorySpace[]>;
@@ -276,6 +278,31 @@ export interface MerchandisingRepository {
   createDisplayArea(input: CreateDisplayAreaInput): Promise<DisplayArea>;
   updateDisplayArea(input: UpdateDisplayAreaInput): Promise<DisplayArea>;
   deleteDisplayArea(displayAreaId: UUID): Promise<void>;
+}
+export interface ApplyStoreDisplayWorkbookInput {
+  campaignId: UUID;
+  fingerprint: string;
+  importKey: string;
+  sourceFileName: string;
+  sourceSheet: string;
+  reviewRows: CampaignImportRowMetadata[];
+  rows: Array<{
+    storeId: UUID;
+    product: Product;
+    productResolution: NonNullable<CampaignProduct["productResolution"]>;
+    source: CampaignImportRowMetadata;
+    caseQuantity?: number;
+    displayLocalCode?: string;
+    displayAreaId?: UUID;
+    displayInterpretation: NonNullable<CampaignImportRowMetadata["displayInterpretation"]>;
+  }>;
+  displayNotes: Array<{ storeId: UUID; displayLocalCode: string; executionNotes?: string; hasConflict: boolean }>;
+}
+export interface ReconcilePendingCampaignProductInput { campaignId: UUID; campaignProductId: UUID; productId: UUID; }
+
+/** Shared campaign and operational planning API for ordinary Black Betty users. */
+export interface MerchandisingRepository extends PhysicalLayoutRepository {
+  load(): Promise<PlatformSnapshot>;
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
@@ -283,6 +310,8 @@ export interface MerchandisingRepository {
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;
+  applyStoreDisplayWorkbook(input: ApplyStoreDisplayWorkbookInput): Promise<void>;
+  reconcilePendingCampaignProduct(input: ReconcilePendingCampaignProductInput): Promise<CampaignProduct>;
   applySupplierSubmissionImport(input: ApplySupplierSubmissionImportInput): Promise<ApplySupplierSubmissionImportResult>;
   updatePromotionOpportunity(input: UpdatePromotionOpportunityInput): Promise<PromotionOpportunity>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;

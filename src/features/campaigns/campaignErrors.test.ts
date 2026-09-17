@@ -11,4 +11,9 @@ describe("campaignSaveError", () => {
     expect(message).toContain("could not be saved");
     expect(message).not.toContain("secret-host");
   });
+
+  it("preserves actionable optimistic-concurrency conflicts", () => {
+    const message = "This campaign changed after you opened it. Reload the latest shared plan, review the other user's changes, and try again.";
+    expect(campaignSaveError(new Error(message))).toBe(message);
+  });
 });

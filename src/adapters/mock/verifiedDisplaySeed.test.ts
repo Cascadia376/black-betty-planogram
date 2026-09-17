@@ -23,9 +23,11 @@ describe("verified display map import", () => {
   it("loads every supplied store with the source-backed logical display count", () => {
     for (const [storeName, expected] of Object.entries(expectedStoreCounts)) {
       const store = seedSnapshot.stores.find((item) => item.name === storeName)!;
-      const areas = seedSnapshot.displayAreas.filter((item) => item.storeId === store.id && item.active);
+      const areas = seedSnapshot.displayAreas.filter((item) => (
+        item.storeId === store.id && item.active && item.verificationStatus === "verified"
+      ));
       expect(areas, storeName).toHaveLength(expected);
-      expect(areas.every((area) => area.verificationStatus === "verified" && Boolean(area.sourceReference))).toBe(true);
+      expect(areas.every((area) => Boolean(area.sourceReference))).toBe(true);
     }
     expect(verifiedDisplayImportDiagnostics.verifiedAreaCount).toBe(247);
   });
@@ -38,9 +40,10 @@ describe("verified display map import", () => {
     expect(verifiedDisplayImportDiagnostics.legacyCodeCollisions).toEqual({ WMD1: 2, WMD2: 2, BRMD1: 2, BRMD2: 2, MMD1: 2, MMD2: 2 });
   });
 
-  it("preserves local codes per store while global codes stay unique", () => {
+  it("preserves store-local codes while entity identities and store-scoped codes stay unique", () => {
     const active = seedSnapshot.displayAreas.filter((area) => area.active);
-    expect(new Set(active.map((area) => area.code)).size).toBe(active.length);
+    expect(new Set(active.map((area) => area.id)).size).toBe(active.length);
+    expect(new Set(active.map((area) => `${area.storeId}|${area.localCode ?? area.code}`)).size).toBe(active.length);
     expect(active.filter((area) => area.localCode === "W1").length).toBeGreaterThan(1);
     expect(active.find((area) => area.code === "CI-W1")).toEqual(expect.objectContaining({ localCode: "W1", displayFamily: "WINE" }));
     expect(active.find((area) => area.code === "EC-W6")).toEqual(expect.objectContaining({ name: "Window Display", displayFamily: "WINDOW" }));

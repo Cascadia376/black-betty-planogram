@@ -3,16 +3,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { createClient, type Session } from "@supabase/supabase-js";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import { MockProductMasterLookup } from "../adapters/mock/MockProductMasterLookup";
+import { createSupabaseMerchandisingRepository } from "../adapters/supabase/SupabaseMerchandisingRepository";
 import { SupabaseProductMasterLookup } from "../adapters/supabase/SupabaseProductMasterLookup";
 import type {
-  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, ApplyStoreDisplayWorkbookInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository, ReconcilePendingCampaignProductInput,
   ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
 } from "../domain/repositories";
 import type { Campaign, CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, NewCampaignInput, PlatformSnapshot, Product, PromotionOpportunity, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
 import { readEnvironment } from "../lib/environment";
 import type { ProductMasterLookup } from "./products/ProductMasterLookup";
 
-const repository = new MockMerchandisingRepository();
 const environment = readEnvironment();
 const productMasterKey = environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
 const configuredSupabase = environment.VITE_SUPABASE_URL && productMasterKey
@@ -21,8 +21,15 @@ const configuredSupabase = environment.VITE_SUPABASE_URL && productMasterKey
 const configuredProductMaster = configuredSupabase
   ? new SupabaseProductMasterLookup(configuredSupabase)
   : undefined;
+const repository = configuredSupabase
+  ? createSupabaseMerchandisingRepository(configuredSupabase)
+  : new MockMerchandisingRepository();
 
-type BlackBettyRole = "buyer" | "admin";
+export type BlackBettyRole = "buyer" | "admin";
+
+export function canManagePhysicalReference(authEnabled: boolean, role?: BlackBettyRole): boolean {
+  return !authEnabled || role === "admin";
+}
 
 interface PlatformContextValue {
   data?: PlatformSnapshot;
@@ -49,6 +56,8 @@ interface PlatformContextValue {
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;
+  applyStoreDisplayWorkbook(input: ApplyStoreDisplayWorkbookInput): Promise<void>;
+  reconcilePendingCampaignProduct(input: ReconcilePendingCampaignProductInput): Promise<CampaignProduct>;
   applySupplierSubmissionImport(input: ApplySupplierSubmissionImportInput): Promise<ApplySupplierSubmissionImportResult>;
   updatePromotionOpportunity(input: UpdatePromotionOpportunityInput): Promise<PromotionOpportunity>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
@@ -146,9 +155,12 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     }
   }, [adapter]);
 
-  // The repository is an external data source and must be synchronized on mount.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void refresh(); }, [refresh]);
+  // The shared repository requires the authenticated Black Betty session for RLS.
+  useEffect(() => {
+    if (configuredSupabase && (session === undefined || !blackBettyRole)) return;
+    const timeoutId = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [blackBettyRole, refresh, session]);
 
   const mutate = useCallback(async (operation: () => Promise<unknown>) => {
     try {
@@ -159,6 +171,13 @@ export function PlatformProvider({ children, adapter = repository, productMaster
       throw cause;
     }
   }, [refresh]);
+
+  const mutatePhysicalReference = useCallback(async (operation: () => Promise<unknown>) => {
+    if (!canManagePhysicalReference(Boolean(configuredSupabase), blackBettyRole)) {
+      throw new Error("Only a Black Betty admin can change canonical store layouts or display geometry.");
+    }
+    await mutate(operation);
+  }, [blackBettyRole, mutate]);
 
   const effectiveProductMaster = useMemo(
     () => productMaster ?? configuredProductMaster ?? new MockProductMasterLookup(data?.products ?? []),
@@ -175,12 +194,12 @@ export function PlatformProvider({ children, adapter = repository, productMaster
       const { error: signOutError } = await configuredSupabase.auth.signOut();
       if (signOutError) throw signOutError;
     },
-    updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutate(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
-    duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutate(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
-    setCurrentStoreLayout: (layoutId) => mutate(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
-    createDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutate(async () => { result = await adapter.createDisplayArea(input); }); if (!result) throw new Error("Display area creation did not return a result."); return result; },
-    updateDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutate(async () => { result = await adapter.updateDisplayArea(input); }); if (!result) throw new Error("Display area update did not return a result."); return result; },
-    deleteDisplayArea: (displayAreaId) => mutate(() => adapter.deleteDisplayArea(displayAreaId)).then(() => undefined),
+    updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutatePhysicalReference(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
+    duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutatePhysicalReference(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
+    setCurrentStoreLayout: (layoutId) => mutatePhysicalReference(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
+    createDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutatePhysicalReference(async () => { result = await adapter.createDisplayArea(input); }); if (!result) throw new Error("Display area creation did not return a result."); return result; },
+    updateDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutatePhysicalReference(async () => { result = await adapter.updateDisplayArea(input); }); if (!result) throw new Error("Display area update did not return a result."); return result; },
+    deleteDisplayArea: (displayAreaId) => mutatePhysicalReference(() => adapter.deleteDisplayArea(displayAreaId)).then(() => undefined),
     searchProducts: (query) => adapter.searchProducts(query),
     createPendingProduct: async (input) => {
       let product: Product | undefined;
@@ -214,6 +233,13 @@ export function PlatformProvider({ children, adapter = repository, productMaster
       await mutate(async () => { result = await adapter.applyCampaignWorkbookImport(input); });
       if (!result) throw new Error("Campaign workbook import did not return a result.");
       return result;
+    },
+    applyStoreDisplayWorkbook: (input) => mutate(() => adapter.applyStoreDisplayWorkbook(input)).then(() => undefined),
+    reconcilePendingCampaignProduct: async (input) => {
+      let product: CampaignProduct | undefined;
+      await mutate(async () => { product = await adapter.reconcilePendingCampaignProduct(input); });
+      if (!product) throw new Error("Pending campaign product reconciliation did not return a product.");
+      return product;
     },
     applySupplierSubmissionImport: async (input) => {
       let result: ApplySupplierSubmissionImportResult | undefined;
@@ -275,7 +301,7 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     updateRecommendation: (id, status, note) => mutate(() => adapter.updateRecommendation(id, status, note)).then(() => undefined),
     updateOrderRecommendation: (input) => mutate(() => adapter.updateOrderRecommendation(input)).then(() => undefined),
     resetDemo: () => mutate(() => adapter.reset()).then(() => undefined),
-  }), [adapter, blackBettyRole, data, effectiveProductMaster, error, loading, mutate, refresh, role, session?.user.email]);
+  }), [adapter, blackBettyRole, data, effectiveProductMaster, error, loading, mutate, mutatePhysicalReference, refresh, role, session?.user.email]);
 
   if (configuredSupabase && session === undefined) return <AuthStatus message="Checking Black Betty access…" />;
   if (configuredSupabase && !session) return <BlackBettySignIn error={authError} />;

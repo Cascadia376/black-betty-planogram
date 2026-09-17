@@ -20,10 +20,10 @@ describe("store physical coverage", () => {
     expect(crownIsle).toEqual(expect.objectContaining({
       categorySpaceCount: 21,
       mappedCategorySpaceCount: 21,
-      displayAreaCount: 35,
-      activeDisplayAreaCount: 31,
+      displayAreaCount: 43,
+      activeDisplayAreaCount: 39,
       verifiedDisplayAreaCount: 31,
-      unverifiedDisplayAreaCount: 4,
+      unverifiedDisplayAreaCount: 12,
     }));
     expect(quadra).toEqual(expect.objectContaining({
       categorySpaceCount: 98,

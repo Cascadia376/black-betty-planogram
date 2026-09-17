@@ -58,13 +58,19 @@ test("consolidated OND → explicit exception approval → Crown Isle and Port A
   await expect(page.locator(".execution-pack").getByRole("heading", { name: "Crown Isle", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Harvest Red Blend" })).toContainText("6");
   await expect(page.getByRole("row").filter({ hasText: "Coastal Lager 12 Pack" })).toContainText("12");
-  await expect(page.getByRole("heading", { name: "Beer/RTD", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Wine", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Spirits", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Inactive SKU", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Display build sheets", exact: true })).toBeVisible();
+  await expect(page.getByText("Display notes:", { exact: false }).first()).toBeVisible();
   await expect(page.locator("svg image").first()).toHaveAttribute("href", /.+/);
   await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeEnabled();
   await expect(page.getByText("OND campaign header and approved price tickets", { exact: false }).first()).toBeVisible();
+  const displayMap = page.locator(".pack-map-page svg");
+  const octoberMap = await displayMap.evaluate((node) => node.outerHTML);
+  for (const label of ["November", "December"] as const) {
+    await page.getByRole("link", { name: `${label} order plan` }).click();
+    await expect(page.getByRole("heading", { name: `${label} OND order plan` })).toBeVisible();
+    await expect(displayMap.evaluate((node) => node.outerHTML)).resolves.toBe(octoberMap);
+  }
+  await page.getByRole("link", { name: "October order plan" }).click();
   await page.emulateMedia({ media: "print" });
   await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeHidden();
   await page.pdf({ path: testInfo.outputPath("crown-isle-execution.pdf"), preferCSSPageSize: true, printBackground: true });

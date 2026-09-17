@@ -23,12 +23,13 @@ function numberValue(form: FormData, name: string, required = true): number | un
 export function DisplayAreaAdminPage() {
   const { displayAreaId, storeId } = useParams();
   const navigate = useNavigate();
-  const { data, loading, error, createDisplayArea, updateDisplayArea, deleteDisplayArea } = usePlatform();
+  const { data, loading, error, authEnabled, blackBettyRole, createDisplayArea, updateDisplayArea, deleteDisplayArea } = usePlatform();
   const [saving, setSaving] = useState(false);
   const [mutationError, setMutationError] = useState<string>();
   const existing = data?.displayAreas.find((area) => area.id === displayAreaId);
   const resolvedStoreId = existing?.storeId ?? storeId;
   const store = data?.stores.find((item) => item.id === resolvedStoreId);
+  const canManagePhysicalLayout = !authEnabled || blackBettyRole === "admin";
   const initial: Omit<DisplayArea, "id" | "storeId"> = existing ?? {
     displayNumber: "",
     code: "",
@@ -82,7 +83,7 @@ export function DisplayAreaAdminPage() {
       const saved = existing
         ? await updateDisplayArea({ displayAreaId: existing.id, patch: values })
         : await createDisplayArea({ area: { ...values, storeId: resolvedStoreId } });
-      navigate(`/stores/${saved.storeId}/floorplan?area=${saved.id}`);
+      navigate(`/stores/${saved.storeId}/floorplan?area=${saved.id}&mode=layout`);
     } catch (cause) {
       setMutationError(cause instanceof Error ? cause.message : "Unable to save display area.");
     } finally { setSaving(false); }
@@ -94,14 +95,14 @@ export function DisplayAreaAdminPage() {
     setMutationError(undefined);
     try {
       await deleteDisplayArea(existing.id);
-      navigate(`/stores/${existing.storeId}/floorplan`);
+      navigate(`/stores/${existing.storeId}/floorplan?mode=layout`);
     } catch (cause) {
       setMutationError(cause instanceof Error ? cause.message : "Unable to delete display area.");
     } finally { setSaving(false); }
   };
 
-  return <DataState loading={loading} error={error}>{!store || (displayAreaId && !existing) ? <EmptyState title="Display area not found" message="The requested display area or store is not available." /> : <>
-    <PageHeader eyebrow="Display area administration" title={existing ? `Edit ${existing.name}` : `New ${store.name} display area`} description="Maintain promotional DisplayArea metadata independently from regular CategorySpace homes." actions={<Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold" to={`/stores/${store.id}/floorplan`}><ArrowLeft className="h-4 w-4" />Floorplan</Link>} />
+  return <DataState loading={loading} error={error}>{!canManagePhysicalLayout ? <EmptyState title="Admin access required" message="Canonical store layouts and DisplayAreas can only be changed by a Black Betty admin in layout-management mode." /> : !store || (displayAreaId && !existing) ? <EmptyState title="Display area not found" message="The requested display area or store is not available." /> : <>
+    <PageHeader eyebrow="Display area administration" title={existing ? `Edit ${existing.name}` : `New ${store.name} display area`} description="Maintain canonical DisplayArea metadata. Changes affect every campaign that references this physical area." actions={<Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold" to={`/stores/${store.id}/floorplan?mode=layout`}><ArrowLeft className="h-4 w-4" />Layout management</Link>} />
     <Card className="mx-auto max-w-4xl">
       {mutationError && <p role="alert" className="mb-4 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">{mutationError}</p>}
       <form onSubmit={submit} className="space-y-5">

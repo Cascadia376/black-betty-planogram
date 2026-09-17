@@ -474,7 +474,7 @@ test("edits store-specific quantities and validates allocation rules", async ({ 
 
   await editor.getByLabel("Case quantity", { exact: true }).first().fill("0");
   await editor.getByRole("button", { name: "Save assignment" }).click();
-  await expect(editor.getByRole("alert")).toContainText("case quantity of at least one");
+  await expect(page.getByRole("alert")).toContainText("case quantity of at least one");
   await editor.getByLabel("Case quantity", { exact: true }).first().fill("20");
   await editor.getByRole("button", { name: "Save assignment" }).click();
   await expect(editor.getByRole("status")).toContainText("saved to mock storage");
@@ -484,7 +484,7 @@ test("edits store-specific quantities and validates allocation rules", async ({ 
   await editor.getByLabel("Start date").fill("2026-11-01");
   await editor.getByLabel("End date").fill("2026-11-30");
   await editor.getByRole("button", { name: "Save assignment" }).click();
-  await expect(editor.getByRole("alert")).toContainText("cannot overlap");
+  await expect(page.getByRole("alert")).toContainText("cannot overlap");
 });
 
 test("copies an allocation to another synthetic store", async ({ page }) => {
@@ -598,7 +598,7 @@ test("loads the Crown Isle floorplan and selects a persistent display area", asy
   await expect(page.getByRole("button", { name: "Campaign placements" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Category layout" }).click();
   await expect(canvas.getByRole("button", { name: /category space/ })).toHaveCount(21);
-  await expect(canvas.getByRole("button", { name: /, Available,/ })).toHaveCount(31);
+  await expect(canvas.getByRole("button", { name: /, Available,/ })).toHaveCount(39);
   await expect(canvas.getByRole("button", { name: /W1, Wine Large Display zone 1, Available/ })).toBeVisible();
 
   await canvas.getByRole("button", { name: /W1, Wine Large Display zone 1/ }).click();
@@ -612,7 +612,7 @@ test("loads the Crown Isle floorplan and selects a persistent display area", asy
 });
 
 test("toggles, selects, and edits a regular Crown Isle category space", async ({ page }) => {
-  await page.goto(crownIsleFloorplan);
+  await page.goto(`${crownIsleFloorplan}?mode=layout`);
   const canvas = page.getByLabel("Crown Isle merchandising floorplan");
   const categoryToggle = page.getByRole("button", { name: "Category layout" });
 
@@ -629,7 +629,7 @@ test("toggles, selects, and edits a regular Crown Isle category space", async ({
 
 test("renders representative imported store layouts with category overlays", async ({ page }, testInfo) => {
   const stores = [
-    ["Allandale", "10000000-0000-4000-8000-000000000003", "allandale.png", 40, 73, 13],
+    ["Allandale", "10000000-0000-4000-8000-000000000003", "allandale.png", 40, 73, 14],
     ["Caddy Bay", "10000000-0000-4000-8000-000000000004", "caddy-bay.png", 30, 66, 12],
     ["Port Alberni", "10000000-0000-4000-8000-000000000009", "port-alberni.png", 36, 60, 10],
     ["Quadra", "10000000-0000-4000-8000-000000000010", "quadra.png", 54, 98, 22],
@@ -658,7 +658,7 @@ test("opens verified display metadata for Crown Isle, Eagle Creek, Royal Bay, an
   ] as const;
 
   for (const [name, storeId] of stores) {
-    await page.goto(`/stores/${storeId}/floorplan`);
+    await page.goto(`/stores/${storeId}/floorplan?mode=layout`);
     const canvas = page.getByLabel(`${name} merchandising floorplan`);
     await expect(canvas.getByAltText(`${name} store layout background`)).toBeVisible();
     await canvas.getByRole("button", { name: /W1,/ }).click();
