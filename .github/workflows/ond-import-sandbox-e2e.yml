@@ -1,0 +1,48 @@
+name: OND Import Sandbox E2E
+
+on:
+  push:
+    branches:
+      - test/ond-import-sandbox-2026-09-17
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ond-import-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_DATA_ADAPTER: mock
+      E2E_LOCAL_TRANSPORT: "0"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run OND import browser tests
+        run: npx playwright test tests/e2e/ond-import-sandbox.spec.ts --project=chromium
+
+      - name: Upload browser test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ond-import-sandbox-e2e
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
