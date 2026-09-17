@@ -34,7 +34,7 @@ export function FloorplanRecoveryPage() {
 
   const changes = useMemo(() => data && recovery ? compareFloorplanRecovery(data, recovery) : [], [data, recovery]);
   const stores = data ? new Map(data.stores.map((store) => [store.id, store])) : new Map();
-  const canApply = blackBettyRole === "admin";
+  const canApply = blackBettyRole === "buyer" || blackBettyRole === "admin";
 
   const loadRecovery = (next: FloorplanExport) => {
     setRecovery(next);
@@ -77,7 +77,6 @@ export function FloorplanRecoveryPage() {
     if (selectedChanges.length === 0) return;
     setBusy(true); setMessage("");
     try {
-      // Always download the current shared state before restoring old geometry.
       downloadFloorplanExport(data, {
         source: "shared",
         exportedBy: userEmail,
@@ -157,7 +156,6 @@ export function FloorplanRecoveryPage() {
             </table>
           </div>
           <div className="border-t border-border p-4">
-            {!canApply && <p className="mb-3 text-sm text-warning">Preview is available to buyers, but the current production physical-layout policy still requires admin for the restore write. Buyer write access should be enabled in the follow-up floorplan permission change.</p>}
             <button type="button" disabled={!canApply || busy || selected.size === 0} onClick={() => void apply()} className="rounded bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? "Restoring…" : `Restore ${selected.size} selected change${selected.size === 1 ? "" : "s"}`}</button>
           </div>
         </Card>}
