@@ -28,7 +28,7 @@ const repository = configuredSupabase
 export type BlackBettyRole = "buyer" | "admin";
 
 export function canManagePhysicalReference(authEnabled: boolean, role?: BlackBettyRole): boolean {
-  return !authEnabled || role === "admin";
+  return !authEnabled || role === "buyer" || role === "admin";
 }
 
 interface PlatformContextValue {
@@ -155,7 +155,6 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     }
   }, [adapter]);
 
-  // The shared repository requires the authenticated Black Betty session for RLS.
   useEffect(() => {
     if (configuredSupabase && (session === undefined || !blackBettyRole)) return;
     const timeoutId = window.setTimeout(() => void refresh(), 0);
@@ -174,7 +173,7 @@ export function PlatformProvider({ children, adapter = repository, productMaster
 
   const mutatePhysicalReference = useCallback(async (operation: () => Promise<unknown>) => {
     if (!canManagePhysicalReference(Boolean(configuredSupabase), blackBettyRole)) {
-      throw new Error("Only a Black Betty admin can change canonical store layouts or display geometry.");
+      throw new Error("Only a Black Betty buyer or admin can change canonical store layouts or display geometry.");
     }
     await mutate(operation);
   }, [blackBettyRole, mutate]);
@@ -207,58 +206,16 @@ export function PlatformProvider({ children, adapter = repository, productMaster
       if (!product) throw new Error("Pending product creation did not return a product.");
       return product;
     },
-    createCampaign: async (input) => {
-      let id = "";
-      await mutate(async () => { id = await adapter.createCampaign(input); });
-      return id;
-    },
-    updateCampaign: async (input) => {
-      let campaign: Campaign | undefined;
-      await mutate(async () => { campaign = await adapter.updateCampaign(input); });
-      if (!campaign) throw new Error("Campaign update did not return a campaign.");
-      return campaign;
-    },
-    addCampaignProducts: async (input) => {
-      let products: CampaignProduct[] | undefined;
-      await mutate(async () => { products = await adapter.addCampaignProducts(input); });
-      return products ?? [];
-    },
-    applyCampaignProductImport: async (input) => {
-      let products: CampaignProduct[] | undefined;
-      await mutate(async () => { products = await adapter.applyCampaignProductImport(input); });
-      return products ?? [];
-    },
-    applyCampaignWorkbookImport: async (input) => {
-      let result: ApplyCampaignWorkbookImportResult | undefined;
-      await mutate(async () => { result = await adapter.applyCampaignWorkbookImport(input); });
-      if (!result) throw new Error("Campaign workbook import did not return a result.");
-      return result;
-    },
+    createCampaign: async (input) => { let id = ""; await mutate(async () => { id = await adapter.createCampaign(input); }); return id; },
+    updateCampaign: async (input) => { let campaign: Campaign | undefined; await mutate(async () => { campaign = await adapter.updateCampaign(input); }); if (!campaign) throw new Error("Campaign update did not return a campaign."); return campaign; },
+    addCampaignProducts: async (input) => { let products: CampaignProduct[] | undefined; await mutate(async () => { products = await adapter.addCampaignProducts(input); }); return products ?? []; },
+    applyCampaignProductImport: async (input) => { let products: CampaignProduct[] | undefined; await mutate(async () => { products = await adapter.applyCampaignProductImport(input); }); return products ?? []; },
+    applyCampaignWorkbookImport: async (input) => { let result: ApplyCampaignWorkbookImportResult | undefined; await mutate(async () => { result = await adapter.applyCampaignWorkbookImport(input); }); if (!result) throw new Error("Campaign workbook import did not return a result."); return result; },
     applyStoreDisplayWorkbook: (input) => mutate(() => adapter.applyStoreDisplayWorkbook(input)).then(() => undefined),
-    reconcilePendingCampaignProduct: async (input) => {
-      let product: CampaignProduct | undefined;
-      await mutate(async () => { product = await adapter.reconcilePendingCampaignProduct(input); });
-      if (!product) throw new Error("Pending campaign product reconciliation did not return a product.");
-      return product;
-    },
-    applySupplierSubmissionImport: async (input) => {
-      let result: ApplySupplierSubmissionImportResult | undefined;
-      await mutate(async () => { result = await adapter.applySupplierSubmissionImport(input); });
-      if (!result) throw new Error("Supplier submission import did not return a result.");
-      return result;
-    },
-    updatePromotionOpportunity: async (input) => {
-      let result: PromotionOpportunity | undefined;
-      await mutate(async () => { result = await adapter.updatePromotionOpportunity(input); });
-      if (!result) throw new Error("Promotion opportunity update did not return a result.");
-      return result;
-    },
-    updateCampaignProduct: async (input) => {
-      let product: CampaignProduct | undefined;
-      await mutate(async () => { product = await adapter.updateCampaignProduct(input); });
-      if (!product) throw new Error("Campaign product update did not return a product.");
-      return product;
-    },
+    reconcilePendingCampaignProduct: async (input) => { let product: CampaignProduct | undefined; await mutate(async () => { product = await adapter.reconcilePendingCampaignProduct(input); }); if (!product) throw new Error("Pending campaign product reconciliation did not return a product."); return product; },
+    applySupplierSubmissionImport: async (input) => { let result: ApplySupplierSubmissionImportResult | undefined; await mutate(async () => { result = await adapter.applySupplierSubmissionImport(input); }); if (!result) throw new Error("Supplier submission import did not return a result."); return result; },
+    updatePromotionOpportunity: async (input) => { let result: PromotionOpportunity | undefined; await mutate(async () => { result = await adapter.updatePromotionOpportunity(input); }); if (!result) throw new Error("Promotion opportunity update did not return a result."); return result; },
+    updateCampaignProduct: async (input) => { let product: CampaignProduct | undefined; await mutate(async () => { product = await adapter.updateCampaignProduct(input); }); if (!product) throw new Error("Campaign product update did not return a product."); return product; },
     removeCampaignProduct: (campaignId, campaignProductId) => mutate(() => adapter.removeCampaignProduct(campaignId, campaignProductId)).then(() => undefined),
     createCampaignDisplay: async (input) => { let display: CampaignDisplay | undefined; await mutate(async () => { display = await adapter.createCampaignDisplay(input); }); if (!display) throw new Error("Campaign display creation did not return a display."); return display; },
     updateCampaignDisplay: async (input) => { let display: CampaignDisplay | undefined; await mutate(async () => { display = await adapter.updateCampaignDisplay(input); }); if (!display) throw new Error("Campaign display update did not return a display."); return display; },
@@ -279,22 +236,9 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     createDisplayAssignment: (input) => mutate(() => adapter.createDisplayAssignment(input)).then(() => undefined),
     updateDisplayAssignment: (id, input) => mutate(() => adapter.updateDisplayAssignment(id, input)).then(() => undefined),
     applyOndImport: (input) => mutate(() => adapter.applyOndImport(input)).then(() => undefined),
-    publishProgram: async (input) => {
-      let result: PublishProgramResult | undefined;
-      await mutate(async () => { result = await adapter.publishProgram(input); });
-      if (!result) throw new Error("Program publish did not return a result.");
-      return result;
-    },
-    refreshOrderRecommendations: async (input) => {
-      let count = 0;
-      await mutate(async () => { count = await adapter.refreshOrderRecommendations(input); });
-      return count;
-    },
-    createPurchaseOrder: async (input) => {
-      let id = "";
-      await mutate(async () => { id = await adapter.createPurchaseOrder(input); });
-      return id;
-    },
+    publishProgram: async (input) => { let result: PublishProgramResult | undefined; await mutate(async () => { result = await adapter.publishProgram(input); }); if (!result) throw new Error("Program publish did not return a result."); return result; },
+    refreshOrderRecommendations: async (input) => { let count = 0; await mutate(async () => { count = await adapter.refreshOrderRecommendations(input); }); return count; },
+    createPurchaseOrder: async (input) => { let id = ""; await mutate(async () => { id = await adapter.createPurchaseOrder(input); }); return id; },
     setProgramStore: (input) => mutate(() => adapter.setProgramStore(input)).then(() => undefined),
     completeExecution: (input) => mutate(() => adapter.completeExecution(input)).then(() => undefined),
     reviewCompliance: (input) => mutate(() => adapter.reviewCompliance(input)).then(() => undefined),
@@ -328,18 +272,12 @@ function BlackBettySignIn({ error }: { error?: string }) {
 
   const submit = async () => {
     if (!configuredSupabase) return;
-    if (creatingAccount && password !== confirmPassword) {
-      setMessage("Passwords do not match.");
-      return;
-    }
-
+    if (creatingAccount && password !== confirmPassword) { setMessage("Passwords do not match."); return; }
     setSubmitting(true);
     setMessage(undefined);
     try {
       const credentials = { email: email.trim().toLowerCase(), password };
-      const result = creatingAccount
-        ? await configuredSupabase.auth.signUp(credentials)
-        : await configuredSupabase.auth.signInWithPassword(credentials);
+      const result = creatingAccount ? await configuredSupabase.auth.signUp(credentials) : await configuredSupabase.auth.signInWithPassword(credentials);
       if (result.error) setMessage(result.error.message);
       else if (creatingAccount && !result.data.session) setMessage("Account created. Confirm your email before signing in.");
     } catch (cause) {
