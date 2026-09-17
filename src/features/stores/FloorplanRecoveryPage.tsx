@@ -12,6 +12,13 @@ import {
   type FloorplanRecoveryChange,
 } from "./floorplanExport";
 
+function editTimeLabel(change: FloorplanRecoveryChange): string {
+  if (!change.lastEditedAt) return "Not recorded in legacy snapshot";
+  const parsed = new Date(change.lastEditedAt);
+  if (Number.isNaN(parsed.getTime())) return change.lastEditedAt;
+  return parsed.toLocaleString();
+}
+
 function geometryLabel(change: FloorplanRecoveryChange): string {
   const value = change.recoveredGeometry;
   return `${Math.round(value.x * 100)}%, ${Math.round(value.y * 100)}% · ${Math.round(value.width * 100)}×${Math.round(value.height * 100)}%`;
@@ -40,9 +47,9 @@ export function FloorplanRecoveryPage() {
     setRecovery(next);
     if (!data) return;
     const nextChanges = compareFloorplanRecovery(data, next);
-    setSelected(new Set(nextChanges.map((change) => change.key)));
+    setSelected(new Set(nextChanges.filter((change) => change.kind !== "missing_display_area").map((change) => change.key)));
     setMessage(nextChanges.length
-      ? `${nextChanges.length} recoverable geometry change${nextChanges.length === 1 ? "" : "s"} found. Nothing has been written yet.`
+      ? `${nextChanges.length} recoverable floorplan difference${nextChanges.length === 1 ? "" : "s"} found. Missing displays are listed for review and are not created automatically.`
       : "No recoverable geometry differences were found.");
   };
 
@@ -112,7 +119,7 @@ export function FloorplanRecoveryPage() {
         <PageHeader
           eyebrow="Floorplan recovery"
           title="Recover floorplan work"
-          description="Preview legacy browser or exported recovery data against the current shared physical layout. Recovery is geometry-only and never creates stores, displays, campaigns, or assignments."
+          description="Preview legacy browser or exported recovery data against the current shared physical layout. Missing displays are surfaced for recovery review but are never created automatically."
           actions={<Link className="rounded border border-border px-3 py-2 text-sm font-semibold" to="/stores">Stores</Link>}
         />
 
@@ -137,22 +144,34 @@ export function FloorplanRecoveryPage() {
               <h2 className="font-semibold">Recovery package</h2>
               <p className="mt-1 text-sm text-text-secondary">Exported {recovery.exportedAt}{recovery.version === 2 ? ` · ${recovery.source}` : " · legacy version 1"}</p>
             </div>
-            <Badge tone={changes.length ? "warning" : "success"}>{changes.length} geometry differences</Badge>
+            <Badge tone={changes.length ? "warning" : "success"}>{changes.length} floorplan differences</Badge>
           </div>
         </Card>}
 
         {changes.length > 0 && <Card className="overflow-hidden p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-            <div><h2 className="font-semibold">Select changes to restore</h2><p className="text-sm text-text-secondary">Only checked geometry records will be applied.</p></div>
+            <div><h2 className="font-semibold">Recovered floorplan differences</h2><p className="text-sm text-text-secondary">Existing geometry can be restored. Displays missing from shared data are identified separately and are not created automatically.</p></div>
             <div className="flex gap-2">
-              <button type="button" className="rounded border border-border px-3 py-2 text-sm font-semibold" onClick={() => setSelected(new Set(changes.map((change) => change.key)))}>Select all</button>
+              <button type="button" className="rounded border border-border px-3 py-2 text-sm font-semibold" onClick={() => setSelected(new Set(changes.filter((change) => change.kind !== "missing_display_area").map((change) => change.key)))}>Select restorable</button>
               <button type="button" className="rounded border border-border px-3 py-2 text-sm font-semibold" onClick={() => setSelected(new Set())}>Clear</button>
             </div>
           </div>
           <div className="max-h-[34rem] overflow-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="sticky top-0 bg-subtle text-xs uppercase text-text-muted"><tr><th className="p-3">Restore</th><th className="p-3">Store</th><th className="p-3">Type</th><th className="p-3">Item</th><th className="p-3">Recovered position</th></tr></thead>
-              <tbody>{changes.map((change) => <tr key={change.key} className="border-t border-border"><td className="p-3"><input aria-label={`Restore ${change.label}`} type="checkbox" checked={selected.has(change.key)} onChange={() => toggle(change.key)} /></td><td className="p-3">{stores.get(change.storeId)?.name ?? change.storeId}</td><td className="p-3">{change.kind.replaceAll("_", " ")}</td><td className="p-3 font-semibold">{change.label}</td><td className="p-3">{geometryLabel(change)}</td></tr>)}</tbody>
+              <thead className="sticky top-0 bg-subtle text-xs uppercase text-text-muted"><tr><th className="p-3">Restore</th><th className="p-3">Store</th><th className="p-3">Type</th><th className="p-3">Item</th><th className="p-3">Recovered position</th><th className="p-3">Last edit</th><th className="p-3">Details</th></tr></thead>
+              <tbody>{changes.map((change) => <tr key={change.key} className="border-t border-border">
+                <td className="p-3">{change.kind === "missing_display_area"
+                  ? <Badge tone="warning">Review</Badge>
+                  : <input aria-label={`Restore ${change.label}`} type="checkbox" checked={selected.has(change.key)} onChange={() => toggle(change.key)} />}</td>
+                <td className="p-3">{stores.get(change.storeId)?.name ?? change.storeId}</td>
+                <td className="p-3">{change.kind === "missing_display_area" ? "new recovered display" : change.kind.replaceAll("_", " ")}</td>
+                <td className="p-3 font-semibold">{change.label}</td>
+                <td className="p-3">{geometryLabel(change)}</td>
+                <td className="p-3 text-xs text-text-secondary">{change.kind === "missing_display_area" ? editTimeLabel(change) : "—"}</td>
+                <td className="p-3 text-xs text-text-secondary">{change.kind === "missing_display_area"
+                  ? [change.recoveredDisplayArea?.type, change.recoveredDisplayArea?.displayFamily, change.recoveredDisplayArea?.description].filter(Boolean).join(" · ") || "Recovered display definition is not present in shared data."
+                  : "Existing shared record"}</td>
+              </tr>)}</tbody>
             </table>
           </div>
           <div className="border-t border-border p-4">
