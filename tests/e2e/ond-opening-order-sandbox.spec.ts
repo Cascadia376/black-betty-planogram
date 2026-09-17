@@ -7,13 +7,7 @@ const crownIsleId = "10000000-0000-4000-8000-000000000001";
 const ordersPath = `/stores/${crownIsleId}/orders?program=${ondProgramId}`;
 
 function metric(card: Locator, label: string) {
-  return card.locator("dt", { hasText: label }).filter({ hasText: new RegExp(`^${label}import { expect, type Locator } from "@playwright/test";
-import { readFile } from "node:fs/promises";
-import { test } from "./localTest";
-
-const ondProgramId = "c0000000-0000-4000-8000-000000000001";
-const crownIsleId = "10000000-0000-4000-8000-000000000001";
-) }).locator("xpath=following-sibling::dd[1]");
+  return card.getByText(label, { exact: true }).locator("xpath=following-sibling::dd[1]");
 }
 
 test.beforeEach(async ({ page }) => {
