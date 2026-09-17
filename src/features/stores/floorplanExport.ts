@@ -35,7 +35,7 @@ export interface FloorplanExportV2 {
 }
 
 export type FloorplanExport = FloorplanExportV1 | FloorplanExportV2;
-export type FloorplanRecoveryKind = "display_area" | "display_area_section" | "category_space";
+export type FloorplanRecoveryKind = "display_area" | "missing_display_area" | "display_area_section" | "category_space";
 
 export interface FloorplanRecoveryChange {
   key: string;
@@ -46,6 +46,7 @@ export interface FloorplanRecoveryChange {
   label: string;
   currentGeometry?: Geometry;
   recoveredGeometry: Geometry;
+  recoveredDisplayArea?: PlatformSnapshot["displayAreas"][number];
 }
 
 function floorplansFromSnapshot(snapshot: PlatformSnapshot): FloorplanCollections {
@@ -146,8 +147,10 @@ function geometryEquals(left?: Geometry, right?: Geometry): boolean {
 }
 
 /**
- * Recovery is deliberately geometry-only. It will never create/delete stores,
- * displays, fixtures, campaigns, or assignments from an old browser snapshot.
+ * Recovery compares legacy physical work with the current shared snapshot.
+ * Existing records are reported as geometry changes. Display areas that exist
+ * only in the recovery package are surfaced separately so lost newly-created
+ * displays can be identified without creating them automatically.
  */
 export function compareFloorplanRecovery(current: PlatformSnapshot, recovery: FloorplanExport): FloorplanRecoveryChange[] {
   const changes: FloorplanRecoveryChange[] = [];
@@ -155,7 +158,19 @@ export function compareFloorplanRecovery(current: PlatformSnapshot, recovery: Fl
 
   for (const recoveredArea of recovered.displayAreas) {
     const currentArea = current.displayAreas.find((area) => area.id === recoveredArea.id);
-    if (!currentArea || geometryEquals(currentArea.geometry, recoveredArea.geometry)) continue;
+    if (!currentArea) {
+      changes.push({
+        key: `missing-display-area:${recoveredArea.id}`,
+        kind: "missing_display_area",
+        storeId: recoveredArea.storeId,
+        itemId: recoveredArea.id,
+        label: `${recoveredArea.localCode ?? recoveredArea.displayNumber} · ${recoveredArea.name}`,
+        recoveredGeometry: recoveredArea.geometry,
+        recoveredDisplayArea: recoveredArea,
+      });
+      continue;
+    }
+    if (geometryEquals(currentArea.geometry, recoveredArea.geometry)) continue;
     changes.push({
       key: `display-area:${recoveredArea.id}`,
       kind: "display_area",
