@@ -100,7 +100,7 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
 
   await page.screenshot({ path: testInfo.outputPath("07-purchase-order-created.png"), fullPage: true });
 
-  await expect(batches.getByText("Mock Coastal Distribution", { exact: true })).toHaveCount(1);
+  await expect(batches.getByText(/Mock Coastal Distribution.*36 cases/)).toBeVisible();
   const remainingCreateButtons = batches.getByRole("button", { name: "Create supplier order" });
   await expect(remainingCreateButtons).toHaveCount(1);
   const alternateBatch = batches.getByText("Mock Island Wholesale", { exact: true }).locator("xpath=parent::div/parent::div");
