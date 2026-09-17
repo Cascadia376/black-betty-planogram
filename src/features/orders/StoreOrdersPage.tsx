@@ -2,7 +2,8 @@ import { AlertTriangle, CheckCircle2, Clock3, PackageCheck, ShoppingCart, Trendi
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Badge, Button, Card, DataState, EmptyState, PageHeader, formatDate } from "../../components/ui";
-import type { PlatformSnapshot } from "../../domain/types";
+import type { PlatformSnapshot, PurchaseOrder } from "../../domain/types";
+import { selectSupplierForRequiredDate } from "../../domain/ordering";
 import { usePlatform } from "../../services/PlatformProvider";
 import { OrderRecommendationCard } from "./OrderRecommendationCard";
 import { buildOrderWorkspaceItems, type OrderWorkspaceGroup } from "./orderingWorkspace";
@@ -50,12 +51,40 @@ export function StoreOrdersPage() {
 
 function SupplierOrderBatches({ data, storeId, programId, createOrder }: { data: PlatformSnapshot; storeId: string; programId?: string; createOrder(supplierId: string, recommendationIds: string[]): Promise<void> }) {
   const assignmentIds = new Set(data.displayAssignments.filter((item) => item.storeId === storeId && (!programId || item.programId === programId)).map((item) => item.id));
-  const actionable = data.orderRecommendations.filter((item) => item.storeId === storeId && assignmentIds.has(item.displayAssignmentId ?? "") && item.recommendedCases > 0 && !["dismissed", "ordered"].includes(item.status));
+  const actionable = data.orderRecommendations.filter((item) => {
+    if (item.storeId !== storeId || !assignmentIds.has(item.displayAssignmentId ?? "") || item.recommendedCases <= 0 || ["dismissed", "ordered"].includes(item.status)) return false;
+    const selection = selectSupplierForRequiredDate(item.productId, data.supplierProductOptions, item.recommendationDate, item.requiredByDate);
+    return selection?.canMeetRequiredDate === true && selection.option.supplierId === item.supplierId;
+  });
   const suppliers = [...new Set(actionable.map((item) => item.supplierId))];
   const orders = data.purchaseOrders.filter((item) => item.storeId === storeId && (!programId || item.programId === programId));
   return <Card className="mt-5 p-0"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Supplier order batches</h2><p className="mt-1 text-xs text-text-muted">Actionable recommendations grouped into one submitted mock order per supplier.</p></div><div className="divide-y divide-border">{suppliers.map((supplierId) => {
     const supplier = data.suppliers.find((item) => item.id === supplierId);
     const recommendations = actionable.filter((item) => item.supplierId === supplierId);
     return <div key={supplierId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-semibold">{supplier?.name ?? "Supplier not configured"}</p><p className="mt-1 text-xs text-text-muted">{recommendations.length} products · {recommendations.reduce((sum, item) => sum + item.recommendedCases, 0)} cases</p></div><Button type="button" onClick={() => void createOrder(supplierId, recommendations.map((item) => item.id))}><ShoppingCart className="h-4 w-4" />Create supplier order</Button></div>;
-  })}{!suppliers.length && <p className="px-4 py-4 text-sm text-text-muted">No recommendations are ready to batch.</p>}</div>{orders.length > 0 && <div className="border-t border-border bg-subtle/50 px-4 py-3"><p className="text-xs font-semibold">Submitted orders</p><div className="mt-2 flex flex-wrap gap-2">{orders.map((order) => <Badge key={order.id} tone="success">{data.suppliers.find((item) => item.id === order.supplierId)?.name ?? "Supplier"} · {order.lines.reduce((sum, line) => sum + line.cases, 0)} cases · due {formatDate(order.expectedArrivalDate)}</Badge>)}</div></div>}</Card>;
+  })}{!suppliers.length && <p className="px-4 py-4 text-sm text-text-muted">No recommendations are ready to batch.</p>}</div>{orders.length > 0 && <div className="border-t border-border bg-subtle/50 px-4 py-3"><p className="text-xs font-semibold">Submitted orders</p><div className="mt-2 space-y-2">{orders.map((order) => <div key={order.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2"><Badge tone="success">{data.suppliers.find((item) => item.id === order.supplierId)?.name ?? "Supplier"} · {order.lines.reduce((sum, line) => sum + line.cases, 0)} cases · due {formatDate(order.expectedArrivalDate)}</Badge><Button type="button" variant="secondary" onClick={() => downloadGenericPurchaseOrder(order, data)}>Download test PO CSV</Button></div>)}</div><p className="mt-2 text-[10px] text-text-muted">Generic test export only. It is not a BDL or LDB submission format.</p></div>}</Card>;
+}
+
+function downloadGenericPurchaseOrder(order: PurchaseOrder, data: PlatformSnapshot) {
+  const store = data.stores.find((item) => item.id === order.storeId);
+  const supplier = data.suppliers.find((item) => item.id === order.supplierId);
+  const rows = [
+    ["PO ID", "Store", "Supplier", "Expected Arrival", "SKU", "Product", "Cases", "Recommendation ID"],
+    ...order.lines.map((line) => {
+      const product = data.products.find((item) => item.id === line.productId);
+      return [order.id, store?.name ?? order.storeId, supplier?.name ?? order.supplierId, order.expectedArrivalDate, product?.sku ?? line.productId, product?.name ?? line.productId, String(line.cases), line.recommendationId];
+    }),
+  ];
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `TEST-PO-${store?.code ?? order.storeId}-${supplier?.code ?? order.supplierId}-${order.id.slice(0, 8)}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
 }
