@@ -115,7 +115,7 @@ function Navigation({ close }: { close?: () => void }) {
 }
 
 function SidebarContent({ close }: { close?: () => void }) {
-  const { role, setRole, resetDemo } = usePlatform();
+  const { role, setRole, resetDemo, authEnabled } = usePlatform();
   const canCreateCampaign = role === "admin" || role === "merchandising";
   return (
     <div className="flex h-full flex-col">
@@ -132,14 +132,14 @@ function SidebarContent({ close }: { close?: () => void }) {
       </div>}
       <div className="min-h-0 flex-1 overflow-y-auto"><Navigation close={close} /></div>
       <div className="space-y-3 border-t border-border p-4 lg:hidden">
-        <RoleSelect role={role} setRole={setRole} />
-        <Button variant="secondary" className="w-full" onClick={() => void resetDemo()}><RotateCcw className="h-4 w-4" />Reset demo data</Button>
+        {!authEnabled && <RoleSelect role={role} setRole={setRole} />}
+        {!authEnabled && <Button variant="secondary" className="w-full" onClick={() => void resetDemo()}><RotateCcw className="h-4 w-4" />Reset demo data</Button>}
       </div>
       <div className="hidden border-t border-border px-4 py-3 lg:block">
-        <button className="flex h-8 w-full items-center gap-3 rounded-md px-3 text-xs font-medium text-text-muted transition-colors hover:bg-sidebar-hover hover:text-text-primary" onClick={() => void resetDemo()}>
+        {!authEnabled && <button className="flex h-8 w-full items-center gap-3 rounded-md px-3 text-xs font-medium text-text-muted transition-colors hover:bg-sidebar-hover hover:text-text-primary" onClick={() => void resetDemo()}>
           <RotateCcw className="h-3.5 w-3.5" />Reset demo data
-        </button>
-        <p className="mt-1 px-3 text-[11px] text-text-muted">Synthetic development data</p>
+        </button>}
+        <p className="mt-1 px-3 text-[11px] text-text-muted">{authEnabled ? "Shared campaign planning" : "Synthetic development data"}</p>
       </div>
     </div>
   );
@@ -147,7 +147,7 @@ function SidebarContent({ close }: { close?: () => void }) {
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { role, setRole, data } = usePlatform();
+  const { role, setRole, data, authEnabled, userEmail, blackBettyRole, signOut } = usePlatform();
   const pilotStore = data?.stores.find((store) => data.programStores.some((membership) => membership.storeId === store.id && membership.included && membership.status !== "not_started")) ?? data?.stores[0];
   return (
     <div className="min-h-screen overflow-x-hidden bg-page-canvas text-text-primary">
@@ -172,8 +172,8 @@ export function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden rounded border border-border bg-subtle px-2 py-1 text-[11px] font-semibold text-text-muted sm:inline-flex">MOCK DATA</span>
-            <div className="hidden lg:block"><RoleSelect role={role} setRole={setRole} compact /></div>
+            {!authEnabled && <span className="hidden rounded border border-border bg-subtle px-2 py-1 text-[11px] font-semibold text-text-muted sm:inline-flex">MOCK DATA</span>}
+            {authEnabled ? <button type="button" onClick={() => void signOut()} className="hidden text-right text-xs lg:block"><span className="block font-semibold text-text-primary">{userEmail}</span><span className="text-text-muted">{blackBettyRole === "admin" ? "Admin" : "Buyer"} · Sign out</span></button> : <div className="hidden lg:block"><RoleSelect role={role} setRole={setRole} compact /></div>}
             <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-subtle text-xs font-bold text-primary">BB</span>
           </div>
         </header>

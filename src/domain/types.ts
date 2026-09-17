@@ -213,6 +213,10 @@ export interface CampaignProduct {
   required: boolean;
   note?: string;
   merchandisingState?: CampaignProductMerchandisingState;
+  /** Product Master resolution is independent from campaign merchandising placement. */
+  productResolution?: "MATCHED_ACTIVE" | "MATCHED_INACTIVE" | "PENDING" | "INVALID";
+  /** Source evidence retained for a campaign-only pending product. */
+  pendingSource?: { sku?: string; productName: string; vendor?: string; category?: string; workbook: string; sheet: string; row: number };
 }
 
 /** A reusable campaign merchandising concept; it is not a physical store DisplayArea. */
@@ -273,6 +277,10 @@ export interface CampaignDisplayAssignment {
   startDate: string;
   endDate: string;
   note?: string;
+  /** Store/display build note; campaign-owned and never part of the physical DisplayArea. */
+  executionNotes?: string;
+  /** Multiple distinct non-empty source notes need buyer review before one is selected. */
+  hasConflictingExecutionNotes?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -375,6 +383,13 @@ export interface CampaignImportRowMetadata {
   orderFrom?: string;
   displayRequired?: boolean;
   displayLocalCode?: string;
+  /** Unchanged source display cell, including an ambiguous N. */
+  displaySourceValue?: string;
+  displayInterpretation?: "ASSIGNED" | "UNRESOLVED" | "SHELF_SUPPORTED";
+  displayNotes?: string;
+  productResolution?: "MATCHED_ACTIVE" | "MATCHED_INACTIVE" | "PENDING" | "INVALID";
+  /** Normalized campaign-order months from the source LTO Month field. */
+  ltoMonths?: Array<"OCT" | "NOV" | "DEC">;
   flyerMonths?: string[];
   allocations: CampaignImportStoreAllocation[];
   issues: string[];

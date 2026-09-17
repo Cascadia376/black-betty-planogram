@@ -10,6 +10,7 @@
 .pack-controls { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .pack-controls button, .pack-controls a { border: 1px solid #6f1d36; padding: 10px; border-radius: 4px; }
 .pack-build, .pack-exception { border-top: 2px solid #444; padding: 12px 0; }
+.pack-page-identity { color: #555; font-size: 12px; font-weight: bold; }
 .pack-location { width: 45%; margin-top: 16px; font-size: 12px; }
 @page { size: letter portrait; margin: 0.45in; }
 @media print {
@@ -21,6 +22,7 @@
   .execution-pack h3 { font-size: 12pt; break-after: avoid; }
   .pack-map-page { break-after: page; }
   .pack-build { break-before: page; }
+  .pack-build h3, .pack-build p { overflow-wrap: anywhere; }
   .pack-group { break-before: page; }
   .pack-group > .pack-build:first-of-type { break-before: auto; }
   .pack-location { width: 3in; break-inside: avoid; }

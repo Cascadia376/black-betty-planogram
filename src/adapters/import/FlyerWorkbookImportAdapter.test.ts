@@ -11,8 +11,8 @@ const adapter = new FlyerWorkbookImportAdapter();
 const context = { snapshot: seedSnapshot, productMaster: new MockProductMasterLookup(seedSnapshot.products) };
 const planningHeaders = ["Vendor", "Category", "INV_NUM", "Product", "Order From", "LTO Month", "Display", "Display Area", "Oct Flyer", "Nov Flyer", "Dec Flyer", "Notes", "Crown Isle", "Port Alberni", "Total Cases"];
 
-function planningRow(sku: string, product: string, options: { display?: string; code?: string; months?: string[]; crown?: string | number; port?: string | number } = {}) {
-  return ["Mock", "WINE", sku, product, "", "", options.display ?? "", options.code ?? "", options.months?.includes("OCT") ? "Y" : "", options.months?.includes("NOV") ? "Y" : "", options.months?.includes("DEC") ? "Y" : "", "", options.crown ?? "", options.port ?? "", ""];
+function planningRow(sku: string, product: string, options: { display?: string; code?: string; lto?: string; months?: string[]; crown?: string | number; port?: string | number } = {}) {
+  return ["Mock", "WINE", sku, product, "", options.lto ?? "", options.display ?? "", options.code ?? "", options.months?.includes("OCT") ? "Y" : "", options.months?.includes("NOV") ? "Y" : "", options.months?.includes("DEC") ? "Y" : "", "", options.crown ?? "", options.port ?? "", ""];
 }
 
 function parsePlanning(rows: unknown[][], fingerprint = "planning-fingerprint", fileName = "OND 2025 Worksheet.xlsx") {
@@ -230,6 +230,16 @@ describe("flyer workbook import adapter", () => {
     expect(state.campaignDisplayAssignmentProducts.some((item) => item.caseQuantity === 6 && item.quantitySource === "SPREADSHEET")).toBe(true);
     expect(state.campaignDisplayAssignments.find((item) => item.campaignId === applied.campaignId && item.storeId === snapshot.stores.find((store) => store.name === "Port Alberni")?.id)).toMatchObject({ status: "SUGGESTED", displayAreaId: undefined });
     await expect(repository.applyCampaignWorkbookImport(input)).rejects.toThrow("already been applied");
+  });
+
+  it("retains display participation and LTO ordering months independently", async () => {
+    const result = await parsePlanning([
+      planningRow("MOCK-1001", "Coastal Lager", { display: "Y", code: "BR2", lto: "October", months: ["NOV"], crown: 2 }),
+      planningRow("MOCK-2001", "Harvest Red", { display: "Y", code: "W8", lto: "November / December", months: ["OCT"], crown: 3 }),
+    ]);
+
+    expect(result.rows[0]).toMatchObject({ displayRequired: true, source: { ltoMonths: ["OCT"], flyerMonths: ["NOV"] } });
+    expect(result.rows[1]).toMatchObject({ displayRequired: true, source: { ltoMonths: ["NOV", "DEC"], flyerMonths: ["OCT"] } });
   });
 
   it("applies store-specific display codes while preserving blank display cells as shelf support", async () => {

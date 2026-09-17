@@ -16,6 +16,7 @@ import { StoreOrdersPage } from "./features/orders/StoreOrdersPage";
 import { ImportsPage } from "./features/imports/ImportsPage";
 import { OndImportPage } from "./features/imports/OndImportPage";
 import { FlyerWorkbookImportPage } from "./features/imports/FlyerWorkbookImportPage";
+import { StoreDisplayWorkbookImportPage } from "./features/imports/StoreDisplayWorkbookImportPage";
 import { SupplierSubmissionImportPage } from "./features/imports/SupplierSubmissionImportPage";
 import { PromotionOpportunitiesPage } from "./features/opportunities/PromotionOpportunitiesPage";
 import { DisplayAreaProfilePage } from "./features/performance/PerformancePages";
@@ -45,6 +46,7 @@ export function App() {
     <Route path="programs/:programId/import" element={<OndImportPage />} />
     <Route path="imports" element={<ImportsPage />} />
     <Route path="imports/flyer" element={<FlyerWorkbookImportPage />} />
+    <Route path="imports/store-displays" element={<StoreDisplayWorkbookImportPage />} />
     <Route path="imports/supplier" element={<SupplierSubmissionImportPage />} />
     <Route path="opportunities" element={<PromotionOpportunitiesPage />} />
     <Route path="stores" element={<StoreDirectoryPage />} />

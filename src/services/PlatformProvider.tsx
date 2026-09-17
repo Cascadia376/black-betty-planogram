@@ -1,31 +1,47 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type Session } from "@supabase/supabase-js";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
 import { MockProductMasterLookup } from "../adapters/mock/MockProductMasterLookup";
+import { createSupabaseMerchandisingRepository } from "../adapters/supabase/SupabaseMerchandisingRepository";
 import { SupabaseProductMasterLookup } from "../adapters/supabase/SupabaseProductMasterLookup";
 import type {
-  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository,
+  AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, ApplyStoreDisplayWorkbookInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository, ReconcilePendingCampaignProductInput,
   ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
 } from "../domain/repositories";
 import type { Campaign, CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, NewCampaignInput, PlatformSnapshot, Product, PromotionOpportunity, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
 import { readEnvironment } from "../lib/environment";
 import type { ProductMasterLookup } from "./products/ProductMasterLookup";
 
-const repository = new MockMerchandisingRepository();
 const environment = readEnvironment();
 const productMasterKey = environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
-const configuredProductMaster = environment.VITE_SUPABASE_URL && productMasterKey
-  ? new SupabaseProductMasterLookup(createClient(environment.VITE_SUPABASE_URL, productMasterKey))
+const configuredSupabase = environment.VITE_SUPABASE_URL && productMasterKey
+  ? createClient(environment.VITE_SUPABASE_URL, productMasterKey)
   : undefined;
+const configuredProductMaster = configuredSupabase
+  ? new SupabaseProductMasterLookup(configuredSupabase)
+  : undefined;
+const repository = configuredSupabase
+  ? createSupabaseMerchandisingRepository(configuredSupabase)
+  : new MockMerchandisingRepository();
+
+export type BlackBettyRole = "buyer" | "admin";
+
+export function canManagePhysicalReference(authEnabled: boolean, role?: BlackBettyRole): boolean {
+  return !authEnabled || role === "admin";
+}
 
 interface PlatformContextValue {
   data?: PlatformSnapshot;
   loading: boolean;
   error?: string;
   role: UserRole;
+  authEnabled: boolean;
+  userEmail?: string;
+  blackBettyRole?: BlackBettyRole;
   productMaster: ProductMasterLookup;
   setRole(role: UserRole): void;
+  signOut(): Promise<void>;
   refresh(): Promise<void>;
   updateCategorySpace(input: UpdateCategorySpaceInput): Promise<CategorySpace>;
   duplicateStoreLayout(layoutId: UUID, name?: string): Promise<StoreLayout>;
@@ -40,6 +56,8 @@ interface PlatformContextValue {
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;
+  applyStoreDisplayWorkbook(input: ApplyStoreDisplayWorkbookInput): Promise<void>;
+  reconcilePendingCampaignProduct(input: ReconcilePendingCampaignProductInput): Promise<CampaignProduct>;
   applySupplierSubmissionImport(input: ApplySupplierSubmissionImportInput): Promise<ApplySupplierSubmissionImportResult>;
   updatePromotionOpportunity(input: UpdatePromotionOpportunityInput): Promise<PromotionOpportunity>;
   updateCampaignProduct(input: UpdateCampaignProductInput): Promise<CampaignProduct>;
@@ -81,6 +99,49 @@ export function PlatformProvider({ children, adapter = repository, productMaster
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [role, setRole] = useState<UserRole>("merchandising");
+  const [session, setSession] = useState<Session | null | undefined>(configuredSupabase ? undefined : null);
+  const [access, setAccess] = useState<{ userId: string; role?: BlackBettyRole }>();
+  const [authError, setAuthError] = useState<string>();
+  const blackBettyRole = access && access.userId === session?.user.id ? access.role : undefined;
+
+  useEffect(() => {
+    if (!configuredSupabase) return undefined;
+
+    void configuredSupabase.auth.getSession().then(({ data: { session: currentSession }, error: sessionError }) => {
+      if (sessionError) setAuthError(sessionError.message);
+      setSession(currentSession);
+    });
+    const { data: { subscription } } = configuredSupabase.auth.onAuthStateChange((_event, currentSession) => {
+      setAuthError(undefined);
+      setSession(currentSession);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!configuredSupabase || session === undefined) return;
+    if (!session) return;
+
+    let active = true;
+    void configuredSupabase
+      .from("black_betty_user_access")
+      .select("role")
+      .eq("email", session.user.email?.trim().toLowerCase() ?? "")
+      .maybeSingle()
+      .then(({ data: access, error: accessError }) => {
+        if (!active) return;
+        if (accessError) {
+          setAuthError(accessError.message);
+          setAccess({ userId: session.user.id });
+          return;
+        }
+        const accessRole = access?.role === "admin" || access?.role === "buyer" ? access.role : undefined;
+        setAccess({ userId: session.user.id, role: accessRole });
+        setRole(accessRole === "admin" ? "admin" : "merchandising");
+        setAuthError(undefined);
+      });
+    return () => { active = false; };
+  }, [session]);
 
   const refresh = useCallback(async () => {
     try {
@@ -94,9 +155,12 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     }
   }, [adapter]);
 
-  // The repository is an external data source and must be synchronized on mount.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void refresh(); }, [refresh]);
+  // The shared repository requires the authenticated Black Betty session for RLS.
+  useEffect(() => {
+    if (configuredSupabase && (session === undefined || !blackBettyRole)) return;
+    const timeoutId = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [blackBettyRole, refresh, session]);
 
   const mutate = useCallback(async (operation: () => Promise<unknown>) => {
     try {
@@ -108,6 +172,13 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     }
   }, [refresh]);
 
+  const mutatePhysicalReference = useCallback(async (operation: () => Promise<unknown>) => {
+    if (!canManagePhysicalReference(Boolean(configuredSupabase), blackBettyRole)) {
+      throw new Error("Only a Black Betty admin can change canonical store layouts or display geometry.");
+    }
+    await mutate(operation);
+  }, [blackBettyRole, mutate]);
+
   const effectiveProductMaster = useMemo(
     () => productMaster ?? configuredProductMaster ?? new MockProductMasterLookup(data?.products ?? []),
     [data?.products, productMaster],
@@ -115,12 +186,20 @@ export function PlatformProvider({ children, adapter = repository, productMaster
 
   const value = useMemo<PlatformContextValue>(() => ({
     data, loading, error, role, setRole, refresh, productMaster: effectiveProductMaster,
-    updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutate(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
-    duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutate(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
-    setCurrentStoreLayout: (layoutId) => mutate(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
-    createDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutate(async () => { result = await adapter.createDisplayArea(input); }); if (!result) throw new Error("Display area creation did not return a result."); return result; },
-    updateDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutate(async () => { result = await adapter.updateDisplayArea(input); }); if (!result) throw new Error("Display area update did not return a result."); return result; },
-    deleteDisplayArea: (displayAreaId) => mutate(() => adapter.deleteDisplayArea(displayAreaId)).then(() => undefined),
+    authEnabled: Boolean(configuredSupabase),
+    userEmail: session?.user.email,
+    blackBettyRole,
+    signOut: async () => {
+      if (!configuredSupabase) return;
+      const { error: signOutError } = await configuredSupabase.auth.signOut();
+      if (signOutError) throw signOutError;
+    },
+    updateCategorySpace: async (input) => { let result: CategorySpace | undefined; await mutatePhysicalReference(async () => { result = await adapter.updateCategorySpace(input); }); if (!result) throw new Error("Category space update did not return a result."); return result; },
+    duplicateStoreLayout: async (layoutId, name) => { let result: StoreLayout | undefined; await mutatePhysicalReference(async () => { result = await adapter.duplicateStoreLayout(layoutId, name); }); if (!result) throw new Error("Layout duplication did not return a result."); return result; },
+    setCurrentStoreLayout: (layoutId) => mutatePhysicalReference(() => adapter.setCurrentStoreLayout(layoutId)).then(() => undefined),
+    createDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutatePhysicalReference(async () => { result = await adapter.createDisplayArea(input); }); if (!result) throw new Error("Display area creation did not return a result."); return result; },
+    updateDisplayArea: async (input) => { let result: DisplayArea | undefined; await mutatePhysicalReference(async () => { result = await adapter.updateDisplayArea(input); }); if (!result) throw new Error("Display area update did not return a result."); return result; },
+    deleteDisplayArea: (displayAreaId) => mutatePhysicalReference(() => adapter.deleteDisplayArea(displayAreaId)).then(() => undefined),
     searchProducts: (query) => adapter.searchProducts(query),
     createPendingProduct: async (input) => {
       let product: Product | undefined;
@@ -154,6 +233,13 @@ export function PlatformProvider({ children, adapter = repository, productMaster
       await mutate(async () => { result = await adapter.applyCampaignWorkbookImport(input); });
       if (!result) throw new Error("Campaign workbook import did not return a result.");
       return result;
+    },
+    applyStoreDisplayWorkbook: (input) => mutate(() => adapter.applyStoreDisplayWorkbook(input)).then(() => undefined),
+    reconcilePendingCampaignProduct: async (input) => {
+      let product: CampaignProduct | undefined;
+      await mutate(async () => { product = await adapter.reconcilePendingCampaignProduct(input); });
+      if (!product) throw new Error("Pending campaign product reconciliation did not return a product.");
+      return product;
     },
     applySupplierSubmissionImport: async (input) => {
       let result: ApplySupplierSubmissionImportResult | undefined;
@@ -215,9 +301,70 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     updateRecommendation: (id, status, note) => mutate(() => adapter.updateRecommendation(id, status, note)).then(() => undefined),
     updateOrderRecommendation: (input) => mutate(() => adapter.updateOrderRecommendation(input)).then(() => undefined),
     resetDemo: () => mutate(() => adapter.reset()).then(() => undefined),
-  }), [adapter, data, effectiveProductMaster, error, loading, mutate, refresh, role]);
+  }), [adapter, blackBettyRole, data, effectiveProductMaster, error, loading, mutate, mutatePhysicalReference, refresh, role, session?.user.email]);
+
+  if (configuredSupabase && session === undefined) return <AuthStatus message="Checking Black Betty access…" />;
+  if (configuredSupabase && !session) return <BlackBettySignIn error={authError} />;
+  if (configuredSupabase && !blackBettyRole) return <AuthStatus message={authError ?? "Your account does not have Black Betty access."} canSignOut />;
 
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
+}
+
+function AuthFrame({ children }: { children: ReactNode }) {
+  return <main className="grid min-h-screen place-items-center bg-page-canvas p-6"><section className="w-full max-w-md rounded-lg border border-border bg-surface p-8 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-primary">Black Betty</p>{children}</section></main>;
+}
+
+function AuthStatus({ message, canSignOut = false }: { message: string; canSignOut?: boolean }) {
+  return <AuthFrame><h1 className="mt-2 text-xl font-semibold">Merchandising operations</h1><p className="mt-3 text-sm text-text-secondary">{message}</p>{canSignOut && <button type="button" className="mt-5 min-h-10 w-full rounded-md border border-border px-4 text-sm font-semibold" onClick={() => { void configuredSupabase?.auth.signOut(); }}>Sign out</button>}</AuthFrame>;
+}
+
+function BlackBettySignIn({ error }: { error?: string }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [message, setMessage] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!configuredSupabase) return;
+    if (creatingAccount && password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage(undefined);
+    try {
+      const credentials = { email: email.trim().toLowerCase(), password };
+      const result = creatingAccount
+        ? await configuredSupabase.auth.signUp(credentials)
+        : await configuredSupabase.auth.signInWithPassword(credentials);
+      if (result.error) setMessage(result.error.message);
+      else if (creatingAccount && !result.data.session) setMessage("Account created. Confirm your email before signing in.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Unable to sign in.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <AuthFrame>
+      <h1 className="mt-2 text-xl font-semibold">{creatingAccount ? "Create your Black Betty account" : "Sign in to Black Betty"}</h1>
+      <p className="mt-3 text-sm text-text-secondary">Use your approved Cascadia or Truffles email. Access is managed separately from Ursus Major.</p>
+      {error && <p role="alert" className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+      <form className="mt-5 space-y-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+        <label className="block text-sm font-medium" htmlFor="black-betty-email">Email</label>
+        <input id="black-betty-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" />
+        <label className="block text-sm font-medium" htmlFor="black-betty-password">Password</label>
+        <input id="black-betty-password" type="password" autoComplete={creatingAccount ? "new-password" : "current-password"} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" />
+        {creatingAccount && <><label className="block text-sm font-medium" htmlFor="black-betty-confirm-password">Confirm password</label><input id="black-betty-confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm" /></>}
+        <button type="submit" disabled={submitting} className="min-h-10 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60">{submitting ? "Working…" : creatingAccount ? "Create account" : "Sign in"}</button>
+      </form>
+      <button type="button" disabled={submitting} onClick={() => { setCreatingAccount((value) => !value); setMessage(undefined); }} className="mt-4 text-sm font-semibold text-primary hover:underline disabled:opacity-60">{creatingAccount ? "Already have an account? Sign in" : "New to Black Betty? Create account"}</button>
+      {message && <p role="status" className="mt-4 text-sm text-text-secondary">{message}</p>}
+    </AuthFrame>
+  );
 }
 
 export function usePlatform() {

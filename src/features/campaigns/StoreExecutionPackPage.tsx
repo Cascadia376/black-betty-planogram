@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { buildStoreExecutionPack, executionGroup, executionGroups, executionMonths, type ExecutionMonth, type ExecutionProduct } from "../../domain/storeExecutionPack";
+import { buildStoreExecutionPack, executionMonths, type ExecutionMonth, type ExecutionProduct, type MonthlyOrderProduct } from "../../domain/storeExecutionPack";
 import type { DisplayArea, PlatformSnapshot, StoreLayout } from "../../domain/types";
 import { usePlatform } from "../../services/PlatformProvider";
 import "./executionPack.css";
@@ -15,25 +15,26 @@ export function StoreExecutionPackPage() {
   if (loading) return <p>Loading store execution pack…</p>;
   if (!pack || !data) return <p role="alert">{error || "Campaign or participating store not found."}</p>;
   return <main className="execution-pack">
-    <nav className="pack-controls"><Link to={`/campaigns/${campaignId}/review`}>← Campaign Review</Link><div>{executionMonths.map((item) => <Link key={item} to={`/campaigns/${campaignId}/stores/${storeId}/pack?month=${item}`}>{monthLabel(item)}</Link>)}<Link to={`/campaigns/${campaignId}/stores/${storeId}/pack`}>All OND</Link></div><button disabled={!loadedMap || loadedMap !== pack.layout?.backgroundImageUrl} onClick={() => window.print()}>Print / Save letter-size PDF</button></nav>
-    <header><p>Black Betty · Store execution pack · {month ? `${monthLabel(month)} output` : "All OND output"} · {pack.exceptions.length ? "DRAFT — unresolved exceptions" : "Reviewed planning copy"}</p><h1>{pack.campaign.name}</h1><h2>{pack.store.name}</h2><p>{month ? monthLabel(month) : `${pack.campaign.startDate} to ${pack.campaign.endDate}`}</p><p>Planning copy, not a published release. Do not substitute products or locations.</p><p>Source: {pack.sources.join(", ") || "Manual campaign"}</p></header>
-    <section className="pack-map-page"><h2>Full floor map</h2><p>Outlined markers identify approved campaign display areas. Suggested areas are not highlighted.</p><ExecutionMap key={pack.layout?.id} data={data} layout={pack.layout} storeName={pack.store.name} areas={pack.builds.map((item) => item.area)} onLoaded={setLoadedMap} /></section>
-    {executionGroups.map((group) => {
-      const builds = pack.builds.filter((build) => build.products.some((item) => executionGroup(item.category) === group) || (!build.products.length && group === "Category requires review")).map((build) => ({ ...build, products: build.products.filter((item) => executionGroup(item.category) === group) }));
-      if (!builds.length) return null;
-      return <section key={group} className="pack-group"><h2>{group}</h2>{!builds.length ? <p>No assigned products in this group.</p> : builds.map((build) => <article className="pack-build" key={build.id}>
-        <h3>{build.code} · {build.name}</h3><p><strong>Signage:</strong> {build.signage}</p><p><strong>Execution notes:</strong> {build.notes}</p>
-        {build.products.length ? <ProductTable products={build.products} /> : <p>No assigned products — do not set up until merchandising confirms the product list.</p>}
-        <div className="pack-location"><ExecutionMap data={data} layout={pack.layout} storeName={pack.store.name} areas={[build.area]} /><p>Location reference: {build.code} · {build.name}</p></div>
-      </article>)}</section>;
-    })}
+    <nav className="pack-controls"><Link to={`/campaigns/${campaignId}/review`}>← Campaign Review</Link><div>{executionMonths.map((item) => <Link key={item} to={`/campaigns/${campaignId}/stores/${storeId}/pack?month=${item}`}>{monthLabel(item)} order plan</Link>)}<Link to={`/campaigns/${campaignId}/stores/${storeId}/pack`}>Display plan only</Link></div><button disabled={!loadedMap || loadedMap !== pack.layout?.backgroundImageUrl} onClick={() => window.print()}>Print / Save letter-size PDF</button></nav>
+    <header><p>Black Betty · OND display plan · {pack.exceptions.length ? "DRAFT — unresolved exceptions" : "Reviewed planning copy"}</p><h1>{pack.campaign.name}</h1><h2>{pack.store.name}</h2><p>{pack.campaign.startDate} to {pack.campaign.endDate}</p><p>This is the store's one stable display plan for the full OND period. Month selection changes the promotional order plan only.</p><p>Source: {pack.sources.join(", ") || "Manual campaign"}</p></header>
+    <section className="pack-map-page"><h2>OND display floor map</h2><p>Outlined markers identify approved campaign display areas for the full campaign. Suggested areas are not highlighted.</p><ExecutionMap key={pack.layout?.id} data={data} layout={pack.layout} storeName={pack.store.name} areas={pack.builds.map((item) => item.area)} onLoaded={setLoadedMap} /></section>
+    <section className="pack-group"><h2>Display build sheets</h2>{pack.builds.map((build) => <article className="pack-build" key={build.id}>
+      <p className="pack-page-identity">{pack.campaign.name} · {pack.store.name}</p><h3>{build.code} · {build.name}</h3><p><strong>Signage:</strong> {build.signage}</p><p><strong>Display notes:</strong> {build.notes}</p>
+      {build.products.length ? <ProductTable products={build.products} /> : <p>No assigned products — do not set up until merchandising confirms the product list.</p>}
+      <div className="pack-location"><ExecutionMap data={data} layout={pack.layout} storeName={pack.store.name} areas={[build.area]} /><p>Location reference: {build.code} · {build.name}</p></div>
+    </article>)}</section>
     <section className="pack-group"><h2>No-display / shelf-support items</h2><p>Keep these products in their regular shelf location; no promotional floor area is assigned.</p>{pack.shelf.length ? <ProductTable products={pack.shelf} /> : <p>No shelf-support items.</p>}</section>
+    {month && pack.orderPlan && <section className="pack-group monthly-order-plan"><h2>{monthLabel(month)} OND order plan</h2><p>Promotional case intent is limited to products whose LTO Month includes {monthLabel(month)}. Display placement above remains unchanged.</p>{pack.orderPlan.products.length ? <OrderProductTable products={pack.orderPlan.products} /> : <p>No products are campaign-order eligible for {monthLabel(month)}.</p>}</section>}
     <section className="pack-group"><h2>Unresolved exceptions ({pack.exceptions.length})</h2>{pack.exceptions.length ? <><p>Do not execute unresolved instructions. Return these items to merchandising for approval.</p>{pack.exceptions.map((item) => <article className="pack-exception" key={item.id}><h3>{item.kind}</h3><p>{item.message}</p><p><strong>Next action:</strong> {item.action}</p></article>)}</> : <p>No unresolved exceptions in this store plan.</p>}</section>
   </main>;
 }
 
 function ProductTable({ products }: { products: ExecutionProduct[] }) {
-  return <table><thead><tr><th>SKU</th><th>Product</th><th>Cases</th><th>Product execution notes</th></tr></thead><tbody>{products.map((item) => <tr key={item.id}><td>{item.sku}</td><td>{item.name}</td><td><strong>{item.cases ?? "UNRESOLVED"}</strong></td><td>{item.notes || "None supplied"}</td></tr>)}</tbody></table>;
+  return <table><thead><tr><th>SKU</th><th>Product</th><th>Cases</th><th>Status</th><th>Product execution notes</th></tr></thead><tbody>{products.map((item) => <tr key={item.id}><td>{item.sku}</td><td>{item.name}</td><td><strong>{item.cases ?? "UNRESOLVED"}</strong></td><td>{item.productResolution === "PENDING" ? "PENDING PRODUCT" : item.productResolution === "MATCHED_INACTIVE" ? "INACTIVE PRODUCT" : "Matched"}</td><td>{item.notes || "None supplied"}</td></tr>)}</tbody></table>;
+}
+
+function OrderProductTable({ products }: { products: MonthlyOrderProduct[] }) {
+  return <table><thead><tr><th>SKU</th><th>Product</th><th>Cases</th><th>Display context</th><th>Order notes</th></tr></thead><tbody>{products.map((item) => <tr key={item.id}><td>{item.sku}</td><td>{item.name}</td><td><strong>{item.cases ?? "UNRESOLVED"}</strong></td><td>{item.displayContext}</td><td>{item.notes || "None supplied"}</td></tr>)}</tbody></table>;
 }
 
 function parseExecutionMonth(value: string | null): ExecutionMonth | undefined {

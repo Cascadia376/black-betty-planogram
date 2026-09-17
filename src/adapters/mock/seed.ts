@@ -1,6 +1,7 @@
 import type { CategorySpace, CategorySpaceSection, PlatformSnapshot } from "../../domain/types";
 import { additionalCategorySpaces, additionalCategorySpaceSections, additionalStoreLayouts, additionalStores } from "./allStoreLayoutSeed.generated";
 import { displayClassDefinitions, verifiedDisplayAreas, verifiedDisplayAreaSections } from "./verifiedDisplaySeed.generated";
+import { applyPublishedFloorplans } from "./publishedFloorplans";
 
 export const IDS = {
   store: "10000000-0000-4000-8000-000000000001",
@@ -107,7 +108,7 @@ const crownCategorySpaceSections: CategorySpaceSection[] = [
   { id: "13000000-0000-4000-8000-000000000002", categorySpaceId: crownCategorySpaces[20].id, label: "Movable shelves", shelfWidthIn: 35.5, shelfDepthIn: 16, shelfCount: 17, notes: "One 5-shelf section and two 6-shelf sections.", sortOrder: 0 },
 ];
 
-export const seedSnapshot: PlatformSnapshot = {
+const baseSeedSnapshot: PlatformSnapshot = {
   stores: [
     { id: IDS.store, name: "Crown Isle", code: "CI", address: "Courtenay, BC" },
     ...additionalStores,
@@ -329,3 +330,5 @@ export const seedSnapshot: PlatformSnapshot = {
   ],
   history: [{ id: "b0000000-0000-4000-8000-000000000001", displayAreaId: IDS.endcapA, campaignId: IDS.summerCampaign, assignmentId: IDS.summerAssignment, executionId: IDS.summerExecution, startDate: "2026-06-01", endDate: "2026-07-15" }],
 };
+
+export const seedSnapshot: PlatformSnapshot = applyPublishedFloorplans(baseSeedSnapshot);

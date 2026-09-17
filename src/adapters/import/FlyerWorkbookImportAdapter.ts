@@ -208,8 +208,9 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
       const note = cellText(cells[indexes.notes]);
       const wholesaleLtoAmount = parseLtoAmount(ltoRaw);
       const ltoCode = parseTprCode(note) ?? (wholesaleLtoAmount === undefined && ltoRaw && ltoRaw.toLocaleUpperCase() !== "NA" ? ltoRaw : undefined);
+      const ltoMonths = workbookKind === "ond" ? parseOndLtoMonths(ltoRaw) : undefined;
       const source = sourceMetadata(cells, indexes, allocations, options.sourceSheet, rowNumber, skuRaw, productName, rowIssues.map((issue) => issue.code), {
-        sellingPrice, savings, salePrice, loyaltyPointsMultiplier, wholesaleLtoAmount, ltoCode,
+        sellingPrice, savings, salePrice, loyaltyPointsMultiplier, wholesaleLtoAmount, ltoCode, ltoMonths,
         displayRequired: effectiveDisplayRequired, displayLocalCode: effectiveDisplayLocalCode,
       });
       const status = rowIssues.some((issue) => issue.code === "duplicate_sku") ? "duplicate"
@@ -473,6 +474,15 @@ function displayFamilyForCode(code: string): DisplayFamily {
 }
 
 function parseTprCode(notes: string) { return notes.match(/\bTPR\s+([A-Z]+)\b/i)?.[0].toLocaleUpperCase(); }
+function parseOndLtoMonths(value: string): Array<"OCT" | "NOV" | "DEC"> | undefined {
+  const normalized = value.toLocaleUpperCase();
+  const months = ([
+    ["OCT", /\bOCT(?:OBER)?\b/],
+    ["NOV", /\bNOV(?:EMBER)?\b/],
+    ["DEC", /\bDEC(?:EMBER)?\b/],
+  ] as const).filter(([, pattern]) => pattern.test(normalized)).map(([month]) => month);
+  return months.length ? months : undefined;
+}
 function parseLtoAmount(value: string) { const amount = parseMoney(value); return amount !== undefined && amount >= 0 ? amount : undefined; }
 function parsePoints(value: string) { const match = value.match(/^\s*(\d+(?:\.\d+)?)\s*[xX]\s*$/); return match ? Number(match[1]) : undefined; }
 function parseYes(value: unknown) { return ["Y", "YES", "TRUE", "1"].includes(cellText(value).toLocaleUpperCase()); }
