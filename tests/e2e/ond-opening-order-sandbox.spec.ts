@@ -73,7 +73,7 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
   await expect(exit).toContainText("Exit strategy: minimize post-program stock");
 
   const batches = page.getByRole("heading", { name: "Supplier order batches" }).locator("xpath=ancestor::section[1]");
-  const coastalBatch = batches.locator("div").filter({ has: page.getByText("Mock Coastal Distribution", { exact: true }) }).filter({ has: page.getByRole("button", { name: "Create supplier order" }) }).first();
+  const coastalBatch = batches.getByText("Mock Coastal Distribution", { exact: true }).locator("xpath=parent::div/parent::div");
   await expect(coastalBatch).toContainText("4 products");
   await expect(coastalBatch).toContainText("36 cases");
   await expect(batches.getByText("Mock Winter Cider Pack", { exact: true })).toHaveCount(0);
@@ -103,7 +103,7 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
   await expect(batches.getByText("Mock Coastal Distribution", { exact: true })).toHaveCount(1);
   const remainingCreateButtons = batches.getByRole("button", { name: "Create supplier order" });
   await expect(remainingCreateButtons).toHaveCount(1);
-  const alternateBatch = batches.locator("div").filter({ has: page.getByText("Mock Island Wholesale", { exact: true }) }).filter({ has: page.getByRole("button", { name: "Create supplier order" }) }).first();
+  const alternateBatch = batches.getByText("Mock Island Wholesale", { exact: true }).locator("xpath=parent::div/parent::div");
   await expect(alternateBatch).toContainText("1 products");
   await expect(alternateBatch).toContainText("7 cases");
 });
