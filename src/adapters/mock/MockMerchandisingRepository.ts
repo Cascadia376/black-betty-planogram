@@ -18,6 +18,7 @@ import { RuleBasedOndDemandService } from "../../services/demand/RuleBasedOndDem
 import { RuleBasedOrderRecommendationService } from "../../services/orders/OrderRecommendationService";
 import { calculateResidualInventory } from "../../services/orders/ResidualInventoryService";
 import { seedSnapshot } from "./seed";
+import { applyPublishedFloorplans, PUBLISHED_FLOORPLAN_VERSION } from "./publishedFloorplans";
 import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAllocation";
 import type { CampaignDisplayAssignmentProduct } from "../../domain/types";
 import { isNormalizedGeometry, validateCategorySpace } from "../../domain/storeLayouts";
@@ -25,6 +26,7 @@ import { displayAreaDependencies, validateDisplayArea } from "../../domain/displ
 import { deserializeSnapshot, serializeSnapshot } from "./snapshotStorage";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
+const PUBLISHED_FLOORPLAN_VERSION_KEY = "cascadia-merchandising-published-floorplan-version";
 const defaultDisplayRequirement: DisplayRequirement = {
   displayType: "flex",
   priority: "standard",
@@ -131,7 +133,15 @@ function readInitialState(): PlatformSnapshot {
   if (typeof window === "undefined") return cloneSeed();
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored ? normalizeSnapshot(deserializeSnapshot(stored)) : cloneSeed();
+    if (!stored) return cloneSeed();
+
+    const snapshot = normalizeSnapshot(deserializeSnapshot(stored));
+    if (window.localStorage.getItem(PUBLISHED_FLOORPLAN_VERSION_KEY) === PUBLISHED_FLOORPLAN_VERSION) return snapshot;
+
+    // A newly deployed baseline replaces only floorplan data. Non-floorplan work
+    // remains intact, and future local edits continue to persist as usual.
+    window.localStorage.setItem(PUBLISHED_FLOORPLAN_VERSION_KEY, PUBLISHED_FLOORPLAN_VERSION);
+    return applyPublishedFloorplans(snapshot);
   } catch {
     return cloneSeed();
   }
