@@ -26,6 +26,7 @@ import { AllocationPlannerPage } from "./features/programs/AllocationPlannerPage
 import { StoreOverviewPage } from "./features/stores/StorePages";
 import { StoreDirectoryPage } from "./features/stores/StoreDirectoryPage";
 import { PhysicalStoreFloorplanPage } from "./features/stores/PhysicalStoreFloorplanPage";
+import { FloorplanRecoveryPage } from "./features/stores/FloorplanRecoveryPage";
 import { DisplayAreaAdminPage } from "./features/stores/DisplayAreaAdminPage";
 import { StoreWorkspacePage } from "./features/stores/OndStoreWorkspacePage";
 import { PlatformProvider } from "./services/PlatformProvider";
@@ -50,6 +51,7 @@ export function App() {
     <Route path="imports/supplier" element={<SupplierSubmissionImportPage />} />
     <Route path="opportunities" element={<PromotionOpportunitiesPage />} />
     <Route path="stores" element={<StoreDirectoryPage />} />
+    <Route path="stores/floorplan-recovery" element={<FloorplanRecoveryPage />} />
     <Route path="stores/:storeId" element={<StoreOverviewPage />} />
     <Route path="stores/:storeId/floorplan" element={<PhysicalStoreFloorplanPage />} />
     <Route path="stores/:storeId/display-areas/new" element={<DisplayAreaAdminPage />} />

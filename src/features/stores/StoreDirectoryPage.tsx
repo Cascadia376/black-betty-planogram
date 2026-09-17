@@ -1,4 +1,4 @@
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight, History, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge, Card, DataState, EmptyState, PageHeader } from "../../components/ui";
 import { usePlatform } from "../../services/PlatformProvider";
@@ -16,6 +16,7 @@ export function StoreDirectoryPage() {
             eyebrow="Stores"
             title="Physical store network"
             description="Browse current store floorplans and source-backed promotional display coverage."
+            actions={<Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-semibold hover:bg-subtle" to="/stores/floorplan-recovery"><History className="h-4 w-4" />Recover floorplans</Link>}
           />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {coverage.map((item) => (
