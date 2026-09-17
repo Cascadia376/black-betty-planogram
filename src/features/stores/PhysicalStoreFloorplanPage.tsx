@@ -39,7 +39,7 @@ export function PhysicalStoreFloorplanPage() {
   const spaces = data?.categorySpaces.filter((item) => item.layoutId === layout?.id && item.active) ?? [];
   const selectedProgram = data?.programs.find((item) => item.id === params.get("program"));
   const selectedCampaign = data?.campaigns.find((item) => item.id === params.get("campaign"));
-  const canManagePhysicalLayout = !authEnabled || blackBettyRole === "admin";
+  const canManagePhysicalLayout = !authEnabled || blackBettyRole === "buyer" || blackBettyRole === "admin";
   const layoutManagementMode = canManagePhysicalLayout && !selectedCampaign && params.get("mode") === "layout";
   const programAssignments = data?.displayAssignments.filter((item) => item.programId === selectedProgram?.id && item.storeId === storeId && item.status !== "cancelled") ?? [];
   const areas = data?.displayAreas.filter((item) => item.storeId === storeId && (item.active || programAssignments.some((assignment) => assignment.displayAreaId === item.id))) ?? [];
@@ -169,7 +169,7 @@ export function PhysicalStoreFloorplanPage() {
             actions={<><button type="button" onClick={exportFloorplans} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle"><Download className="h-4 w-4" />Export floorplans</button>{selectedCampaign && <Link className="inline-flex min-h-9 items-center rounded-md border border-primary bg-surface px-3 text-sm font-semibold text-primary hover:bg-primary-subtle" to={`/campaigns/${selectedCampaign.id}/assign`}>Back to store placements</Link>}{canManagePhysicalLayout && !selectedCampaign && (layoutManagementMode ? <Link className="inline-flex min-h-9 items-center rounded-md border border-error bg-surface px-3 text-sm font-semibold text-error" to={`?layout=${layout.id}`}>Exit layout management</Link> : <Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-primary bg-surface px-3 text-sm font-semibold text-primary" to={`?layout=${layout.id}&mode=layout`}><Edit3 className="h-4 w-4" />Manage physical layout</Link>)}{layoutManagementMode && <Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/display-areas/new`}>New display area</Link>}<Link className="inline-flex min-h-9 items-center rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${store.id}/workspace`}>Store workspace</Link></>}
           />
 
-          {layoutManagementMode && <p role="status" className="mb-4 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-sm text-text-secondary"><strong>Admin layout-management mode.</strong> Changes here update canonical physical reference data for every campaign and execution pack.</p>}
+          {layoutManagementMode && <p role="status" className="mb-4 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-sm text-text-secondary"><strong>Layout-management mode.</strong> Changes here update canonical physical reference data for every campaign and execution pack.</p>}
 
           {selectedCampaign && (
             <Card className="border-primary/30 bg-primary-subtle/40">
