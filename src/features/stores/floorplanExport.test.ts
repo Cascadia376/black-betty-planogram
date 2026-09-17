@@ -39,7 +39,35 @@ describe("floorplan recovery", () => {
     expect(recovered.floorplans.displayAreas).toEqual(seedSnapshot.displayAreas);
   });
 
-  it("diffs geometry only and ignores matching physical records", () => {
+  it("surfaces recovered display areas that do not exist in shared data", () => {
+    const current = structuredClone(seedSnapshot);
+    const legacy = structuredClone(seedSnapshot);
+    const template = legacy.displayAreas[0];
+    const recoveredOnly = {
+      ...template,
+      id: "recovered-display-only",
+      code: "RECOVERED-ONLY",
+      localCode: "W99",
+      displayNumber: "W99",
+      name: "Recovered Only Display",
+      geometry: { x: 0.4, y: 0.4, width: 0.08, height: 0.08 },
+    };
+    legacy.displayAreas.push(recoveredOnly);
+
+    const recovery = createFloorplanExport(legacy, "2026-09-17T12:00:00.000Z", { source: "browser-local" });
+    const changes = compareFloorplanRecovery(current, recovery);
+
+    expect(changes).toContainEqual(expect.objectContaining({
+      kind: "missing_display_area",
+      itemId: recoveredOnly.id,
+      storeId: recoveredOnly.storeId,
+      label: "W99 · Recovered Only Display",
+      recoveredGeometry: recoveredOnly.geometry,
+      recoveredDisplayArea: recoveredOnly,
+    }));
+  });
+
+  it("diffs existing geometry and ignores matching physical records", () => {
     const current = structuredClone(seedSnapshot);
     const legacy = structuredClone(seedSnapshot);
     const area = legacy.displayAreas[0];
