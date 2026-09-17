@@ -46,8 +46,8 @@ begin
   set physical = physical
   where singleton;
   get diagnostics affected = row_count;
-  if affected <> 0 then
-    raise exception 'Buyer physical update affected % rows instead of 0.', affected;
+  if affected <> 1 then
+    raise exception 'Buyer physical update affected % rows instead of 1.', affected;
   end if;
 end
 $buyer_gate$;
