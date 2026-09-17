@@ -29,7 +29,7 @@ export function DisplayAreaAdminPage() {
   const existing = data?.displayAreas.find((area) => area.id === displayAreaId);
   const resolvedStoreId = existing?.storeId ?? storeId;
   const store = data?.stores.find((item) => item.id === resolvedStoreId);
-  const canManagePhysicalLayout = !authEnabled || blackBettyRole === "admin";
+  const canManagePhysicalLayout = !authEnabled || blackBettyRole === "buyer" || blackBettyRole === "admin";
   const initial: Omit<DisplayArea, "id" | "storeId"> = existing ?? {
     displayNumber: "",
     code: "",
@@ -101,7 +101,7 @@ export function DisplayAreaAdminPage() {
     } finally { setSaving(false); }
   };
 
-  return <DataState loading={loading} error={error}>{!canManagePhysicalLayout ? <EmptyState title="Admin access required" message="Canonical store layouts and DisplayAreas can only be changed by a Black Betty admin in layout-management mode." /> : !store || (displayAreaId && !existing) ? <EmptyState title="Display area not found" message="The requested display area or store is not available." /> : <>
+  return <DataState loading={loading} error={error}>{!canManagePhysicalLayout ? <EmptyState title="Buyer or admin access required" message="Canonical store layouts and DisplayAreas can only be changed by a Black Betty buyer or admin in layout-management mode." /> : !store || (displayAreaId && !existing) ? <EmptyState title="Display area not found" message="The requested display area or store is not available." /> : <>
     <PageHeader eyebrow="Display area administration" title={existing ? `Edit ${existing.name}` : `New ${store.name} display area`} description="Maintain canonical DisplayArea metadata. Changes affect every campaign that references this physical area." actions={<Link className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold" to={`/stores/${store.id}/floorplan?mode=layout`}><ArrowLeft className="h-4 w-4" />Layout management</Link>} />
     <Card className="mx-auto max-w-4xl">
       {mutationError && <p role="alert" className="mb-4 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">{mutationError}</p>}

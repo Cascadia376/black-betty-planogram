@@ -31,6 +31,7 @@ export function FloorplanRecoveryPage() {
     error,
     blackBettyRole,
     userEmail,
+    createDisplayArea,
     updateCategorySpace,
     updateDisplayArea,
   } = usePlatform();
@@ -42,14 +43,35 @@ export function FloorplanRecoveryPage() {
   const changes = useMemo(() => data && recovery ? compareFloorplanRecovery(data, recovery) : [], [data, recovery]);
   const stores = data ? new Map(data.stores.map((store) => [store.id, store])) : new Map();
   const canApply = blackBettyRole === "buyer" || blackBettyRole === "admin";
+  const duplicateFor = (change: FloorplanRecoveryChange) => {
+    if (change.kind !== "missing_display_area" || !change.recoveredDisplayArea || !data) return undefined;
+    const recovered = change.recoveredDisplayArea;
+    const localCode = recovered.localCode?.trim().toLowerCase();
+    const code = recovered.code?.trim().toLowerCase();
+    return data.displayAreas.find((area) => area.storeId === recovered.storeId && (
+      (localCode && area.localCode?.trim().toLowerCase() === localCode)
+      || (code && area.code?.trim().toLowerCase() === code)
+    ));
+  };
+  const restorableChanges = changes.filter((change) => change.kind !== "missing_display_area" || !duplicateFor(change));
 
   const loadRecovery = (next: FloorplanExport) => {
     setRecovery(next);
     if (!data) return;
     const nextChanges = compareFloorplanRecovery(data, next);
-    setSelected(new Set(nextChanges.filter((change) => change.kind !== "missing_display_area").map((change) => change.key)));
+    const nextRestorable = nextChanges.filter((change) => {
+      if (change.kind !== "missing_display_area" || !change.recoveredDisplayArea) return true;
+      const recovered = change.recoveredDisplayArea;
+      const localCode = recovered.localCode?.trim().toLowerCase();
+      const code = recovered.code?.trim().toLowerCase();
+      return !data.displayAreas.some((area) => area.storeId === recovered.storeId && (
+        (localCode && area.localCode?.trim().toLowerCase() === localCode)
+        || (code && area.code?.trim().toLowerCase() === code)
+      ));
+    });
+    setSelected(new Set(nextRestorable.map((change) => change.key)));
     setMessage(nextChanges.length
-      ? `${nextChanges.length} recoverable floorplan difference${nextChanges.length === 1 ? "" : "s"} found. Missing displays are listed for review and are not created automatically.`
+      ? `${nextChanges.length} recoverable floorplan difference${nextChanges.length === 1 ? "" : "s"} found. Existing positions and missing displays can be selected for restore.`
       : "No recoverable geometry differences were found.");
   };
 
@@ -90,20 +112,36 @@ export function FloorplanRecoveryPage() {
         note: "Automatic backup created immediately before floorplan recovery apply.",
       });
 
+      let createdDisplays = 0;
+      let restoredGeometry = 0;
       for (const change of selectedChanges) {
-        if (change.kind === "display_area") {
+        if (change.kind === "missing_display_area") {
+          if (!change.recoveredDisplayArea) throw new Error(`Recovered display data is missing for ${change.label}.`);
+          const duplicate = duplicateFor(change);
+          if (duplicate) throw new Error(`${change.label} matches existing shared display ${duplicate.localCode ?? duplicate.name}. Clear it from the selection and review the existing display instead.`);
+          const { id: _legacyId, ...area } = change.recoveredDisplayArea;
+          await createDisplayArea({ area });
+          createdDisplays += 1;
+        } else if (change.kind === "display_area") {
           await updateDisplayArea({ displayAreaId: change.itemId, patch: { geometry: change.recoveredGeometry } });
+          restoredGeometry += 1;
         } else if (change.kind === "display_area_section" && change.parentId) {
           await updateDisplayArea({
             displayAreaId: change.parentId,
             patch: {},
             sectionGeometry: { sectionId: change.itemId, geometry: change.recoveredGeometry },
           });
+          restoredGeometry += 1;
         } else if (change.kind === "category_space") {
           await updateCategorySpace({ categorySpaceId: change.itemId, patch: { geometry: change.recoveredGeometry } });
+          restoredGeometry += 1;
         }
       }
-      setMessage(`${selectedChanges.length} floorplan change${selectedChanges.length === 1 ? "" : "s"} restored to shared physical data. A pre-restore backup was downloaded.`);
+      const parts = [
+        createdDisplays ? `${createdDisplays} missing display${createdDisplays === 1 ? "" : "s"} recreated` : "",
+        restoredGeometry ? `${restoredGeometry} position change${restoredGeometry === 1 ? "" : "s"} restored` : "",
+      ].filter(Boolean);
+      setMessage(`${parts.join(" and ")} in shared physical data. A pre-restore backup was downloaded.`);
       setSelected(new Set());
       setRecovery(undefined);
     } catch (cause) {
@@ -119,7 +157,7 @@ export function FloorplanRecoveryPage() {
         <PageHeader
           eyebrow="Floorplan recovery"
           title="Recover floorplan work"
-          description="Preview legacy browser or exported recovery data against the current shared physical layout. Missing displays are surfaced for recovery review but are never created automatically."
+          description="Preview legacy browser or exported recovery data against the current shared physical layout. You can restore existing positions and recreate missing displays after review."
           actions={<Link className="rounded border border-border px-3 py-2 text-sm font-semibold" to="/stores">Stores</Link>}
         />
 
@@ -150,9 +188,9 @@ export function FloorplanRecoveryPage() {
 
         {changes.length > 0 && <Card className="overflow-hidden p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
-            <div><h2 className="font-semibold">Recovered floorplan differences</h2><p className="text-sm text-text-secondary">Existing geometry can be restored. Displays missing from shared data are identified separately and are not created automatically.</p></div>
+            <div><h2 className="font-semibold">Recovered floorplan differences</h2><p className="text-sm text-text-secondary">Select position changes and missing displays to restore them to shared floorplan data. Possible duplicates are blocked.</p></div>
             <div className="flex gap-2">
-              <button type="button" className="rounded border border-border px-3 py-2 text-sm font-semibold" onClick={() => setSelected(new Set(changes.filter((change) => change.kind !== "missing_display_area").map((change) => change.key)))}>Select restorable</button>
+              <button type="button" className="rounded border border-border px-3 py-2 text-sm font-semibold" disabled={restorableChanges.length === 0} onClick={() => setSelected(new Set(restorableChanges.map((change) => change.key)))}>Select restorable ({restorableChanges.length})</button>
               <button type="button" className="rounded border border-border px-3 py-2 text-sm font-semibold" onClick={() => setSelected(new Set())}>Clear</button>
             </div>
           </div>
@@ -160,8 +198,8 @@ export function FloorplanRecoveryPage() {
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="sticky top-0 bg-subtle text-xs uppercase text-text-muted"><tr><th className="p-3">Restore</th><th className="p-3">Store</th><th className="p-3">Type</th><th className="p-3">Item</th><th className="p-3">Recovered position</th><th className="p-3">Last edit</th><th className="p-3">Details</th></tr></thead>
               <tbody>{changes.map((change) => <tr key={change.key} className="border-t border-border">
-                <td className="p-3">{change.kind === "missing_display_area"
-                  ? <Badge tone="warning">Review</Badge>
+                <td className="p-3">{change.kind === "missing_display_area" && duplicateFor(change)
+                  ? <Badge tone="warning">Duplicate</Badge>
                   : <input aria-label={`Restore ${change.label}`} type="checkbox" checked={selected.has(change.key)} onChange={() => toggle(change.key)} />}</td>
                 <td className="p-3">{stores.get(change.storeId)?.name ?? change.storeId}</td>
                 <td className="p-3">{change.kind === "missing_display_area" ? "new recovered display" : change.kind.replaceAll("_", " ")}</td>
@@ -169,7 +207,9 @@ export function FloorplanRecoveryPage() {
                 <td className="p-3">{geometryLabel(change)}</td>
                 <td className="p-3 text-xs text-text-secondary">{change.kind === "missing_display_area" ? editTimeLabel(change) : "—"}</td>
                 <td className="p-3 text-xs text-text-secondary">{change.kind === "missing_display_area"
-                  ? [change.recoveredDisplayArea?.type, change.recoveredDisplayArea?.displayFamily, change.recoveredDisplayArea?.description].filter(Boolean).join(" · ") || "Recovered display definition is not present in shared data."
+                  ? duplicateFor(change)
+                    ? `Matches existing display ${duplicateFor(change)?.localCode ?? duplicateFor(change)?.name}; not safe to recreate automatically.`
+                    : [change.recoveredDisplayArea?.type, change.recoveredDisplayArea?.displayFamily, change.recoveredDisplayArea?.description].filter(Boolean).join(" · ") || "Recovered display can be recreated in shared data."
                   : "Existing shared record"}</td>
               </tr>)}</tbody>
             </table>
