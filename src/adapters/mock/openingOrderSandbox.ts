@@ -7,6 +7,7 @@ export const OPENING_ORDER_SANDBOX_IDS = {
   reservedStockProduct: "sandbox-order-product-reserved",
   zeroStockProduct: "sandbox-order-product-zero",
   alternateSupplierProduct: "sandbox-order-product-alternate",
+  forecastMultipleProduct: "sandbox-order-product-forecast-multiple",
 } as const;
 
 const sandboxProducts: Product[] = [
@@ -69,6 +70,18 @@ const sandboxProducts: Product[] = [
     active: true,
     synthetic: true,
     notes: "Opening-order sandbox: preferred supplier is unavailable; alternate supplier can meet Oct 1.",
+  },
+  {
+    id: OPENING_ORDER_SANDBOX_IDS.forecastMultipleProduct,
+    sku: "TEST-OND-4006",
+    name: "TEST Forecast + Multiple Feature",
+    category: "Wine",
+    packageSize: "750 mL",
+    casePack: 6,
+    masterStatus: "verified",
+    active: true,
+    synthetic: true,
+    notes: "Opening-order sandbox: realistic pre-launch demand plus a four-case purchasing multiple.",
   },
 ];
 
@@ -195,6 +208,16 @@ export function buildOpeningOrderSandboxSnapshot(): PlatformSnapshot {
       note: "TEST supplier fallback: preferred unavailable, alternate can meet required date.",
     },
     {
+      id: "sandbox-order-line-06b",
+      assignmentId: IDS.ondFeatureAssignment,
+      productId: OPENING_ORDER_SANDBOX_IDS.forecastMultipleProduct,
+      sku: "TEST-OND-4006",
+      caseQuantity: 8,
+      required: true,
+      preferredSupplierId: IDS.ondPreferredSupplier,
+      note: "TEST forecast + multiple: 8 display cases + 4 forecast cases - 2 usable on hand = 10 raw, rounded to 12.",
+    },
+    {
       id: "sandbox-order-line-07",
       assignmentId: IDS.ondFeatureAssignment,
       productId: IDS.ondCiderProduct,
@@ -298,6 +321,17 @@ export function buildOpeningOrderSandboxSnapshot(): PlatformSnapshot {
       casePack: 6,
       availability: "available",
     },
+    {
+      productId: OPENING_ORDER_SANDBOX_IDS.forecastMultipleProduct,
+      supplierId: IDS.ondPreferredSupplier,
+      supplierName: "Mock Coastal Distribution",
+      preferred: true,
+      leadTimeDays: 5,
+      orderDays: ["Monday", "Thursday"],
+      casePack: 6,
+      orderMultipleCases: 4,
+      availability: "available",
+    },
   ];
 
   data.inventoryPositions = [
@@ -308,6 +342,7 @@ export function buildOpeningOrderSandboxSnapshot(): PlatformSnapshot {
     { storeId: IDS.store, productId: OPENING_ORDER_SANDBOX_IDS.reservedStockProduct, onHandCases: 6, reservedCases: 2, updatedAt: "2026-09-24T16:00:00Z" },
     { storeId: IDS.store, productId: OPENING_ORDER_SANDBOX_IDS.zeroStockProduct, onHandCases: 0, updatedAt: "2026-09-24T16:00:00Z" },
     { storeId: IDS.store, productId: OPENING_ORDER_SANDBOX_IDS.alternateSupplierProduct, onHandCases: 0, updatedAt: "2026-09-24T16:00:00Z" },
+    { storeId: IDS.store, productId: OPENING_ORDER_SANDBOX_IDS.forecastMultipleProduct, onHandCases: 2, updatedAt: "2026-09-24T16:00:00Z" },
     { storeId: IDS.store, productId: IDS.ondCiderProduct, onHandCases: 0, updatedAt: "2026-09-24T16:00:00Z" },
     { storeId: IDS.store, productId: IDS.ondBridgeProduct, onHandCases: 2, updatedAt: "2026-09-24T16:00:00Z" },
     { storeId: IDS.store, productId: IDS.ondHolidayProduct, onHandCases: 20, updatedAt: "2026-09-24T16:00:00Z" },
@@ -344,7 +379,7 @@ export function buildOpeningOrderSandboxSnapshot(): PlatformSnapshot {
       productId,
       category: data.products.find((product) => product.id === productId)?.category,
       date: "2025-10-15",
-      cases: 0,
+      cases: productId === OPENING_ORDER_SANDBOX_IDS.forecastMultipleProduct ? 0.5 : 0,
     })),
   ];
 
@@ -359,7 +394,7 @@ export function buildOpeningOrderSandboxSnapshot(): PlatformSnapshot {
   const program = data.programs.find((item) => item.id === IDS.ondProgram);
   if (program) {
     program.status = "planned";
-    program.description = "TEST opening-order sandbox with ten controlled purchasing scenarios.";
+    program.description = "TEST opening-order sandbox with controlled purchasing, forecast, and rounding scenarios.";
   }
 
   return data;
