@@ -21,7 +21,7 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
   await expect(page.getByRole("heading", { name: "Crown Isle orders" })).toBeVisible();
 
   await page.getByRole("button", { name: "Refresh recommendations" }).click();
-  await expect(page.getByRole("status")).toContainText("10 recommendations refreshed.");
+  await expect(page.getByRole("status")).toContainText("11 recommendations refreshed.");
 
   const cases = [
     ["Mock Harvest Red Feature", "0 cases"],
@@ -30,6 +30,7 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
     ["TEST Reserved Stock Feature", "2 cases"],
     ["TEST Zero Stock Feature", "4 cases"],
     ["TEST Alternate Supplier Feature", "7 cases"],
+    ["TEST Forecast + Multiple Feature", "12 cases"],
     ["Mock Winter Cider Pack", "5 cases"],
     ["Mock Cream Liqueur Gift Pack", "24 cases"],
     ["Mock Holiday Cream Liqueur", "0 cases"],
@@ -60,6 +61,13 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
   const alternate = page.getByRole("heading", { name: "TEST Alternate Supplier Feature" }).locator("xpath=ancestor::section[1]");
   await expect(alternate).toContainText("Mock Island Wholesale");
 
+  const forecastMultiple = page.getByRole("heading", { name: "TEST Forecast + Multiple Feature" }).locator("xpath=ancestor::section[1]");
+  await expect(metric(forecastMultiple, "On hand")).toHaveText("2 cases");
+  await expect(metric(forecastMultiple, "Required display stock")).toHaveText("8 cases");
+  await expect(metric(forecastMultiple, "Forecast need")).toHaveText("4 cases");
+  await expect(metric(forecastMultiple, "Recommended order")).toHaveText("12 cases");
+  await expect(forecastMultiple).toContainText("Rounded from 10 to 12 cases");
+
   const atRisk = page.getByRole("heading", { name: "Mock Winter Cider Pack" }).locator("xpath=ancestor::section[1]");
   await expect(atRisk).toContainText("Mock Coastal Distribution");
   const atRiskGroup = page.locator("section[aria-labelledby='orders-at_risk']");
@@ -74,15 +82,15 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
 
   const batches = page.getByRole("heading", { name: "Supplier order batches" }).locator("xpath=ancestor::section[1]");
   const coastalBatch = batches.getByText("Mock Coastal Distribution", { exact: true }).locator("xpath=parent::div/parent::div");
-  await expect(coastalBatch).toContainText("4 products");
-  await expect(coastalBatch).toContainText("36 cases");
+  await expect(coastalBatch).toContainText("5 products");
+  await expect(coastalBatch).toContainText("48 cases");
   await expect(batches.getByText("Mock Winter Cider Pack", { exact: true })).toHaveCount(0);
 
   await page.screenshot({ path: testInfo.outputPath("06-opening-order-review.png"), fullPage: true });
 
   await coastalBatch.getByRole("button", { name: "Create supplier order" }).click();
   await expect(page.getByRole("status")).toContainText("Supplier order");
-  await expect(batches).toContainText("36 cases");
+  await expect(batches).toContainText("48 cases");
 
   const downloadPromise = page.waitForEvent("download");
   await batches.getByRole("button", { name: "Download test PO CSV" }).click();
@@ -95,12 +103,13 @@ test("calculates ten controlled opening-order scenarios and produces a safe gene
   expect(csv).toContain("TEST-OND-4003");
   expect(csv).toContain("TEST-OND-4004");
   expect(csv).toContain("MOCK-OND-1002");
+  expect(csv).toContain("TEST-OND-4006");
   expect(csv).not.toContain("MOCK-OND-3001");
   expect(csv).not.toContain("TEST-OND-4005");
 
   await page.screenshot({ path: testInfo.outputPath("07-purchase-order-created.png"), fullPage: true });
 
-  await expect(batches.getByText(/Mock Coastal Distribution.*36 cases/)).toBeVisible();
+  await expect(batches.getByText(/Mock Coastal Distribution.*48 cases/)).toBeVisible();
   const remainingCreateButtons = batches.getByRole("button", { name: "Create supplier order" });
   await expect(remainingCreateButtons).toHaveCount(1);
   const alternateBatch = batches.getByText("Mock Island Wholesale", { exact: true }).locator("xpath=parent::div/parent::div");
