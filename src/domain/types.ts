@@ -497,6 +497,8 @@ export interface SupplierProductOption {
   leadTimeDays?: number;
   orderDays?: string[];
   casePack?: number;
+  /** Number of cases that must be ordered as a purchasing multiple. */
+  orderMultipleCases?: number;
   availability?: SupplierAvailability;
   availableFrom?: string;
 }
