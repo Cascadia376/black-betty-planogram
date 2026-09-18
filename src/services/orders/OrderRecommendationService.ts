@@ -42,6 +42,14 @@ export class RuleBasedOrderRecommendationService implements OrderRecommendationS
     const coverage = calculateUncoveredNeed(requiredCases, inventory, inbound, requiredByDate);
     const supplierSelection = selectSupplierForRequiredDate(input.productId, data.supplierProductOptions, input.recommendationDate, requiredByDate);
     if (!supplierSelection) throw new Error("No configured supplier can satisfy the recommendation required-by date.");
+    const rawRecommendedCases = Math.ceil(coverage.uncoveredCases);
+    const orderMultipleCases = Math.max(1, supplierSelection.option.orderMultipleCases ?? 1);
+    const recommendedCases = rawRecommendedCases > 0
+      ? Math.ceil(rawRecommendedCases / orderMultipleCases) * orderMultipleCases
+      : 0;
+    const roundingRationale = recommendedCases > rawRecommendedCases
+      ? ` Rounded from ${rawRecommendedCases} to ${recommendedCases} cases to satisfy the supplier order multiple of ${orderMultipleCases} cases.`
+      : "";
     const recommendation: OrderRecommendation = {
       id: input.id,
       storeId: input.storeId,
@@ -50,9 +58,9 @@ export class RuleBasedOrderRecommendationService implements OrderRecommendationS
       supplierId: supplierSelection.option.supplierId,
       recommendationDate: input.recommendationDate,
       requiredByDate,
-      recommendedCases: Math.ceil(coverage.uncoveredCases),
+      recommendedCases,
       recommendationType: input.recommendationType,
-      rationale: `${assignmentProduct.caseQuantity} display cases plus ${forecastCases} forecast cases are required through ${requiredByDate}. ${coverage.usableOnHandCases} usable cases are on hand and ${coverage.inboundCases} qualifying inbound cases arrive by then. Recommend ${Math.ceil(coverage.uncoveredCases)} cases. ${supplierSelection.rationale} Forecast confidence is ${forecast.confidence} using ${forecast.source.replaceAll("_", " ")}.`,
+      rationale: `${assignmentProduct.caseQuantity} display cases plus ${forecastCases} forecast cases are required through ${requiredByDate}. ${coverage.usableOnHandCases} usable cases are on hand and ${coverage.inboundCases} qualifying inbound cases arrive by then. Raw uncovered need is ${rawRecommendedCases} cases.${roundingRationale} ${supplierSelection.rationale} Forecast confidence is ${forecast.confidence} using ${forecast.source.replaceAll("_", " ")}.`,
       status: "pending",
     };
     return { recommendation, forecast, supplierSelection, coverage };
