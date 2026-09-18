@@ -2,6 +2,12 @@ import { calculateUncoveredNeed, selectSupplierForRequiredDate, type SupplierSel
 import type { OrderRecommendation, OrderRecommendationType, PlatformSnapshot } from "../../domain/types";
 import type { DemandForecastResult, DemandForecastService } from "../demand/contracts";
 
+function addDays(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
 export interface GenerateOrderRecommendationInput {
   id: string;
   storeId: string;
@@ -33,8 +39,9 @@ export class RuleBasedOrderRecommendationService implements OrderRecommendationS
     if (!assignment || !assignmentProduct) throw new Error("A display assignment product is required to generate an order recommendation.");
     const requiredByDate = input.requiredByDate ?? assignment.startDate;
     if (requiredByDate < input.recommendationDate) throw new Error("The required-by date cannot be before the recommendation date.");
-    const forecastStartDate = assignment.startDate > input.recommendationDate ? assignment.startDate : input.recommendationDate;
-    const forecast = await this.demandService.forecast({ storeId: input.storeId, productId: input.productId, category: input.category, startDate: forecastStartDate, endDate: requiredByDate });
+    const forecastStartDate = input.recommendationDate;
+    const forecastEndDate = requiredByDate > input.recommendationDate ? addDays(requiredByDate, -1) : requiredByDate;
+    const forecast = await this.demandService.forecast({ storeId: input.storeId, productId: input.productId, category: input.category, startDate: forecastStartDate, endDate: forecastEndDate });
     const forecastCases = Math.ceil(forecast.dailyDemand.reduce((total, day) => total + day.expectedCases, 0));
     const requiredCases = assignmentProduct.caseQuantity + forecastCases;
     const inventory = data.inventoryPositions.find((item) => item.storeId === input.storeId && item.productId === input.productId);
@@ -60,7 +67,7 @@ export class RuleBasedOrderRecommendationService implements OrderRecommendationS
       requiredByDate,
       recommendedCases,
       recommendationType: input.recommendationType,
-      rationale: `${assignmentProduct.caseQuantity} display cases plus ${forecastCases} forecast cases are required through ${requiredByDate}. ${coverage.usableOnHandCases} usable cases are on hand and ${coverage.inboundCases} qualifying inbound cases arrive by then. Raw uncovered need is ${rawRecommendedCases} cases.${roundingRationale} ${supplierSelection.rationale} Forecast confidence is ${forecast.confidence} using ${forecast.source.replaceAll("_", " ")}.`,
+      rationale: `${assignmentProduct.caseQuantity} display cases plus ${forecastCases} forecast cases are required before ${requiredByDate}. ${coverage.usableOnHandCases} usable cases are on hand and ${coverage.inboundCases} qualifying inbound cases arrive by then. Raw uncovered need is ${rawRecommendedCases} cases.${roundingRationale} ${supplierSelection.rationale} Forecast confidence is ${forecast.confidence} using ${forecast.source.replaceAll("_", " ")}.`,
       status: "pending",
     };
     return { recommendation, forecast, supplierSelection, coverage };
