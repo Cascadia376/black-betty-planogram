@@ -1,9 +1,10 @@
-import readXlsxFile, { readSheetNames } from "read-excel-file";
+import { readSheetNames } from "read-excel-file";
 import type { ApplyStoreDisplayWorkbookInput } from "../../domain/repositories";
 import type { CampaignImportRowMetadata, DisplayArea, PlatformSnapshot, Product, Store } from "../../domain/types";
 import type { ImportIssue } from "../../services/imports/contracts";
 import type { ProductMasterLookup } from "../../services/products/ProductMasterLookup";
 import { normalizeProductSku } from "../../services/products/ProductMasterLookup";
+import { readXlsxFileSafely } from "./readXlsxFileSafely";
 
 export const STORE_DISPLAY_WORKBOOK_FORMAT_ID = "store-display-workbook-import-v1" as const;
 export const STORE_DISPLAY_HEADERS = ["VENDOR", "CATEGORY", "INV NUM", "PRODUCT", "DISPLAY", "CASE QTY", "DISPLAY NOTES"] as const;
@@ -65,16 +66,20 @@ export interface StoreDisplayWorkbookImportResult {
   issues: ImportIssue[];
 }
 
+export function isBlockingStoreDisplayWorkbookIssue(item: ImportIssue): boolean {
+  return item.code === "missing_store_display_headers";
+}
+
 export class StoreDisplayWorkbookImportAdapter {
   async parse(file: Blob, context: StoreDisplayWorkbookImportContext, sheetMappings: StoreDisplayWorkbookSheetMappings = {}): Promise<StoreDisplayWorkbookImportResult> {
     const named = file as File;
     const sheetNames = await readSheetNames(file);
-    const sheets = await Promise.all(sheetNames.map(async (sheet) => ({ sheet, rows: await readXlsxFile(file, { sheet }) })));
+    const sheets = await Promise.all(sheetNames.map(async (sheet) => ({ sheet, rows: await readXlsxFileSafely(file, { sheet }) })));
     return this.parseSheets(sheets, context, { sourceFileName: named.name || "store-display-workbook.xlsx", fingerprint: await sha256(file) }, sheetMappings);
   }
 
   async parseSheets(sheets: Array<{ sheet: string; rows: unknown[][] }>, context: StoreDisplayWorkbookImportContext, provenance: { sourceFileName: string; fingerprint: string }, sheetMappings: StoreDisplayWorkbookSheetMappings = {}): Promise<StoreDisplayWorkbookImportResult> {
-    const allSkus = sheets.flatMap(({ rows }) => rows.slice(1).map((row) => skuText(row[2])).filter(Boolean));
+    const allSkus = sheets.flatMap(({ rows }) => rows.slice(1).map((row) => skuText(row?.[2])).filter(Boolean));
     const lookup = await context.productMaster.findByExactSkus(allSkus);
     const activeBySku = new Map(lookup.products.map((product) => [normalizeProductSku(product.sku), product]));
     const inactive = new Set((lookup.inactiveSkus ?? []).map(normalizeProductSku));
@@ -152,6 +157,10 @@ export class StoreDisplayWorkbookImportAdapter {
 }
 
 export function toApplyStoreDisplayWorkbookImport(result: StoreDisplayWorkbookImportResult, campaignId: string): ApplyStoreDisplayWorkbookInput {
+  const blockingIssues = result.issues.filter(isBlockingStoreDisplayWorkbookIssue);
+  if (blockingIssues.length) {
+    throw new Error(`Apply blocked: ${blockingIssues.length} workbook error${blockingIssues.length === 1 ? " remains" : "s remain"}. Correct the workbook and re-import.`);
+  }
   const temporaryMarkers = result.rows.filter((row) => row.temporaryDisplayMarker);
   if (temporaryMarkers.length) {
     throw new Error(`Apply blocked: ${temporaryMarkers.length} temporary N display marker${temporaryMarkers.length === 1 ? " remains" : "s remain"}. Replace or remove them in the source workbook, then re-import.`);
@@ -194,7 +203,7 @@ function resolveDisplay(raw: string, store: Store | undefined, areas: DisplayAre
 }
 
 function planningProduct(sku: string, name: string, category: string | undefined, vendor: string | undefined, masterStatus: Product["masterStatus"]): Product {
-  return { id: crypto.randomUUID(), sku: sku || `PENDING-${crypto.randomUUID().slice(0, 8)}`, name, category: category || "Uncategorized", supplierName: vendor, masterStatus, active: false, synthetic: false,
+  return { id: crypto.randomUUID(), sku: sku || `PENDING-${crypto.randomUUID().slice(0, 8)}`, name, category: category || "Uncategorized", supplierName: vendor, masterStatus, active: masterStatus === "pending", synthetic: false,
     notes: "Campaign-only pending source product; Product Master reconciliation required." };
 }
 function parseCases(value: unknown) { const raw = text(value); if (!raw) return undefined; const number = Number(raw); return Number.isInteger(number) && number >= 0 ? number : null; }

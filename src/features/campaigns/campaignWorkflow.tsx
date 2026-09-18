@@ -85,8 +85,8 @@ export function campaignProductReadiness(campaign: Campaign | undefined, data: P
   for (const campaignProduct of campaign.products) {
     const product = productById.get(campaignProduct.productId);
     if (!product || product.masterStatus === "unresolved") readiness.unresolved += 1;
-    else if (!product.active) readiness.inactive += 1;
     else if (product.masterStatus === "pending") readiness.pending += 1;
+    else if (!product.active) readiness.inactive += 1;
     else if (product.masterStatus === "verified") readiness.verified += 1;
     else readiness.unresolved += 1;
   }

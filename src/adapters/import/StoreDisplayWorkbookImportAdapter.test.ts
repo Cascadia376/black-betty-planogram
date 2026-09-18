@@ -5,6 +5,8 @@ import { MockProductMasterLookup } from "../mock/MockProductMasterLookup";
 import { StoreDisplayWorkbookImportAdapter, toApplyStoreDisplayWorkbookImport } from "./StoreDisplayWorkbookImportAdapter";
 import type { Product } from "../../domain/types";
 import { buildStoreExecutionPack } from "../../domain/storeExecutionPack";
+import { productMasterStatusLabel } from "../../domain/productMaster";
+import { campaignProductReadiness } from "../../features/campaigns/campaignWorkflow";
 
 const headers = ["Vendor", "Category", "INV_NUM", "Product", "Display", "Case QTY", "Display Notes"];
 
@@ -87,13 +89,81 @@ describe("store display workbook importer", () => {
 
   it("blocks Apply when a temporary N source marker remains", async () => {
     const repository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
-    const before = await repository.load(); const crown = before.stores.find((store) => store.name === "Crown Isle")!;
-    const area = before.displayAreas.find((item) => item.storeId === crown.id && item.active)!;
+    const before = await repository.load();
     const adapter = new StoreDisplayWorkbookImportAdapter();
     const result = await adapter.parseSheets([{ sheet: "Crown Isle", rows: [headers, row(["Vendor", "Wine", "888888", "Ambiguous source product", "N", "2", ""]) ] }],
       { snapshot: { stores: before.stores, displayAreas: before.displayAreas, products: before.products }, productMaster: new MockProductMasterLookup(before.products) }, { sourceFileName: "n.xlsx", fingerprint: "n" });
     expect(result.rows[0]).toMatchObject({ temporaryDisplayMarker: "N", displayArea: undefined });
     expect(() => toApplyStoreDisplayWorkbookImport(result, "campaign-id")).toThrow("temporary N display marker");
     expect((await repository.load()).campaignImports).toHaveLength(0);
+  });
+
+  it("accepts blank INV_NUM and omitted trailing Display Notes cells", async () => {
+    const data = structuredClone(seedSnapshot);
+    const crown = data.stores.find((store) => store.name === "Crown Isle")!;
+    const area = data.displayAreas.find((item) => item.storeId === crown.id && item.active && item.localCode)!;
+    const adapter = new StoreDisplayWorkbookImportAdapter();
+
+    const result = await adapter.parseSheets([{
+      sheet: "Crown Isle",
+      rows: [headers, ["Vendor", "Wine", undefined, "Future wine", area.localCode!, 2]],
+    }], {
+      snapshot: { stores: data.stores, displayAreas: data.displayAreas, products: data.products },
+      productMaster: new MockProductMasterLookup(data.products),
+    }, { sourceFileName: "blank-cells.xlsx", fingerprint: "blank-cells" });
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({
+      sku: "",
+      displayNotes: undefined,
+      productResolution: "PENDING",
+      status: "pending",
+    });
+    expect(result.rows[0].product).toMatchObject({ masterStatus: "pending", active: true });
+    expect(result.issues.some((item) => item.code === "missing_sku")).toBe(true);
+  });
+
+  it("surfaces invalid headers as a blocking workbook error", async () => {
+    const data = structuredClone(seedSnapshot);
+    const adapter = new StoreDisplayWorkbookImportAdapter();
+    const result = await adapter.parseSheets([{
+      sheet: "Crown Isle",
+      rows: [["Vendor", "Category", "INV_NUM", "Product", "Display Code", "Case QTY", "Display Notes"]],
+    }], {
+      snapshot: { stores: data.stores, displayAreas: data.displayAreas, products: data.products },
+      productMaster: new MockProductMasterLookup(data.products),
+    }, { sourceFileName: "invalid-header.xlsx", fingerprint: "invalid-header" });
+
+    expect(result.rows).toHaveLength(0);
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: "missing_store_display_headers",
+      severity: "error",
+      message: expect.stringContaining("DISPLAY"),
+    }));
+    expect(() => toApplyStoreDisplayWorkbookImport(result, "campaign-id")).toThrow("workbook error");
+  });
+
+  it("keeps pending products pending after Apply", async () => {
+    const repository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
+    const before = await repository.load();
+    const crown = before.stores.find((store) => store.name === "Crown Isle")!;
+    const area = before.displayAreas.find((item) => item.storeId === crown.id && item.active && item.localCode)!;
+    const adapter = new StoreDisplayWorkbookImportAdapter();
+    const result = await adapter.parseSheets([{
+      sheet: "Crown Isle",
+      rows: [headers, ["Vendor", "Wine", "", "Future wine", area.localCode!, 2, ""]],
+    }], {
+      snapshot: { stores: before.stores, displayAreas: before.displayAreas, products: before.products },
+      productMaster: new MockProductMasterLookup(before.products),
+    }, { sourceFileName: "pending-status.xlsx", fingerprint: "pending-status" });
+    const campaignId = await repository.createCampaign({ name: "OND pending test", type: "OND", description: "", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Jeremy", supplier: "", products: [] });
+
+    await repository.applyStoreDisplayWorkbook(toApplyStoreDisplayWorkbookImport(result, campaignId));
+    const after = await repository.load();
+    const campaign = after.campaigns.find((item) => item.id === campaignId)!;
+    const product = after.products.find((item) => item.id === campaign.products[0].productId)!;
+
+    expect(productMasterStatusLabel(product)).toBe("New · Needs Product Master Review");
+    expect(campaignProductReadiness(campaign, after)).toMatchObject({ pending: 1, inactive: 0 });
   });
 });

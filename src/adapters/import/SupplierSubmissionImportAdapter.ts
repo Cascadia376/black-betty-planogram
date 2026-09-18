@@ -1,9 +1,10 @@
-import readXlsxFile, { readSheetNames } from "read-excel-file";
+import { readSheetNames } from "read-excel-file";
 import type { ApplySupplierSubmissionImportInput } from "../../domain/repositories";
 import type { DisplayFamily, Product, PromotionOpportunity, PromotionOpportunityStatus } from "../../domain/types";
 import type { ImportAdapter, ImportIssue } from "../../services/imports/contracts";
 import type { ProductMasterLookup } from "../../services/products/ProductMasterLookup";
 import { normalizeProductSku } from "../../services/products/ProductMasterLookup";
+import { readXlsxFileSafely } from "./readXlsxFileSafely";
 
 export const SUPPLIER_SUBMISSION_FORMAT_ID = "supplier-submission-import-v1" as const;
 
@@ -72,7 +73,7 @@ export class SupplierSubmissionImportAdapter implements ImportAdapter<{ productM
     let sourceSheet = sheetNames[0];
     let rows: unknown[][] = [];
     for (const sheet of sheetNames) {
-      const candidate = await readXlsxFile(file, { sheet });
+      const candidate = await readXlsxFileSafely(file, { sheet });
       if (hasRequiredHeaders(candidate[0] ?? [])) { sourceSheet = sheet; rows = candidate; break; }
       if (!rows.length) rows = candidate;
     }

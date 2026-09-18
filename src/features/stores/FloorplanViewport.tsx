@@ -44,7 +44,7 @@ export function FloorplanViewport({ aspectRatio, onSave, children }: {
   const [draft, setDraft] = useState<FloorplanGeometryEdit>();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const gesture = useRef<GestureState>();
+  const gesture = useRef<GestureState | undefined>(undefined);
 
   const setScale = (next: number) => {
     const bounded = Math.max(1, Math.min(4, next));

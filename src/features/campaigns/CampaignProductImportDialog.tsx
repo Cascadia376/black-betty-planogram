@@ -86,6 +86,7 @@ function Progress({ parsed, failed, ready }: { parsed: boolean; failed: boolean;
 
 function ImportFailure({ result, fileName, file, campaignId, onClose }: { result: CampaignProductImportResult; fileName: string; file?: File; campaignId?: string; onClose(): void }) {
   const useFullImporter = result.issues.some((issue) => issue.code === "wrong_import_workflow");
+  const useStoreDisplayImporter = result.issues.some((issue) => issue.code === "wrong_store_display_import_workflow");
   return <>
     <div role="alert" className="rounded-md border border-warning/30 bg-warning-subtle p-4 text-sm text-warning">
       <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="font-semibold">{fileName || "This workbook"} needs a different import flow</p>{result.issues.map((issue) => <p key={`${issue.code}-${issue.row}`} className="mt-1 leading-5">{issue.message}</p>)}</div></div>
@@ -93,6 +94,7 @@ function ImportFailure({ result, fileName, file, campaignId, onClose }: { result
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
       {useFullImporter && <Link to="/imports/flyer" state={{ workbookFile: file, sourceCampaignId: campaignId }} className="inline-flex min-h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2">Open full workbook importer<ArrowRight className="h-4 w-4" /></Link>}
+      {useStoreDisplayImporter && <Link to="/imports/store-displays" state={{ workbookFile: file, sourceCampaignId: campaignId }} className="inline-flex min-h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus:ring-offset-2">Open store display importer<ArrowRight className="h-4 w-4" /></Link>}
     </div>
   </>;
 }

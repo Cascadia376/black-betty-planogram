@@ -1,4 +1,4 @@
-import readXlsxFile, { readSheetNames } from "read-excel-file";
+import { readSheetNames } from "read-excel-file";
 import type { ApplyCampaignWorkbookImportInput } from "../../domain/repositories";
 import type {
   CampaignImportRowMetadata,
@@ -13,6 +13,7 @@ import type {
 import type { ImportAdapter, ImportIssue } from "../../services/imports/contracts";
 import type { ProductMasterLookup } from "../../services/products/ProductMasterLookup";
 import { normalizeProductSku } from "../../services/products/ProductMasterLookup";
+import { readXlsxFileSafely } from "./readXlsxFileSafely";
 
 export const FLYER_WORKBOOK_FORMAT_ID = "flyer-workbook-import-v1" as const;
 
@@ -89,8 +90,8 @@ export class FlyerWorkbookImportAdapter implements ImportAdapter<FlyerWorkbookIm
     if (!sheetNames.length) throw new Error("The workbook does not contain a readable worksheet.");
     const sourceSheet = chooseProductSheet(sheetNames);
     const storeDisplaySheet = chooseStoreDisplaySheet(sheetNames, sourceSheet);
-    const rows = await readXlsxFile(file, { sheet: sourceSheet });
-    const storeDisplayRows = storeDisplaySheet ? await readXlsxFile(file, { sheet: storeDisplaySheet }) : undefined;
+    const rows = await readXlsxFileSafely(file, { sheet: sourceSheet });
+    const storeDisplayRows = storeDisplaySheet ? await readXlsxFileSafely(file, { sheet: storeDisplaySheet }) : undefined;
     return this.parseRows(rows, context, {
       sourceFileName: namedFile.name || "uploaded-workbook.xlsx",
       sourceSheet,

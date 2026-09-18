@@ -1,6 +1,6 @@
-import readXlsxFile from "read-excel-file";
 import type { CampaignProduct, Product, ProductRole } from "../../domain/types";
 import type { ImportAdapter, ImportIssue } from "../../services/imports/contracts";
+import { readXlsxFileSafely } from "./readXlsxFileSafely";
 
 export const CAMPAIGN_PRODUCT_IMPORT_HEADERS = ["SKU", "Role", "Required", "Notes"] as const;
 
@@ -32,14 +32,24 @@ export class CampaignProductImportAdapter implements ImportAdapter<CampaignProdu
   readonly acceptedExtensions = [".xlsx"];
 
   async parse(file: Blob, context: CampaignProductImportContext) {
-    return this.parseRows(await readXlsxFile(file), context);
+    return this.parseRows(await readXlsxFileSafely(file), context);
   }
 
   parseRows(sourceRows: unknown[][], context: CampaignProductImportContext): CampaignProductImportResult {
     const headers = (sourceRows[0] ?? []).map(cellText);
     if (headers.length !== CAMPAIGN_PRODUCT_IMPORT_HEADERS.length || CAMPAIGN_PRODUCT_IMPORT_HEADERS.some((header, index) => headers[index] !== header)) {
-      const isConsolidatedOndWorkbook = ["vendor", "category", "inv_num", "product"].every((header, index) => headers[index]?.toLocaleLowerCase() === header);
-      const issue = isConsolidatedOndWorkbook
+      const normalizedHeaders = headers.map((header) => header.toLocaleLowerCase());
+      const isStoreDisplayWorkbook = ["vendor", "category", "inv_num", "product", "display", "case qty", "display notes"].every((header, index) => normalizedHeaders[index] === header);
+      const isConsolidatedOndWorkbook = ["vendor", "category", "inv_num", "product"].every((header, index) => normalizedHeaders[index] === header);
+      const issue = isStoreDisplayWorkbook
+        ? {
+            row: 1,
+            field: "header",
+            code: "wrong_store_display_import_workflow",
+            severity: "error" as const,
+            message: "This is an OND store-display workbook. Use the store display workbook importer so store mapping, display codes, case quantities, and display notes are preserved.",
+          }
+        : isConsolidatedOndWorkbook
         ? {
             row: 1,
             field: "header",

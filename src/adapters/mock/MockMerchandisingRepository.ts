@@ -525,9 +525,9 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const prior = structuredClone(this.state);
     try {
       const productFor = (row: ApplyStoreDisplayWorkbookInput["rows"][number]) => {
-        const sku = row.product.sku.trim().toLocaleUpperCase();
+        const sku = String(row.product.sku ?? "").trim().toLocaleUpperCase();
         let product = this.state.products.find((item) => item.id === row.product.id)
-          ?? (sku ? this.state.products.find((item) => item.sku.trim().toLocaleUpperCase() === sku) : undefined);
+          ?? (sku ? this.state.products.find((item) => String(item.sku ?? "").trim().toLocaleUpperCase() === sku) : undefined);
         if (!product) {
           product = structuredClone(row.product);
           this.state.products.push(product);

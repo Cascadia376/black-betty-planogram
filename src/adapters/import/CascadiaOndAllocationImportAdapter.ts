@@ -1,7 +1,7 @@
-import readXlsxFile from "read-excel-file";
 import type { ApplyOndImportInput } from "../../domain/repositories";
 import type { PlatformSnapshot } from "../../domain/types";
 import type { ImportAdapter, ImportIssue } from "../../services/imports/contracts";
+import { readXlsxFileSafely } from "./readXlsxFileSafely";
 
 export const CASCADIA_OND_HEADERS = ["Program", "Store", "Display #", "SKU", "Product", "Case Qty", "Vendor", "Start Date", "End Date", "Reset Date", "Promo Notes"] as const;
 
@@ -48,7 +48,7 @@ export class CascadiaOndAllocationImportAdapter implements ImportAdapter<Cascadi
   readonly acceptedExtensions = [".xlsx"];
 
   async parse(file: Blob, context: CascadiaOndImportContext) {
-    const rows = await readXlsxFile(file);
+    const rows = await readXlsxFileSafely(file);
     return this.parseRows(rows, context);
   }
 

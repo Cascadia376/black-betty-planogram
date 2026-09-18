@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { createWorkbook } from "../../../tests/fixtures/cascadiaOndWorkbook";
 import { IDS, seedSnapshot } from "../mock/seed";
 import { CampaignProductImportAdapter, CAMPAIGN_PRODUCT_IMPORT_HEADERS } from "./CampaignProductImportAdapter";
 
@@ -42,6 +44,39 @@ describe("campaign product import adapter", () => {
         code: "wrong_import_workflow",
         message: expect.stringContaining("full workbook importer"),
       }),
+    ]);
+  });
+
+  it("routes OND store-display workbooks to the store display importer", () => {
+    const result = adapter.parseRows([
+      ["Vendor", "Category", "INV_NUM", "Product", "Display", "Case QTY", "Display Notes"],
+      ["Supplier", "WINE", 796094, "Copper Moon Pinot Grigio", "W1", 2, "Feature"],
+    ], context);
+
+    expect(result.rows).toEqual([]);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: "wrong_store_display_import_workflow",
+        message: expect.stringContaining("store display workbook importer"),
+      }),
+    ]);
+  });
+
+  it("treats an empty inlineStr cell without an inline-string payload as blank", async () => {
+    const bytes = createWorkbook([
+      ["SKU", "Role", "Required", "Notes"],
+      ["MOCK-1001", "Feature", "Yes", ""],
+    ], "Products");
+    const archive = unzipSync(bytes);
+    const sheetPath = "xl/worksheets/sheet1.xml";
+    archive[sheetPath] = strToU8(strFromU8(archive[sheetPath]).replace('<is><t></t></is>', ""));
+    const malformedEmptyCellWorkbook = zipSync(archive).slice().buffer;
+
+    const result = await adapter.parse(new Blob([malformedEmptyCellWorkbook]), context);
+
+    expect(result.issues).toEqual([]);
+    expect(result.rows).toEqual([
+      expect.objectContaining({ sku: "MOCK-1001", status: "matched", note: undefined }),
     ]);
   });
 });
