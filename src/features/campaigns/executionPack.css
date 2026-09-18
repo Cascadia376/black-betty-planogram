@@ -11,7 +11,10 @@
 .pack-controls button, .pack-controls a { border: 1px solid #6f1d36; padding: 10px; border-radius: 4px; }
 .pack-build, .pack-exception { border-top: 2px solid #444; padding: 12px 0; }
 .pack-page-identity { color: #555; font-size: 12px; font-weight: bold; }
-.pack-location { width: 45%; margin-top: 16px; font-size: 12px; }
+.pack-location { width: 75%; max-width: 680px; margin-top: 16px; font-size: 12px; }
+@media (max-width: 640px) {
+  .pack-location { width: 100%; }
+}
 @page { size: letter portrait; margin: 0.45in; }
 @media print {
   body, #root { background: white !important; }
@@ -25,7 +28,7 @@
   .pack-build h3, .pack-build p { overflow-wrap: anywhere; }
   .pack-group { break-before: page; }
   .pack-group > .pack-build:first-of-type { break-before: auto; }
-  .pack-location { width: 3in; break-inside: avoid; }
+  .pack-location { width: 5in; max-width: 100%; break-inside: avoid; }
   .execution-pack tr, .pack-exception { break-inside: avoid; }
   .execution-pack thead { display: table-header-group; }
   .execution-pack svg { max-height: 6.5in; }
