@@ -1,4 +1,5 @@
-import { MapPin } from "lucide-react";
+import { CheckCircle2, MapPin, Send } from "lucide-react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Badge, Button, Card, DataState, EmptyState, PageHeader, humanize } from "../../components/ui";
 import { evaluateCampaignPublishReadiness, type PublishReadinessSection } from "../../domain/campaignPublishReadiness";
@@ -17,7 +18,10 @@ const sections: Array<[PublishReadinessSection, string, string]> = [
 
 export function CampaignReviewPage() {
   const { campaignId } = useParams();
-  const { data, loading, error } = usePlatform();
+  const { data, loading, error, publishCampaign, userEmail } = usePlatform();
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string>();
+  const [publishMessage, setPublishMessage] = useState<string>();
   const campaign = data?.campaigns.find((item) => item.id === campaignId);
   const readiness = evaluateCampaignPublishReadiness(campaign, data);
   const displays = data?.campaignDisplays.filter((item) => item.campaignId === campaign?.id).sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
@@ -26,12 +30,30 @@ export function CampaignReviewPage() {
   const allocations = data?.campaignDisplayAssignments.filter((item) => item.campaignId === campaign?.id && item.status === "ASSIGNED") ?? [];
   const products = data?.campaignDisplayAssignmentProducts.filter((item) => allocations.some((assignment) => assignment.id === item.campaignDisplayAssignmentId)) ?? [];
   const storeProductAllocations = data?.campaignStoreProductAllocations.filter((item) => item.campaignId === campaign?.id) ?? [];
+  const latestRelease = data?.campaignReleases.filter((item) => item.campaignId === campaign?.id).sort((a, b) => b.version - a.version)[0];
+
+  const publish = async () => {
+    if (!campaign || readiness.state === "BLOCKED") return;
+    const warnings = readiness.issues.filter((item) => item.severity === "WARNING");
+    if (warnings.length && !window.confirm(`Publish with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}?\n\n${warnings.map((item) => `• ${item.message}`).join("\n")}`)) return;
+    setPublishing(true);
+    setPublishError(undefined);
+    setPublishMessage(undefined);
+    try {
+      const result = await publishCampaign({ campaignId: campaign.id, publishedBy: userEmail ?? campaign.owner });
+      setPublishMessage(`Release ${result.version} published to ${result.noticeCount} store${result.noticeCount === 1 ? "" : "s"} with ${result.assignmentCount} finalized display assignment${result.assignmentCount === 1 ? "" : "s"}.`);
+    } catch (cause) {
+      setPublishError(cause instanceof Error ? cause.message : "The campaign could not be published.");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   return (
     <DataState loading={loading} error={error}>
       {!campaign || !data ? <EmptyState title="Campaign not found" message="Unable to review this campaign." /> : (
         <div className="space-y-5">
-          <PageHeader eyebrow="Review" title={campaign.name} description="Check products, quantities, and physical store placements before the future store-release step." />
+          <PageHeader eyebrow="Review" title={campaign.name} description="Check products, quantities, and physical store placements, then finalize the plan for stores." />
           <CampaignWorkflowStepper campaign={campaign} data={data} current="review" />
           <CampaignExceptionReview data={data} campaignId={campaign.id} />
 
@@ -87,10 +109,21 @@ export function CampaignReviewPage() {
           })}
 
           <Card>
-            <h2 className="font-semibold">Store release — coming soon</h2>
-            <p className="mt-2 text-sm text-text-secondary">This review is available in the prototype, but publishing to stores is not. Your campaign plan remains saved and editable.</p>
-            <p className="mt-1 text-sm text-text-muted">A future release will create {allocations.length} operational display assignments and {products.length} assignment products after an explicit approval.</p>
-            <Button className="mt-4" disabled>Publish campaign — coming soon</Button>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">Store release</h2>
+                <p className="mt-2 text-sm text-text-secondary">Finalize the reviewed placements, create store execution work, and notify participating stores.</p>
+                <p className="mt-1 text-sm text-text-muted">This release will create {allocations.length} operational display assignments with {products.length} assignment products.</p>
+              </div>
+              <Badge tone={readiness.state === "BLOCKED" ? "error" : readiness.state === "WARNING" ? "warning" : "success"}>{readiness.state === "BLOCKED" ? "Not ready" : readiness.state === "WARNING" ? "Ready with warnings" : "Ready"}</Badge>
+            </div>
+            {latestRelease && <p className="mt-3 flex items-center gap-2 text-sm text-success"><CheckCircle2 className="h-4 w-4" />Release {latestRelease.version} published {new Date(latestRelease.publishedAt).toLocaleString()}.</p>}
+            {publishMessage && <p role="status" className="mt-3 rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">{publishMessage}</p>}
+            {publishError && <p role="alert" className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">{publishError}</p>}
+            <Button className="mt-4" disabled={publishing || readiness.state === "BLOCKED"} onClick={() => void publish()}>
+              <Send className="h-4 w-4" />{publishing ? "Publishing…" : latestRelease ? "Publish updated release" : "Finalize stores and publish"}
+            </Button>
+            {readiness.state === "BLOCKED" && <p className="mt-2 text-xs text-text-muted">Resolve the blocking items above to enable publishing.</p>}
           </Card>
         </div>
       )}

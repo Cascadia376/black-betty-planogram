@@ -34,5 +34,6 @@ describe("CampaignReviewPage", () => {
     expect(screen.getAllByText("Not placed", { exact: true }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Adjusted by store", { exact: true }).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Campaign default", { exact: true }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Finalize stores and publish" })).toBeVisible();
   });
 });

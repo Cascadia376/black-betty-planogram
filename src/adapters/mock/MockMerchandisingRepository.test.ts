@@ -42,6 +42,47 @@ function ondAssignmentInput(startDate = "2026-10-01", endDate = "2026-11-11"): C
 describe("mock merchandising workflow", () => {
   beforeEach(() => window.localStorage.clear());
 
+  it("publishes a ready campaign into an immutable store release and execution work", async () => {
+    const repository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
+    const initial = await repository.load();
+    const area = initial.displayAreas.find((item) => item.storeId !== IDS.store && item.storeId !== IDS.eagleStore && item.active)!;
+    const campaignId = await repository.createCampaign({
+      name: "OND release test",
+      type: "OND",
+      description: "Ready for stores",
+      startDate: "2027-10-01",
+      endDate: "2027-12-31",
+      owner: "Jeremy",
+      supplier: "Multiple vendors",
+      products: [{ productId: IDS.ondHarvestProduct, role: "Feature", required: true }],
+    });
+    const campaign = (await repository.load()).campaigns.find((item) => item.id === campaignId)!;
+    const display = await repository.createCampaignDisplay({
+      campaignId,
+      displayAreaId: area.id,
+      display: { name: "OND feature", displayType: area.type, placementMode: "STORE_SPECIFIC", prescriptive: true },
+    });
+    const [displayProduct] = await repository.assignCampaignProductsToDisplay({
+      campaignId,
+      campaignDisplayId: display.id,
+      campaignProductIds: [campaign.products[0].id],
+    });
+    await repository.applyCampaignDisplayQuantity({ campaignDisplayId: display.id, campaignDisplayProductId: displayProduct.id, caseQuantity: 5 });
+
+    const result = await repository.publishCampaign({ campaignId, publishedBy: "jeremy@example.com" });
+    const published = await repository.load();
+    const release = published.campaignReleases.find((item) => item.id === result.releaseId)!;
+    const operational = published.displayAssignments.find((item) => item.campaignReleaseId === release.id)!;
+
+    expect(result).toMatchObject({ version: 1, assignmentCount: 1, executionCount: 1, noticeCount: 1 });
+    expect(release.snapshot.campaign.name).toBe("OND release test");
+    expect(operational).toMatchObject({ campaignDisplayAssignmentId: expect.any(String), status: "ready", displayAreaId: area.id });
+    expect(published.displayAssignmentProducts.find((item) => item.assignmentId === operational.id)?.caseQuantity).toBe(5);
+    expect(published.executions).toContainEqual(expect.objectContaining({ displayAssignmentId: operational.id, programReleaseId: release.id }));
+    expect(published.storeReleaseNotices).toContainEqual(expect.objectContaining({ campaignId, releaseId: release.id, storeId: area.storeId }));
+    expect(published.campaigns.find((item) => item.id === campaignId)?.status).toBe("scheduled");
+  });
+
   it("adds newly seeded stores and floorplans to an older saved snapshot", async () => {
     const legacyStoreIds = new Set(seedSnapshot.stores.slice(0, 2).map((store) => store.id));
     const legacyLayouts = seedSnapshot.storeLayouts.filter((layout) => legacyStoreIds.has(layout.storeId));

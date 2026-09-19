@@ -19,7 +19,7 @@ describe("physical reference boundary migration", () => {
       "campaignDisplayProducts", "campaignStores", "campaignDisplayAssignments",
       "campaignDisplayAssignmentProducts", "campaignReleases", "storeReleaseNotices",
       "displayAssignments", "displayAssignmentProducts", "assignments", "executions",
-      "complianceReviews", "history", "campaignProducts",
+      "complianceReviews", "history", "campaignProducts", "programs", "programStores",
     ]) {
       expect(planningShapeMigration).toContain(`'${key}'`);
     }

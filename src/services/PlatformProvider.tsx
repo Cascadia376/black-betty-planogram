@@ -7,7 +7,7 @@ import { createSupabaseMerchandisingRepository } from "../adapters/supabase/Supa
 import { SupabaseProductMasterLookup } from "../adapters/supabase/SupabaseProductMasterLookup";
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, ApplyStoreDisplayWorkbookInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAreaInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository, ReconcilePendingCampaignProductInput,
-  ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
+  ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, PublishCampaignInput, PublishCampaignResult, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
 } from "../domain/repositories";
 import type { Campaign, CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, NewCampaignInput, PlatformSnapshot, Product, PromotionOpportunity, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
 import { readEnvironment } from "../lib/environment";
@@ -81,6 +81,7 @@ interface PlatformContextValue {
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<void>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<void>;
   applyOndImport(input: ApplyOndImportInput): Promise<void>;
+  publishCampaign(input: PublishCampaignInput): Promise<PublishCampaignResult>;
   publishProgram(input: PublishProgramInput): Promise<PublishProgramResult>;
   refreshOrderRecommendations(input: RefreshOrderRecommendationsInput): Promise<number>;
   createPurchaseOrder(input: CreatePurchaseOrderInput): Promise<UUID>;
@@ -236,6 +237,7 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     createDisplayAssignment: (input) => mutate(() => adapter.createDisplayAssignment(input)).then(() => undefined),
     updateDisplayAssignment: (id, input) => mutate(() => adapter.updateDisplayAssignment(id, input)).then(() => undefined),
     applyOndImport: (input) => mutate(() => adapter.applyOndImport(input)).then(() => undefined),
+    publishCampaign: async (input) => { let result: PublishCampaignResult | undefined; await mutate(async () => { result = await adapter.publishCampaign(input); }); if (!result) throw new Error("Campaign publish did not return a result."); return result; },
     publishProgram: async (input) => { let result: PublishProgramResult | undefined; await mutate(async () => { result = await adapter.publishProgram(input); }); if (!result) throw new Error("Program publish did not return a result."); return result; },
     refreshOrderRecommendations: async (input) => { let count = 0; await mutate(async () => { count = await adapter.refreshOrderRecommendations(input); }); return count; },
     createPurchaseOrder: async (input) => { let id = ""; await mutate(async () => { id = await adapter.createPurchaseOrder(input); }); return id; },

@@ -19,6 +19,8 @@ type SharedPlanningCollections = Pick<
   PlatformSnapshot,
   | "displayAssignments"
   | "displayAssignmentProducts"
+  | "programs"
+  | "programStores"
   | "campaigns"
   | "campaignImports"
   | "campaignStoreProductAllocations"
@@ -55,7 +57,7 @@ interface PhysicalReferenceRow {
 }
 
 const SHARED_KEYS: Array<keyof SharedPlanningCollections> = [
-  "displayAssignments", "displayAssignmentProducts", "campaigns", "campaignImports", "campaignStoreProductAllocations",
+  "programs", "programStores", "displayAssignments", "displayAssignmentProducts", "campaigns", "campaignImports", "campaignStoreProductAllocations",
   "campaignDisplays", "campaignDisplayProducts", "campaignStores", "campaignDisplayAssignments",
   "campaignDisplayAssignmentProducts", "campaignReleases", "storeReleaseNotices", "assignments", "executions",
   "complianceReviews", "history",
@@ -103,7 +105,7 @@ function mergeSharedState(planning: SharedPlanningSnapshot, physical: PhysicalRe
   const shared = structuredClone(planning);
   const products = new Map(seedSnapshot.products.map((product) => [product.id, structuredClone(product)]));
   (shared.campaignProducts ?? []).forEach((product) => products.set(product.id, product));
-  const collections = Object.fromEntries(SHARED_KEYS.map((key) => [key, shared[key] ?? []])) as SharedPlanningCollections;
+  const collections = Object.fromEntries(SHARED_KEYS.map((key) => [key, shared[key] ?? structuredClone(seedSnapshot[key])])) as SharedPlanningCollections;
   return { ...structuredClone(seedSnapshot), ...collections, ...structuredClone(physical), products: [...products.values()] };
 }
 

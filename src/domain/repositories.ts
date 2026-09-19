@@ -228,6 +228,20 @@ export interface PublishProgramResult {
   warnings: string[];
 }
 
+export interface PublishCampaignInput {
+  campaignId: UUID;
+  publishedBy: string;
+}
+
+export interface PublishCampaignResult {
+  releaseId: UUID;
+  version: number;
+  assignmentCount: number;
+  executionCount: number;
+  noticeCount: number;
+  warnings: string[];
+}
+
 export interface RefreshOrderRecommendationsInput {
   programId: UUID;
   storeId?: UUID;
@@ -335,6 +349,7 @@ export interface MerchandisingRepository extends PhysicalLayoutRepository {
   createDisplayAssignment(input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   updateDisplayAssignment(id: UUID, input: CreateDisplayAssignmentInput): Promise<DisplayAssignment>;
   applyOndImport(input: ApplyOndImportInput): Promise<void>;
+  publishCampaign(input: PublishCampaignInput): Promise<PublishCampaignResult>;
   publishProgram(input: PublishProgramInput): Promise<PublishProgramResult>;
   refreshOrderRecommendations(input: RefreshOrderRecommendationsInput): Promise<number>;
   createPurchaseOrder(input: CreatePurchaseOrderInput): Promise<UUID>;

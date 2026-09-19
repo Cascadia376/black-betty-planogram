@@ -1,6 +1,6 @@
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, ApplyStoreDisplayWorkbookInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository, ReconcilePendingCampaignProductInput,
-  ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
+  ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishCampaignInput, PublishCampaignResult, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
 } from "../../domain/repositories";
 import {
   calculateComplianceScore,
@@ -24,6 +24,7 @@ import type { CampaignDisplayAssignmentProduct } from "../../domain/types";
 import { isNormalizedGeometry, validateCategorySpace } from "../../domain/storeLayouts";
 import { displayAreaDependencies, validateDisplayArea } from "../../domain/displayAreas";
 import { deserializeSnapshot, serializeSnapshot } from "./snapshotStorage";
+import { evaluateCampaignPublishReadiness } from "../../domain/campaignPublishReadiness";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
 const PUBLISHED_FLOORPLAN_VERSION_KEY = "cascadia-merchandising-published-floorplan-version";
@@ -994,6 +995,175 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       throw new Error("Display assignment was not found.");
     }
     return this.saveDisplayAssignment(input, id);
+  }
+
+  async publishCampaign(input: PublishCampaignInput): Promise<PublishCampaignResult> {
+    const previous = structuredClone(this.state);
+    try {
+      const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
+      if (!campaign) throw new Error("Campaign was not found.");
+      if (!input.publishedBy.trim()) throw new Error("The publishing user is required.");
+
+      const readiness = evaluateCampaignPublishReadiness(campaign, this.state);
+      const blockingIssues = readiness.issues.filter((issue) => issue.severity === "BLOCKING");
+      if (blockingIssues.length) {
+        throw new Error(`Resolve ${blockingIssues.length} blocking campaign issue${blockingIssues.length === 1 ? "" : "s"} before publishing. ${blockingIssues[0].message}`);
+      }
+
+      const includedStores = this.state.campaignStores.filter((item) => item.campaignId === campaign.id && item.included);
+      const planningAssignments = this.state.campaignDisplayAssignments.filter((item) => item.campaignId === campaign.id && item.status === "ASSIGNED");
+      const releaseId = crypto.randomUUID();
+      const version = Math.max(0, ...this.state.campaignReleases.filter((item) => item.campaignId === campaign.id).map((item) => item.version)) + 1;
+      const publishedAt = this.clock.now();
+
+      let program = campaign.programId ? this.state.programs.find((item) => item.id === campaign.programId) : undefined;
+      if (!program) {
+        program = {
+          id: crypto.randomUUID(),
+          name: campaign.name,
+          startDate: campaign.startDate,
+          endDate: campaign.endDate,
+          status: "draft",
+          description: campaign.description,
+        };
+        this.state.programs.push(program);
+        campaign.programId = program.id;
+      } else {
+        program.name = campaign.name;
+        program.startDate = campaign.startDate;
+        program.endDate = campaign.endDate;
+        program.description = campaign.description;
+      }
+
+      const storeIds = new Set(includedStores.map((item) => item.storeId));
+      this.state.programStores = this.state.programStores.filter((item) => item.programId !== program.id || storeIds.has(item.storeId));
+      for (const scope of includedStores) {
+        const existing = this.state.programStores.find((item) => item.programId === program.id && item.storeId === scope.storeId);
+        if (existing) {
+          existing.included = true;
+          existing.status = "published";
+          existing.owner = campaign.owner;
+        } else {
+          this.state.programStores.push({ id: crypto.randomUUID(), programId: program.id, storeId: scope.storeId, included: true, status: "published", owner: campaign.owner });
+        }
+        scope.status = "READY";
+      }
+
+      const priorOperationalAssignments = this.state.displayAssignments.filter((item) =>
+        planningAssignments.some((planning) => planning.id === item.campaignDisplayAssignmentId),
+      );
+      this.state.displayAssignments
+        .filter((item) => item.programId === program.id && item.campaignDisplayAssignmentId && !planningAssignments.some((planning) => planning.id === item.campaignDisplayAssignmentId))
+        .forEach((item) => { item.status = "cancelled"; });
+
+      const displayAssignmentIds: UUID[] = [];
+      const executionIds: UUID[] = [];
+      for (const planning of planningAssignments) {
+        if (!planning.displayAreaId) throw new Error("An accepted campaign placement has no physical display area.");
+        const display = this.state.campaignDisplays.find((item) => item.id === planning.campaignDisplayId);
+        if (!display) throw new Error("A campaign display was not found.");
+        const assignmentProducts = this.state.campaignDisplayAssignmentProducts.filter((item) => item.campaignDisplayAssignmentId === planning.id);
+        const operationalProducts = assignmentProducts.map((item) => {
+          const product = this.state.products.find((candidate) => candidate.id === item.productId);
+          const displayProduct = this.state.campaignDisplayProducts.find((candidate) => candidate.id === item.campaignDisplayProductId);
+          if (!product || !displayProduct) throw new Error("A campaign assignment product could not be resolved.");
+          return {
+            productId: product.id,
+            sku: product.sku,
+            caseQuantity: item.caseQuantity ?? item.recommendedCases ?? 0,
+            required: displayProduct.required,
+            minimumFacings: displayProduct.minimumFacings,
+            preferredSupplierId: item.preferredSupplierId ?? this.state.supplierProductOptions.find((option) => option.productId === product.id && option.preferred)?.supplierId,
+            note: item.note ?? displayProduct.note,
+          };
+        });
+        const candidate = {
+          programId: program.id,
+          storeId: planning.storeId,
+          displayAreaId: planning.displayAreaId,
+          startDate: planning.startDate,
+          endDate: planning.endDate,
+          resetRequired: false,
+          notes: [planning.executionNotes, display.executionNotes, planning.note].filter(Boolean).join(" · "),
+          status: "ready" as const,
+          campaignReleaseId: releaseId,
+          campaignDisplayAssignmentId: planning.id,
+        };
+        const existingOperational = priorOperationalAssignments.find((item) => item.campaignDisplayAssignmentId === planning.id);
+        const errors = [
+          ...validateDisplayAssignment(candidate, this.state.displayAssignments.filter((item) => item.id !== existingOperational?.id)),
+          ...validateDisplayAssignmentProducts(operationalProducts),
+        ];
+        if (errors.length) throw new Error([...new Set(errors)].join(" "));
+
+        const assignmentId = existingOperational?.id ?? crypto.randomUUID();
+        this.state.displayAssignments = this.state.displayAssignments.filter((item) => item.id !== assignmentId);
+        this.state.displayAssignments.push({ id: assignmentId, ...candidate });
+        this.state.displayAssignmentProducts = this.state.displayAssignmentProducts.filter((item) => item.assignmentId !== assignmentId);
+        this.state.displayAssignmentProducts.push(...operationalProducts.map((product) => ({ id: crypto.randomUUID(), assignmentId, ...product })));
+        let execution = this.state.executions.find((item) => item.displayAssignmentId === assignmentId && item.status !== "completed");
+        if (execution) {
+          execution.dueDate = planning.startDate;
+          execution.taskType = "initial_set";
+          execution.programReleaseId = releaseId;
+        } else {
+          execution = { id: crypto.randomUUID(), displayAssignmentId: assignmentId, dueDate: planning.startDate, status: "not_started", taskType: "initial_set", programReleaseId: releaseId };
+          this.state.executions.push(execution);
+        }
+        displayAssignmentIds.push(assignmentId);
+        executionIds.push(execution.id);
+      }
+
+      const today = this.clock.today();
+      campaign.status = today < campaign.startDate ? "scheduled" : "active";
+      program.status = today < program.startDate ? "planned" : "active";
+
+      this.state.campaignReleases.forEach((release) => {
+        if (release.campaignId === campaign.id && release.status === "published") release.status = "superseded";
+      });
+      this.state.campaignReleases.push({
+        id: releaseId,
+        campaignId: campaign.id,
+        version,
+        status: "published",
+        publishedAt,
+        publishedBy: input.publishedBy.trim(),
+        snapshot: {
+          campaign: structuredClone(campaign),
+          stores: structuredClone(this.state.campaignStores.filter((item) => item.campaignId === campaign.id)),
+          displays: structuredClone(this.state.campaignDisplays.filter((item) => item.campaignId === campaign.id)),
+          displayProducts: structuredClone(this.state.campaignDisplayProducts.filter((item) => this.state.campaignDisplays.some((display) => display.campaignId === campaign.id && display.id === item.campaignDisplayId))),
+          allocations: structuredClone(this.state.campaignDisplayAssignments.filter((item) => item.campaignId === campaign.id)),
+          allocationProducts: structuredClone(this.state.campaignDisplayAssignmentProducts.filter((item) => planningAssignments.some((assignment) => assignment.id === item.campaignDisplayAssignmentId))),
+        },
+        displayAssignmentIds,
+      });
+
+      this.state.storeReleaseNotices.push(...includedStores.map((scope) => ({
+        id: crypto.randomUUID(),
+        storeId: scope.storeId,
+        campaignId: campaign.id,
+        releaseId,
+        publishedAt,
+        title: `${campaign.name} is ready for store execution`,
+        summary: `Release ${version} includes ${planningAssignments.filter((item) => item.storeId === scope.storeId).length} finalized display placement${planningAssignments.filter((item) => item.storeId === scope.storeId).length === 1 ? "" : "s"}.`,
+        read: false,
+      })));
+
+      this.persist();
+      return {
+        releaseId,
+        version,
+        assignmentCount: displayAssignmentIds.length,
+        executionCount: executionIds.length,
+        noticeCount: includedStores.length,
+        warnings: readiness.issues.filter((issue) => issue.severity === "WARNING").map((issue) => issue.message),
+      };
+    } catch (cause) {
+      this.state = previous;
+      if (cause instanceof Error) throw cause;
+      throw new Error("The campaign could not be published.", { cause });
+    }
   }
 
   async applyOndImport(input: ApplyOndImportInput): Promise<void> {

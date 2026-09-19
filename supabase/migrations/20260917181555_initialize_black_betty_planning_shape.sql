@@ -2,6 +2,8 @@ update public.black_betty_planning_snapshot
 set planning = jsonb_build_object(
   'displayAssignments', '[]'::jsonb,
   'displayAssignmentProducts', '[]'::jsonb,
+  'programs', '[]'::jsonb,
+  'programStores', '[]'::jsonb,
   'campaigns', '[]'::jsonb,
   'campaignImports', '[]'::jsonb,
   'campaignStoreProductAllocations', '[]'::jsonb,
