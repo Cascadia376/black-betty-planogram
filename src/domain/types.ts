@@ -172,6 +172,8 @@ export interface DisplayArea {
   name: string;
   type: DisplayType;
   displayFamily?: DisplayFamily;
+  /** A placeholder for flyer products that rotate during the OND period; never a Product Master item. */
+  rotatingFlyerSlot?: boolean;
   displayClassDefinitionId?: UUID;
   description: string;
   capacity: string;
@@ -236,6 +238,8 @@ export interface CampaignDisplay {
   /** Store-local display concept supplied by an import, for example W8 or BR2. */
   sourceLocalCode?: string;
   displayFamily?: DisplayFamily;
+  /** A placeholder for flyer products that rotate during the OND period; never a Product Master item. */
+  rotatingFlyerSlot?: boolean;
 }
 
 export interface CampaignDisplayProduct {
@@ -387,6 +391,7 @@ export interface CampaignImportRowMetadata {
   displaySourceValue?: string;
   displayInterpretation?: "ASSIGNED" | "UNRESOLVED" | "SHELF_SUPPORTED";
   displayNotes?: string;
+  rotatingFlyerSlot?: boolean;
   productResolution?: "MATCHED_ACTIVE" | "MATCHED_INACTIVE" | "PENDING" | "INVALID";
   /** Normalized campaign-order months from the source LTO Month field. */
   ltoMonths?: Array<"OCT" | "NOV" | "DEC">;

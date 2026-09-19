@@ -631,10 +631,29 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
         else this.state.campaignDisplayAssignmentProducts.push({ id: crypto.randomUUID(), campaignDisplayAssignmentId: assignment.id, campaignDisplayProductId: member.id, productId: product.id,
           caseQuantity: row.caseQuantity, quantitySource: "SPREADSHEET", buyerOverride: false });
       }
+      for (const slot of input.rotationSlots) {
+        const scope = this.state.campaignStores.find((item) => item.campaignId === campaign.id && item.storeId === slot.storeId);
+        if (scope) { scope.included = true; scope.status = "PLANNING"; }
+        else this.state.campaignStores.push({ id: crypto.randomUUID(), campaignId: campaign.id, storeId: slot.storeId, included: true, status: "PLANNING" });
+        const display = displayFor(slot.displayLocalCode);
+        display.rotatingFlyerSlot = true;
+        let assignment = this.state.campaignDisplayAssignments.find((item) => item.campaignDisplayId === display.id && item.storeId === slot.storeId);
+        if (!assignment) {
+          assignment = { id: crypto.randomUUID(), campaignId: campaign.id, campaignDisplayId: display.id, storeId: slot.storeId,
+            displayAreaId: slot.displayAreaId, status: slot.displayAreaId ? "ASSIGNED" : "NEEDS_REVIEW", placementSource: slot.displayAreaId ? "SPREADSHEET" : undefined,
+            compatibility: slot.displayAreaId ? "recommended" : undefined, intendedDisplayCode: slot.displayLocalCode,
+            startDate: campaign.startDate, endDate: campaign.endDate, createdAt: this.clock.now(), updatedAt: this.clock.now() };
+          this.state.campaignDisplayAssignments.push(assignment);
+        }
+        if (slot.note) assignment.executionNotes = slot.note;
+      }
       campaign.products.forEach((product) => {
         if (priorDisplayProductCampaignIds.has(product.id) && !this.state.campaignDisplayProducts.some((member) => member.campaignProductId === product.id)) product.merchandisingState = "UNASSIGNED";
       });
-      const importRecord = { id: priorImportIndex >= 0 ? this.state.campaignImports[priorImportIndex].id : crypto.randomUUID(), campaignId: campaign.id, formatId: "store-display-workbook-import-v1", workbookKind: "ond",
+      campaign.products = campaign.products.filter((product) => !(priorDisplayProductCampaignIds.has(product.id)
+        && Boolean(product.pendingSource) && /rotating\s+(?:flyer\s+)?(?:sku|beer|rtd)/i.test(product.pendingSource!.productName)
+        && !this.state.campaignDisplayProducts.some((member) => member.campaignProductId === product.id)));
+      const importRecord = { id: priorImportIndex >= 0 ? this.state.campaignImports[priorImportIndex].id : crypto.randomUUID(), campaignId: campaign.id, formatId: "store-display-workbook-import-v1" as const, workbookKind: "ond" as const,
         importKey: input.importKey, fingerprint: input.fingerprint, sourceFileName: input.sourceFileName, sourceSheet: input.sourceSheet,
         importedAt: this.clock.now(), rows: structuredClone(input.reviewRows) };
       if (priorImportIndex >= 0) this.state.campaignImports[priorImportIndex] = importRecord;

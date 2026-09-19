@@ -40,6 +40,7 @@ export interface StoreDisplayWorkbookReviewRow {
   /** Source-only marker. It is never written into campaign state. */
   temporaryDisplayMarker?: "N";
   displayNotes?: string;
+  rotatingFlyerSlot?: boolean;
   product: Product;
   productResolution: "MATCHED_ACTIVE" | "MATCHED_INACTIVE" | "PENDING" | "INVALID";
   status: "ready" | "pending" | "inactive" | "invalid";
@@ -109,6 +110,7 @@ export class StoreDisplayWorkbookImportAdapter {
         if (!store) rowIssues.push(issue(rowNumber, sheet, "unknown_store_sheet", `Sheet ${sheet} is not mapped to a known store.`, "warning"));
         if (!productName) rowIssues.push(issue(rowNumber, sheet, "missing_product_name", "Product is required to retain this row for review.", "error"));
         if (caseQuantity === null) rowIssues.push(issue(rowNumber, sheet, "invalid_case_quantity", "Case QTY must be a non-negative whole number when supplied.", "error"));
+        const rotatingFlyerSlot = !sku && /rotating\s+(?:flyer\s+)?(?:sku|beer|rtd)/i.test(productName);
         const normalizedSku = normalizeProductSku(sku);
         let productResolution: StoreDisplayWorkbookReviewRow["productResolution"];
         let product: Product;
@@ -138,12 +140,12 @@ export class StoreDisplayWorkbookImportAdapter {
         const source: CampaignImportRowMetadata = {
           sourceSheet: sheet, sourceRow: rowNumber, skuRaw: sku, productName, vendor, category,
           displaySourceValue, displayLocalCode: display.code, displayInterpretation: display.interpretation, displayNotes,
-          productResolution, allocations: store ? [{ sourceColumn: "Case QTY", sourceStoreName: store.name, storeId: store.id, quantityCases: caseQuantity ?? 0, sourceCell: `F${rowNumber}`, displayRequired: true, displayLocalCode: display.code, displaySourceCell: `E${rowNumber}` }] : [],
+          productResolution, rotatingFlyerSlot, allocations: store ? [{ sourceColumn: "Case QTY", sourceStoreName: store.name, storeId: store.id, quantityCases: caseQuantity ?? 0, sourceCell: `F${rowNumber}`, displayRequired: true, displayLocalCode: display.code, displaySourceCell: `E${rowNumber}` }] : [],
           issues: rowIssues.map((item) => item.code),
         };
         const status: StoreDisplayWorkbookReviewRow["status"] = productResolution === "INVALID" || !store ? "invalid" : productResolution === "PENDING" ? "pending" : productResolution === "MATCHED_INACTIVE" ? "inactive" : "ready";
         const review = { sheet, rowNumber, store, sku, productName, vendor, category, caseQuantity: caseQuantity ?? undefined,
-          displaySourceValue, displayLocalCode: display.code, displayArea: display.area, displayInterpretation: display.interpretation, temporaryDisplayMarker, displayNotes, product, productResolution, status, source, issues: rowIssues };
+          displaySourceValue, displayLocalCode: display.code, displayArea: display.area, displayInterpretation: display.interpretation, temporaryDisplayMarker, displayNotes, rotatingFlyerSlot, product, productResolution, status, source, issues: rowIssues };
         rows.push(review); issues.push(...rowIssues);
       }
     }
@@ -168,12 +170,13 @@ export function toApplyStoreDisplayWorkbookImport(result: StoreDisplayWorkbookIm
   if (temporaryMarkers.length) {
     throw new Error(`Apply blocked: ${temporaryMarkers.length} temporary N display marker${temporaryMarkers.length === 1 ? " remains" : "s remain"}. Replace or remove them in the source workbook, then re-import.`);
   }
-  const applicable = result.rows.filter((row) => row.store && row.status !== "invalid");
+  const applicable = result.rows.filter((row) => row.store && row.status !== "invalid" && !row.rotatingFlyerSlot);
   return {
     campaignId, fingerprint: result.fingerprint, importKey: `${result.formatId} | ${result.fingerprint} | ${campaignId}`,
     sourceFileName: result.sourceFileName, sourceSheet: result.sheetNames.join(", "), reviewRows: result.rows.map((row) => row.source),
     rows: applicable.map((row) => ({ storeId: row.store!.id, product: row.product, productResolution: row.productResolution, source: row.source,
       caseQuantity: row.caseQuantity, displayLocalCode: row.displayLocalCode, displayAreaId: row.displayArea?.id, displayInterpretation: row.displayInterpretation })),
+    rotationSlots: result.rows.filter((row) => row.store && row.rotatingFlyerSlot && row.displayLocalCode).map((row) => ({ storeId: row.store!.id, displayLocalCode: row.displayLocalCode!, displayAreaId: row.displayArea?.id, displayInterpretation: row.displayInterpretation, note: row.displayNotes })),
     displayNotes: result.displayNotes.filter((note) => note.store).map((note) => ({ storeId: note.store!.id, displayLocalCode: note.displayLocalCode, executionNotes: note.executionNotes, hasConflict: note.hasConflict })),
   };
 }

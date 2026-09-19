@@ -74,7 +74,7 @@ export function campaignDisplayReadiness(campaign: Campaign | undefined, data: P
   const shelfSupported = campaign.products.filter((item) => item.merchandisingState === "SHELF_SUPPORTED").length;
   const assigned = campaign.products.filter((item) => memberships.has(item.id)).length;
   const unassigned = campaign.products.length - assigned - shelfSupported;
-  const emptyDisplays = displays.filter((display) => !data.campaignDisplayProducts.some((item) => item.campaignDisplayId === display.id)).length;
+  const emptyDisplays = displays.filter((display) => !display.rotatingFlyerSlot && !data.campaignDisplayProducts.some((item) => item.campaignDisplayId === display.id)).length;
   return { total: campaign.products.length, assigned, shelfSupported, unassigned, displays: displays.length, emptyDisplays, status: !displays.length && !shelfSupported ? "not_started" : unassigned || emptyDisplays ? "warning" : "complete" };
 }
 

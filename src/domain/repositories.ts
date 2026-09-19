@@ -310,6 +310,7 @@ export interface ApplyStoreDisplayWorkbookInput {
     displayAreaId?: UUID;
     displayInterpretation: NonNullable<CampaignImportRowMetadata["displayInterpretation"]>;
   }>;
+  rotationSlots: Array<{ storeId: UUID; displayLocalCode: string; displayAreaId?: UUID; displayInterpretation: NonNullable<CampaignImportRowMetadata["displayInterpretation"]>; note?: string }>;
   displayNotes: Array<{ storeId: UUID; displayLocalCode: string; executionNotes?: string; hasConflict: boolean }>;
 }
 export interface ReconcilePendingCampaignProductInput { campaignId: UUID; campaignProductId: UUID; productId: UUID; }
