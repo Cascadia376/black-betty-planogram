@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { StoreDisplayWorkbookImportAdapter, toApplyStoreDisplayWorkbookImport, type StoreDisplayWorkbookImportResult, type StoreDisplayWorkbookSheetMappings } from "../../adapters/import/StoreDisplayWorkbookImportAdapter";
 import { Badge, Button, Card, DataState, Field, PageHeader, inputClass } from "../../components/ui";
 import { usePlatform } from "../../services/PlatformProvider";
@@ -7,6 +7,9 @@ import { usePlatform } from "../../services/PlatformProvider";
 const adapter = new StoreDisplayWorkbookImportAdapter();
 
 export function StoreDisplayWorkbookImportPage() {
+  const location = useLocation(); const navigate = useNavigate();
+  const handoff = location.state as { workbookFile?: File; sourceCampaignId?: string } | null;
+  const consumedHandoff = useRef<string | undefined>(undefined);
   const { data, loading, error, productMaster, applyStoreDisplayWorkbook } = usePlatform();
   const [result, setResult] = useState<StoreDisplayWorkbookImportResult>();
   const [campaignId, setCampaignId] = useState("");
@@ -21,6 +24,15 @@ export function StoreDisplayWorkbookImportPage() {
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Unable to parse the store display workbook."); }
     finally { setBusy(false); }
   }, [data, productMaster]);
+  useEffect(() => {
+    if (!data || !(handoff?.workbookFile instanceof File) || consumedHandoff.current === location.key) return;
+    consumedHandoff.current = location.key;
+    setFile(handoff.workbookFile);
+    setSheetMappings({});
+    setCampaignId(handoff.sourceCampaignId ?? "");
+    void upload(handoff.workbookFile);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [data, handoff, location.key, location.pathname, navigate, upload]);
   if (!data) return null;
   const counts = result ? {
     ready: result.rows.filter((row) => row.status === "ready").length,
@@ -45,7 +57,7 @@ export function StoreDisplayWorkbookImportPage() {
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Unable to save the store display workbook."); }
     finally { setBusy(false); }
   };
-  return <DataState loading={loading} error={error}><div className="space-y-5"><PageHeader eyebrow="Store workbook → campaign" title="Import OND store display workbook" description="One worksheet per store. Product resolution and physical display placement are reviewed independently." actions={<Link className="rounded border border-border px-3 py-2 text-sm font-semibold" to="/imports">Imports</Link>} />
+  return <DataState loading={loading} error={error}><div className="space-y-5"><PageHeader eyebrow="Workbook → campaign" title="Import store display workbook" description="One worksheet per store. This format is detected automatically from the standard workbook upload." actions={<Link className="rounded border border-border px-3 py-2 text-sm font-semibold" to="/imports">Imports</Link>} />
     {message && <p role="alert" className="rounded border border-warning/30 bg-warning-subtle p-3 text-sm">{message}</p>}
     <Card><label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded border border-dashed border-border-strong bg-subtle"><input className="sr-only" type="file" accept=".xlsx" onChange={(event) => { const nextFile = event.target.files?.[0]; setFile(nextFile); setSheetMappings({}); void upload(nextFile); }} /><b>{busy ? "Reading workbook…" : "Choose OND store-display .xlsx workbook"}</b><span className="mt-1 text-xs text-text-muted">Unknown sheet names remain in review and never create stores.</span></label></Card>
     {result && counts && <><Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Import review</h2><p className="text-sm text-text-secondary">Sheets: {result.sheetNames.join(", ")}</p></div><div className="flex flex-wrap gap-2"><Badge tone="success">{counts.ready} ready</Badge><Badge tone="warning">{counts.pending} pending product</Badge><Badge tone="warning">{counts.unresolved} unresolved display</Badge><Badge tone="warning">{counts.invalid} invalid</Badge><Badge tone={counts.noteConflicts ? "error" : "neutral"}>{counts.noteConflicts} conflicting notes</Badge></div></div><p className="mt-3 text-sm text-text-secondary">{counts.inactive} exact inactive Product Master matches are retained for review. Raw <b>N</b> is never converted to shelf support or no-display.</p></Card>

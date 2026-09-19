@@ -398,7 +398,7 @@ export interface CampaignImportRowMetadata {
 export interface CampaignWorkbookImport {
   id: UUID;
   campaignId: UUID;
-  formatId: "flyer-workbook-import-v1";
+  formatId: "flyer-workbook-import-v1" | "store-display-workbook-import-v1";
   workbookKind: CampaignWorkbookKind;
   /** Workbook hash plus kind and normalized campaign period; used to prevent duplicate Apply. */
   importKey: string;

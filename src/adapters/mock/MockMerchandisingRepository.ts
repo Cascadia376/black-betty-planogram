@@ -522,13 +522,20 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
     if (!campaign) throw new Error("Campaign was not found.");
     if (!input.importKey.trim() || !input.fingerprint.trim()) throw new Error("Workbook provenance is required.");
-    if (this.state.campaignImports.some((item) => item.importKey === input.importKey)) throw new Error("This store display workbook has already been applied.");
+    const priorImportIndex = this.state.campaignImports.findIndex((item) => item.importKey === input.importKey);
     const prior = structuredClone(this.state);
     try {
       const productFor = (row: ApplyStoreDisplayWorkbookInput["rows"][number]) => {
         const sku = row.product.sku.trim().toLocaleUpperCase();
         let product = this.state.products.find((item) => item.id === row.product.id)
           ?? (sku ? this.state.products.find((item) => item.sku.trim().toLocaleUpperCase() === sku) : undefined);
+        if (!product && !sku) {
+          const existingPending = campaign.products.find((item) => item.pendingSource?.workbook === input.sourceFileName
+            && item.pendingSource.sheet === row.source.sourceSheet
+            && item.pendingSource.row === row.source.sourceRow
+            && item.pendingSource.productName === row.product.name);
+          if (existingPending) product = this.state.products.find((item) => item.id === existingPending.productId);
+        }
         if (!product) {
           product = structuredClone(row.product);
           this.state.products.push(product);
@@ -586,6 +593,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
             sortOrder: this.state.campaignDisplayProducts.filter((item) => item.campaignDisplayId === display.id).length };
           this.state.campaignDisplayProducts.push(member);
         }
+        campaignProduct.merchandisingState = "DISPLAY_ASSIGNED";
         let assignment = this.state.campaignDisplayAssignments.find((item) => item.campaignDisplayId === display.id && item.storeId === row.storeId);
         if (!assignment) {
           assignment = { id: crypto.randomUUID(), campaignId: campaign.id, campaignDisplayId: display.id, storeId: row.storeId,
@@ -601,9 +609,11 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
         else this.state.campaignDisplayAssignmentProducts.push({ id: crypto.randomUUID(), campaignDisplayAssignmentId: assignment.id, campaignDisplayProductId: member.id, productId: product.id,
           caseQuantity: row.caseQuantity, quantitySource: "SPREADSHEET", buyerOverride: false });
       }
-      this.state.campaignImports.push({ id: crypto.randomUUID(), campaignId: campaign.id, formatId: "flyer-workbook-import-v1", workbookKind: "ond",
+      const importRecord = { id: priorImportIndex >= 0 ? this.state.campaignImports[priorImportIndex].id : crypto.randomUUID(), campaignId: campaign.id, formatId: "store-display-workbook-import-v1", workbookKind: "ond",
         importKey: input.importKey, fingerprint: input.fingerprint, sourceFileName: input.sourceFileName, sourceSheet: input.sourceSheet,
-        importedAt: this.clock.now(), rows: structuredClone(input.reviewRows) });
+        importedAt: this.clock.now(), rows: structuredClone(input.reviewRows) };
+      if (priorImportIndex >= 0) this.state.campaignImports[priorImportIndex] = importRecord;
+      else this.state.campaignImports.push(importRecord);
       this.persist();
     } catch (cause) {
       this.state = prior;

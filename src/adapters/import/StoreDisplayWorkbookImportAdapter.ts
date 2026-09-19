@@ -151,6 +151,17 @@ export class StoreDisplayWorkbookImportAdapter {
   }
 }
 
+/** Identifies the one-worksheet-per-store shape without relying on a filename. */
+export async function isStoreDisplayWorkbook(file: Blob): Promise<boolean> {
+  const sheetNames = await readSheetNames(file);
+  if (sheetNames.length < 2) return false;
+  const sheets = await Promise.all(sheetNames.map(async (sheet) => readXlsxFile(file, { sheet })));
+  return sheets.every((rows) => {
+    const headers = new Set((rows[0] ?? []).map(normalizeHeader));
+    return STORE_DISPLAY_HEADERS.every((header) => headers.has(header));
+  });
+}
+
 export function toApplyStoreDisplayWorkbookImport(result: StoreDisplayWorkbookImportResult, campaignId: string): ApplyStoreDisplayWorkbookInput {
   const temporaryMarkers = result.rows.filter((row) => row.temporaryDisplayMarker);
   if (temporaryMarkers.length) {

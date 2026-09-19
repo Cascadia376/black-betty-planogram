@@ -9,6 +9,7 @@ import {
   type FlyerWorkbookImportResult,
   type FlyerWorkbookReviewRow,
 } from "../../adapters/import/FlyerWorkbookImportAdapter";
+import { isStoreDisplayWorkbook } from "../../adapters/import/StoreDisplayWorkbookImportAdapter";
 import { Badge, Button, Card, DataState, Field, PageHeader, inputClass } from "../../components/ui";
 import type { NewCampaignInput } from "../../domain/types";
 import { validateCampaignDetails } from "../../domain/rules";
@@ -43,6 +44,10 @@ export function FlyerWorkbookImportPage() {
     if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) { setParseError("This importer accepts .xlsx workbooks only."); return; }
     setParsing(true);
     try {
+      if (await isStoreDisplayWorkbook(file)) {
+        navigate("/imports/store-displays", { state: { workbookFile: file, sourceCampaignId } });
+        return;
+      }
       const parsed = await adapter.parse(file, { snapshot: data, productMaster });
       if (version !== uploadVersion.current) return;
       const sourceCampaign = data.campaigns.find((item) => item.id === sourceCampaignId);
@@ -51,7 +56,7 @@ export function FlyerWorkbookImportPage() {
     } catch (cause) {
       if (version === uploadVersion.current) setParseError(cause instanceof Error ? cause.message : "The workbook could not be parsed.");
     } finally { if (version === uploadVersion.current) setParsing(false); }
-  }, [data, productMaster]);
+  }, [data, navigate, productMaster]);
 
   useEffect(() => {
     if (!data || !(handoff?.workbookFile instanceof File) || consumedHandoff.current === location.key) return;
@@ -63,7 +68,8 @@ export function FlyerWorkbookImportPage() {
 
   const readyRows = result?.rows.filter((row) => row.status === "ready") ?? [];
   const skippedRows = result?.rows.filter((row) => row.status !== "ready" && row.status !== "information") ?? [];
-  const duplicateApplied = Boolean(result && campaign && data?.campaignImports.some((item) => item.importKey === campaignWorkbookImportKey(result, campaign)));
+  const existingImport = result && campaign ? data?.campaignImports.find((item) => item.importKey === campaignWorkbookImportKey(result, campaign)) : undefined;
+  const duplicateApplied = Boolean(existingImport);
   const campaignErrors = campaign && result ? [...validateCampaignDetails(campaign), ...validateWorkbookCampaignPeriod(result.workbookKind, campaign)] : [];
   const apply = async () => {
     if (!result || !campaign || !readyRows.length || result.fatal || duplicateApplied || campaignErrors.length || (skippedRows.length && !confirmSkipped)) return;
@@ -91,7 +97,7 @@ export function FlyerWorkbookImportPage() {
     {parseError && <div role="alert" className="rounded-md border border-error/30 bg-error-subtle p-3 text-sm text-error">{parseError}</div>}
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-4">
-        <Card><div className="flex items-center gap-2"><Upload className="h-4 w-4 text-primary" /><h2 className="font-semibold">Upload source workbook</h2></div><label className="mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border-strong bg-subtle px-4 text-center focus-within:ring-2 focus-within:ring-focus"><input className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void upload(event.target.files?.[0])} /><span className="text-sm font-semibold">{fileName ? "Replace selected workbook" : "Choose Jeremy’s .xlsx workbook"}</span><span className="mt-1 text-xs text-text-muted">{fileName || "September flyer or consolidated campaign-planning format"}</span></label></Card>
+        <Card><div className="flex items-center gap-2"><Upload className="h-4 w-4 text-primary" /><h2 className="font-semibold">Upload source workbook</h2></div><label className="mt-4 flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border-strong bg-subtle px-4 text-center focus-within:ring-2 focus-within:ring-focus"><input className="sr-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void upload(event.target.files?.[0])} /><span className="text-sm font-semibold">{fileName ? "Replace selected workbook" : "Choose Jeremy’s .xlsx workbook"}</span><span className="mt-1 text-xs text-text-muted">{fileName || "Monthly flyer, consolidated campaign plan, or one-sheet-per-store display workbook"}</span></label></Card>
         {result && campaign && <>
           <CampaignDetails campaign={campaign} setCampaign={setCampaign} errors={campaignErrors} />
           <ImportSummary result={result} />
@@ -101,7 +107,7 @@ export function FlyerWorkbookImportPage() {
           {result.placements.length > 0 && <PlacementReview result={result} />}
         </>}
       </div>
-      <ApprovalPanel result={result} campaignErrors={campaignErrors} duplicateApplied={duplicateApplied} applying={applying} confirmSkipped={confirmSkipped} setConfirmSkipped={setConfirmSkipped} apply={apply} />
+      <ApprovalPanel result={result} campaignErrors={campaignErrors} duplicateApplied={duplicateApplied} duplicateCampaignId={existingImport?.campaignId} applying={applying} confirmSkipped={confirmSkipped} setConfirmSkipped={setConfirmSkipped} apply={apply} />
     </div>
   </div>}</DataState>;
 }
@@ -134,11 +140,11 @@ function PlacementReview({ result }: { result: FlyerWorkbookImportResult }) {
   return <div className="space-y-3"><div><h2 className="font-semibold">Store placement preview</h2><p className="text-sm text-text-secondary">Exact codes map automatically. Missing areas remain store-specific exceptions.</p></div>{[...grouped.values()].map((placements) => { const store = placements[0].store; const exceptions = placements.filter((item) => item.status === "SUGGESTED" || item.status === "NEEDS_REVIEW").length; return <Card key={store.id}><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{store.name}</h3><Badge tone={exceptions ? "warning" : "success"}>{exceptions ? `${exceptions} exceptions` : "All mapped"}</Badge></div><div className="mt-3 grid gap-2">{placements.map((placement) => <div key={placement.displayLocalCode} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border p-3 text-sm"><span><b>{placement.displayLocalCode}</b> · {placement.productCount} SKUs · {placement.caseQuantity} cases<span className="block text-xs text-text-muted">{placement.displayArea ? `Mapped to ${placement.displayArea.code}` : placement.suggestion ? `Suggested ${placement.suggestion.code}` : placement.reasons.join(" ")}</span></span><Badge tone={placement.status === "ASSIGNED" || placement.status === "EXCLUDED" ? "success" : "warning"}>{placement.status.replace("_", " ")}</Badge></div>)}</div></Card>; })}</div>;
 }
 
-function ApprovalPanel({ result, campaignErrors, duplicateApplied, applying, confirmSkipped, setConfirmSkipped, apply }: { result?: FlyerWorkbookImportResult; campaignErrors: string[]; duplicateApplied: boolean; applying: boolean; confirmSkipped: boolean; setConfirmSkipped(value: boolean): void; apply(): Promise<void> }) {
+function ApprovalPanel({ result, campaignErrors, duplicateApplied, duplicateCampaignId, applying, confirmSkipped, setConfirmSkipped, apply }: { result?: FlyerWorkbookImportResult; campaignErrors: string[]; duplicateApplied: boolean; duplicateCampaignId?: string; applying: boolean; confirmSkipped: boolean; setConfirmSkipped(value: boolean): void; apply(): Promise<void> }) {
   const ready = result?.rows.filter((row) => row.status === "ready").length ?? 0;
   const skipped = result?.rows.filter((row) => !["ready", "information"].includes(row.status)).length ?? 0;
   const disabled = !result || result.fatal || !ready || duplicateApplied || campaignErrors.length > 0 || (skipped > 0 && !confirmSkipped) || applying;
-  return <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start"><Card><h2 className="font-semibold">Supported source fields</h2><p className="mt-2 text-sm leading-5 text-text-secondary">Flyer pricing and promotion metadata, or consolidated SKU/store case allocations with an optional second sheet for store display codes.</p><p className="mt-3 text-xs leading-5 text-text-muted">SKU is authoritative. Product names are supporting evidence. Blank quantity cells mean zero. On the optional display sheet, blank store cells mean no display for that store.</p></Card>{result && <Card><h2 className="font-semibold">Apply draft campaign</h2><dl className="mt-3 space-y-2 text-sm"><MetricInline label="Ready products" value={ready} /><MetricInline label="Rows skipped" value={skipped} /><MetricInline label="Exact placements" value={result.placements.filter((item) => item.status === "ASSIGNED").length} /><MetricInline label="Placement exceptions" value={result.placements.filter((item) => ["SUGGESTED", "NEEDS_REVIEW"].includes(item.status)).length} /></dl>{skipped > 0 && <label className="mt-4 flex gap-2 rounded border border-warning/30 bg-warning-subtle p-3 text-xs leading-5 text-warning"><input type="checkbox" checked={confirmSkipped} onChange={(event) => setConfirmSkipped(event.target.checked)} /><span>I reviewed the {skipped} unresolved or duplicate rows. Apply only the matched rows and retain the skipped rows in this review.</span></label>}{duplicateApplied && <p className="mt-4 text-sm text-error">This fingerprint was already applied.</p>}<Button className="mt-4 w-full" disabled={disabled} onClick={() => void apply()}><Check className="h-4 w-4" />{applying ? "Applying…" : "Apply and create draft campaign"}</Button><p className="mt-3 text-xs leading-5 text-text-muted">Apply is transactional. It does not publish the campaign.</p></Card>}{result?.issues.length ? <Card><div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /><h2 className="font-semibold">Review notes</h2></div><p className="mt-2 text-sm text-text-secondary">{result.issues.length} warnings or row issues are preserved with source provenance.</p></Card> : null}</aside>;
+  return <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start"><Card><h2 className="font-semibold">Supported source fields</h2><p className="mt-2 text-sm leading-5 text-text-secondary">Flyer pricing and promotion metadata, or consolidated SKU/store case allocations with an optional second sheet for store display codes.</p><p className="mt-3 text-xs leading-5 text-text-muted">SKU is authoritative. Product names are supporting evidence. Blank quantity cells mean zero. On the optional display sheet, blank store cells mean no display for that store.</p></Card>{result && <Card><h2 className="font-semibold">Apply draft campaign</h2><dl className="mt-3 space-y-2 text-sm"><MetricInline label="Ready products" value={ready} /><MetricInline label="Rows skipped" value={skipped} /><MetricInline label="Exact placements" value={result.placements.filter((item) => item.status === "ASSIGNED").length} /><MetricInline label="Placement exceptions" value={result.placements.filter((item) => ["SUGGESTED", "NEEDS_REVIEW"].includes(item.status)).length} /></dl>{skipped > 0 && <label className="mt-4 flex gap-2 rounded border border-warning/30 bg-warning-subtle p-3 text-xs leading-5 text-warning"><input type="checkbox" checked={confirmSkipped} onChange={(event) => setConfirmSkipped(event.target.checked)} /><span>I reviewed the {skipped} unresolved or duplicate rows. Apply only the matched rows and retain the skipped rows in this review.</span></label>}{duplicateApplied && <div className="mt-4 rounded border border-info/30 bg-info-subtle p-3 text-sm text-info"><p>This exact workbook was already applied, so its saved draft is reused instead of creating a duplicate.</p>{duplicateCampaignId && <Link className="mt-2 inline-flex font-semibold underline" to={`/campaigns/${duplicateCampaignId}/review`}>Open saved draft</Link>}</div>}<Button className="mt-4 w-full" disabled={disabled} onClick={() => void apply()}><Check className="h-4 w-4" />{applying ? "Applying…" : "Apply and create draft campaign"}</Button><p className="mt-3 text-xs leading-5 text-text-muted">Apply is transactional. It does not publish the campaign.</p></Card>}{result?.issues.length ? <Card><div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /><h2 className="font-semibold">Review notes</h2></div><p className="mt-2 text-sm text-text-secondary">{result.issues.length} warnings or row issues are preserved with source provenance.</p></Card> : null}</aside>;
 }
 
 function Metric({ label, value }: { label: string; value: number }) { return <div className="rounded bg-subtle p-3"><dt className="text-xs text-text-muted">{label}</dt><dd className="mt-1 font-semibold">{value}</dd></div>; }
