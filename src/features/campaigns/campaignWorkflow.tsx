@@ -54,13 +54,16 @@ export function campaignStoreReadiness(campaign: Campaign | undefined, data: Pla
   const displays = data.campaignDisplays.filter((item) => item.campaignId === campaign.id);
   const assignments = data.campaignDisplayAssignments.filter((item) => item.campaignId === campaign.id);
   const complete = (status: string | undefined) => status === "ASSIGNED" || status === "EXCLUDED";
+  const expectedPlacements = stores.flatMap((store) => displays.filter((display) => display.placementMode === "STANDARD"
+    || assignments.some((assignment) => assignment.storeId === store.storeId && assignment.campaignDisplayId === display.id))
+    .map((display) => ({ storeId: store.storeId, campaignDisplayId: display.id })));
   const perStore = stores.map((store) => {
-    const rows = assignments.filter((item) => item.storeId === store.storeId);
-    if (!rows.length) return "not_started";
-    return displays.every((display) => complete(rows.find((row) => row.campaignDisplayId === display.id)?.status)) ? "ready" : "needs_review";
+    const expected = expectedPlacements.filter((item) => item.storeId === store.storeId);
+    if (!expected.length) return "not_started";
+    return expected.every((item) => complete(assignments.find((row) => row.storeId === item.storeId && row.campaignDisplayId === item.campaignDisplayId)?.status)) ? "ready" : "needs_review";
   });
   const completePlacements = assignments.filter((item) => complete(item.status)).length;
-  return { included: stores.length, ready: perStore.filter((item) => item === "ready").length, needsReview: perStore.filter((item) => item === "needs_review").length, notStarted: perStore.filter((item) => item === "not_started").length, totalPlacements: stores.length * displays.length, completePlacements, complete: stores.length > 0 && perStore.every((item) => item === "ready") };
+  return { included: stores.length, ready: perStore.filter((item) => item === "ready").length, needsReview: perStore.filter((item) => item === "needs_review").length, notStarted: perStore.filter((item) => item === "not_started").length, totalPlacements: expectedPlacements.length, completePlacements, complete: stores.length > 0 && perStore.every((item) => item === "ready") };
 }
 
 export function campaignDisplayReadiness(campaign: Campaign | undefined, data: PlatformSnapshot | undefined): CampaignDisplayReadiness {

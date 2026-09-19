@@ -525,6 +525,28 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const priorImportIndex = this.state.campaignImports.findIndex((item) => item.importKey === input.importKey);
     const prior = structuredClone(this.state);
     try {
+      const priorDisplayCodes = new Set(priorImportIndex < 0 ? [] : this.state.campaignImports[priorImportIndex].rows
+        .map((row) => row.displayLocalCode?.toLocaleUpperCase()).filter((code): code is string => Boolean(code)));
+      const priorGeneratedDisplayIds = new Set(this.state.campaignDisplays
+        .filter((display) => display.campaignId === campaign.id && display.description?.startsWith("Store-workbook display concept ")
+          && priorDisplayCodes.has(display.sourceLocalCode?.toLocaleUpperCase() ?? ""))
+        .map((display) => display.id));
+      const priorDisplayProductCampaignIds = new Set(this.state.campaignDisplayProducts
+        .filter((product) => priorGeneratedDisplayIds.has(product.campaignDisplayId))
+        .map((product) => product.campaignProductId));
+      if (priorGeneratedDisplayIds.size) {
+        const priorAssignmentIds = new Set(this.state.campaignDisplayAssignments
+          .filter((assignment) => priorGeneratedDisplayIds.has(assignment.campaignDisplayId))
+          .map((assignment) => assignment.id));
+        this.state.campaignDisplayAssignmentProducts = this.state.campaignDisplayAssignmentProducts
+          .filter((product) => !priorAssignmentIds.has(product.campaignDisplayAssignmentId));
+        this.state.campaignDisplayAssignments = this.state.campaignDisplayAssignments
+          .filter((assignment) => !priorGeneratedDisplayIds.has(assignment.campaignDisplayId));
+        this.state.campaignDisplayProducts = this.state.campaignDisplayProducts
+          .filter((product) => !priorGeneratedDisplayIds.has(product.campaignDisplayId));
+        this.state.campaignDisplays = this.state.campaignDisplays
+          .filter((display) => !priorGeneratedDisplayIds.has(display.id));
+      }
       const productFor = (row: ApplyStoreDisplayWorkbookInput["rows"][number]) => {
         const sku = row.product.sku.trim().toLocaleUpperCase();
         let product = this.state.products.find((item) => item.id === row.product.id)
@@ -609,6 +631,9 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
         else this.state.campaignDisplayAssignmentProducts.push({ id: crypto.randomUUID(), campaignDisplayAssignmentId: assignment.id, campaignDisplayProductId: member.id, productId: product.id,
           caseQuantity: row.caseQuantity, quantitySource: "SPREADSHEET", buyerOverride: false });
       }
+      campaign.products.forEach((product) => {
+        if (priorDisplayProductCampaignIds.has(product.id) && !this.state.campaignDisplayProducts.some((member) => member.campaignProductId === product.id)) product.merchandisingState = "UNASSIGNED";
+      });
       const importRecord = { id: priorImportIndex >= 0 ? this.state.campaignImports[priorImportIndex].id : crypto.randomUUID(), campaignId: campaign.id, formatId: "store-display-workbook-import-v1", workbookKind: "ond",
         importKey: input.importKey, fingerprint: input.fingerprint, sourceFileName: input.sourceFileName, sourceSheet: input.sourceSheet,
         importedAt: this.clock.now(), rows: structuredClone(input.reviewRows) };

@@ -95,6 +95,7 @@ export class StoreDisplayWorkbookImportAdapter {
       for (let index = 1; index < sheetRows.length; index += 1) {
         const cells = sheetRows[index] ?? [];
         if (cells.every((cell) => text(cell) === "")) continue;
+        if (isRepeatedStoreDisplayHeader(cells, indexes)) continue;
         const rowNumber = index + 1;
         const sku = skuText(cells[indexes.get("INV NUM")!]);
         const productName = text(cells[indexes.get("PRODUCT")!]);
@@ -209,6 +210,9 @@ function planningProduct(sku: string, name: string, category: string | undefined
     notes: "Campaign-only pending source product; Product Master reconciliation required." };
 }
 function parseCases(value: unknown) { const raw = text(value); if (!raw) return undefined; const number = Number(raw); return Number.isInteger(number) && number >= 0 ? number : null; }
+function isRepeatedStoreDisplayHeader(cells: unknown[], indexes: Map<string, number>) {
+  return ["VENDOR", "CATEGORY", "INV NUM", "PRODUCT", "CASE QTY", "DISPLAY NOTES"].every((header) => normalizeHeader(cells[indexes.get(header)!]) === header);
+}
 function skuText(value: unknown) { return text(value).replace(/\.0$/, ""); }
 function text(value: unknown) { return value === null || value === undefined ? "" : String(value).trim(); }
 function normalizeHeader(value: unknown) { return text(value).replace(/[_-]+/g, " ").replace(/\s+/g, " ").toLocaleUpperCase(); }

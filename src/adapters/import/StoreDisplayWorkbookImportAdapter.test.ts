@@ -20,7 +20,7 @@ describe("store display workbook importer", () => {
     const active: Product = { id: "product-active", sku: "1001", name: "Active product", category: "Wine", masterStatus: "verified", active: true, synthetic: false };
     const adapter = new StoreDisplayWorkbookImportAdapter();
     const result = await adapter.parseSheets([
-      { sheet: "Courtenay", rows: [headers, row(["Vendor A", "Wine", "1001", "Active product", crownArea.localCode!, "2", "Build together"]), row(["Vendor B", "Wine", "9999", "New product", "N", "1", ""]) ] },
+      { sheet: "Courtenay", rows: [headers, row(["Vendor A", "Wine", "1001", "Active product", crownArea.localCode!, "2", "Build together"]), row(["Vendor B", "Wine", "9999", "New product", "N", "1", ""]), row(["Vendor", "Category", "INV_NUM", "Product", "Crown Isle", "Case QTY", "Display Notes"]) ] },
       { sheet: "Caddy Bay", rows: [headers, row(["Vendor C", "Beer", "", "Pending no SKU", caddyArea.localCode!, "3", "Build together"]) ] },
       { sheet: "Mystery Store", rows: [headers, row(["Vendor D", "Wine", "1001", "Ignored store", "W1", "1", ""]) ] },
     ], { snapshot: { stores: data.stores, displayAreas: data.displayAreas, products: [active] }, productMaster: new MockProductMasterLookup([active]) }, { sourceFileName: "OND 2026 Store Displays.xlsx", fingerprint: "fixture" });

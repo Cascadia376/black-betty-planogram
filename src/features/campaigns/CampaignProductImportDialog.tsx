@@ -1,7 +1,8 @@
 import { AlertTriangle, ArrowRight, Check, FileSpreadsheet, Pencil, Upload, X } from "lucide-react";
 import { useState, type ChangeEvent, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { CampaignProductImportAdapter, CAMPAIGN_PRODUCT_IMPORT_HEADERS, type CampaignProductImportResult, type CampaignProductImportRow } from "../../adapters/import/CampaignProductImportAdapter";
+import { isStoreDisplayWorkbook } from "../../adapters/import/StoreDisplayWorkbookImportAdapter";
 import type { ApplyCampaignProductImportInput, CreatePendingProductInput } from "../../domain/repositories";
 import type { CampaignProduct, Product } from "../../domain/types";
 import { Badge, Button, Card, inputClass } from "../../components/ui";
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export function CampaignProductImportDialog({ products, assortment, onCreatePendingProduct, onApply, onClose }: Props) {
-  const { campaignId } = useParams();
+  const { campaignId } = useParams(); const navigate = useNavigate();
   const [sourceFile, setSourceFile] = useState<File>();
   const [result, setResult] = useState<CampaignProductImportResult>();
   const [fileName, setFileName] = useState("");
@@ -34,7 +35,14 @@ export function CampaignProductImportDialog({ products, assortment, onCreatePend
     setResult(undefined); setOmitted(new Set()); setResolved(new Map()); setError(""); setFileName(file?.name ?? "");
     if (!file) return;
     if (!file.name.toLocaleLowerCase().endsWith(".xlsx")) { setError("This import accepts .xlsx workbooks only."); return; }
-    try { setResult(await adapter.parse(file, { products, campaignProducts: assortment })); } catch (cause) { setError(cause instanceof Error ? cause.message : "The workbook could not be parsed."); }
+    try {
+      if (await isStoreDisplayWorkbook(file)) {
+        onClose();
+        navigate("/imports/store-displays", { state: { workbookFile: file, sourceCampaignId: campaignId } });
+        return;
+      }
+      setResult(await adapter.parse(file, { products, campaignProducts: assortment }));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "The workbook could not be parsed."); }
   };
 
   const apply = async () => {

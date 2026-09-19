@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { CampaignProductImportContext } from "../../adapters/import/CampaignProductImportAdapter";
 import { CampaignProductImportDialog } from "./CampaignProductImportDialog";
 
+vi.mock("../../adapters/import/StoreDisplayWorkbookImportAdapter", () => ({
+  isStoreDisplayWorkbook: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("../../adapters/import/CampaignProductImportAdapter", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../adapters/import/CampaignProductImportAdapter")>();
   return {

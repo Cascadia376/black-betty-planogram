@@ -16,10 +16,11 @@ export function StoreDisplayWorkbookImportPage() {
   const [file, setFile] = useState<File>();
   const [sheetMappings, setSheetMappings] = useState<StoreDisplayWorkbookSheetMappings>({});
   const [message, setMessage] = useState("");
+  const [completedCampaignId, setCompletedCampaignId] = useState<string>();
   const [busy, setBusy] = useState(false);
   const upload = useCallback(async (nextFile?: File, nextMappings: StoreDisplayWorkbookSheetMappings = {}) => {
     if (!nextFile || !data) return;
-    setBusy(true); setMessage(""); setResult(undefined);
+    setBusy(true); setMessage(""); setCompletedCampaignId(undefined); setResult(undefined);
     try { setResult(await adapter.parse(nextFile, { snapshot: data, productMaster }, nextMappings)); }
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Unable to parse the store display workbook."); }
     finally { setBusy(false); }
@@ -52,13 +53,13 @@ export function StoreDisplayWorkbookImportPage() {
   };
   const apply = async () => {
     if (!result || !campaignId) return;
-    setBusy(true); setMessage("");
-    try { await applyStoreDisplayWorkbook(toApplyStoreDisplayWorkbookImport(result, campaignId)); setMessage("Store display workbook saved to the shared campaign plan."); }
+    setBusy(true); setMessage(""); setCompletedCampaignId(undefined);
+    try { await applyStoreDisplayWorkbook(toApplyStoreDisplayWorkbookImport(result, campaignId)); setMessage("Store display workbook saved to the shared campaign plan."); setCompletedCampaignId(campaignId); }
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Unable to save the store display workbook."); }
     finally { setBusy(false); }
   };
   return <DataState loading={loading} error={error}><div className="space-y-5"><PageHeader eyebrow="Workbook → campaign" title="Import store display workbook" description="One worksheet per store. This format is detected automatically from the standard workbook upload." actions={<Link className="rounded border border-border px-3 py-2 text-sm font-semibold" to="/imports">Imports</Link>} />
-    {message && <p role="alert" className="rounded border border-warning/30 bg-warning-subtle p-3 text-sm">{message}</p>}
+    {message && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded border border-success/30 bg-success-subtle p-3 text-sm"><p>{message}</p>{completedCampaignId && <Link className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 font-semibold text-primary-foreground" to={`/campaigns/${completedCampaignId}/display`}>Review campaign displays</Link>}</div>}
     <Card><label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded border border-dashed border-border-strong bg-subtle"><input className="sr-only" type="file" accept=".xlsx" onChange={(event) => { const nextFile = event.target.files?.[0]; setFile(nextFile); setSheetMappings({}); void upload(nextFile); }} /><b>{busy ? "Reading workbook…" : "Choose OND store-display .xlsx workbook"}</b><span className="mt-1 text-xs text-text-muted">Unknown sheet names remain in review and never create stores.</span></label></Card>
     {result && counts && <><Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Import review</h2><p className="text-sm text-text-secondary">Sheets: {result.sheetNames.join(", ")}</p></div><div className="flex flex-wrap gap-2"><Badge tone="success">{counts.ready} ready</Badge><Badge tone="warning">{counts.pending} pending product</Badge><Badge tone="warning">{counts.unresolved} unresolved display</Badge><Badge tone="warning">{counts.invalid} invalid</Badge><Badge tone={counts.noteConflicts ? "error" : "neutral"}>{counts.noteConflicts} conflicting notes</Badge></div></div><p className="mt-3 text-sm text-text-secondary">{counts.inactive} exact inactive Product Master matches are retained for review. Raw <b>N</b> is never converted to shelf support or no-display.</p></Card>
       {unmappedSheets.length > 0 && <Card><h2 className="font-semibold">Map worksheet to canonical store</h2><p className="mt-1 text-sm text-text-secondary">This is an explicit buyer review decision. The workbook filename is never used to identify a store.</p>{unmappedSheets.map((sheet) => <div key={sheet} className="mt-3"><Field label={sheet}><select aria-label={`Map ${sheet} to store`} className={inputClass} value={sheetMappings[sheet] ?? ""} onChange={(event) => setSheetMapping(sheet, event.target.value)}><option value="">Choose canonical store…</option>{data.stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></Field></div>)}</Card>}
