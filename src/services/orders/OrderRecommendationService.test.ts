@@ -16,6 +16,32 @@ describe("rule-based order recommendation generation", () => {
     expect(result.recommendation.rationale).toContain("Forecast confidence is high");
   });
 
+  it("covers expected sell-through before the display set and rounds to supplier multiples", async () => {
+    const data = structuredClone(seedSnapshot);
+    const assignmentProduct = data.displayAssignmentProducts.find((item) => item.assignmentId === IDS.ondEndcapAEarlyAssignment && item.productId === IDS.ondHarvestProduct)!;
+    assignmentProduct.caseQuantity = 8;
+    const inventory = data.inventoryPositions.find((item) => item.storeId === IDS.store && item.productId === IDS.ondHarvestProduct)!;
+    inventory.onHandCases = 2;
+    inventory.reservedCases = 0;
+    data.inboundOrders = [];
+    data.historicalDemand = [
+      { id: "forecast-multiple-history", storeId: IDS.store, productId: IDS.ondHarvestProduct, category: "Wine", date: "2025-10-15", cases: 0.5 },
+    ];
+    const preferred = data.supplierProductOptions.find((item) => item.productId === IDS.ondHarvestProduct && item.preferred)!;
+    preferred.orderMultipleCases = 4;
+
+    const result = await generator.generate(input, data);
+
+    expect(result.forecast.dailyDemand).toHaveLength(7);
+    expect(result.forecast.dailyDemand[0].date).toBe("2026-09-24");
+    expect(result.forecast.dailyDemand.at(-1)?.date).toBe("2026-09-30");
+    expect(result.recommendation.forecastCases).toBeUndefined();
+    expect(result.coverage.requiredCases).toBe(12);
+    expect(result.coverage.uncoveredCases).toBe(10);
+    expect(result.recommendation.recommendedCases).toBe(12);
+    expect(result.recommendation.rationale).toContain("Rounded from 10 to 12 cases");
+  });
+
   it("reduces the recommendation for an inbound PO arriving by the required date", async () => {
     const withInbound = await generator.generate(input, structuredClone(seedSnapshot));
     const withoutInboundData = structuredClone(seedSnapshot);

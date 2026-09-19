@@ -18,6 +18,16 @@ describe("rule-based OND demand curve", () => {
     expect(demand("2027-01-01").expectedCases).toBe(0);
   });
 
+  it("treats September OND lead-in demand as baseline", async () => {
+    const service = new RuleBasedOndDemandService(new MockHistoricalDemandSource([
+      record("sep-store-sku", { storeId: "store-a", productId: "sku-a", category: "Wine", cases: 2 }),
+    ]));
+    const result = await service.forecast({ storeId: "store-a", productId: "sku-a", category: "Wine", startDate: "2026-09-24", endDate: "2026-09-30" });
+    expect(result.dailyDemand).toHaveLength(7);
+    expect(result.dailyDemand.every((day) => day.phase === "baseline")).toBe(true);
+    expect(result.dailyDemand.every((day) => day.expectedCases === 2)).toBe(true);
+  });
+
   it("uses the configured fallback hierarchy", async () => {
     const storeSku = record("store-sku", { storeId: "store-a", productId: "sku-a", category: "Wine" });
     const chainSku = record("chain-sku", { storeId: "store-b", productId: "sku-a", category: "Spirits" });

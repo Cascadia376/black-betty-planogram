@@ -25,7 +25,7 @@ export const defaultOndDemandCurveConfig: OndDemandCurveConfig = {
 
 export function ondDemandPhaseForDate(date: string): OndDemandPhase {
   const monthDay = date.slice(5, 10);
-  if (monthDay >= "10-01" && monthDay <= "11-30") return "baseline";
+  if (monthDay >= "09-01" && monthDay <= "11-30") return "baseline";
   if (monthDay >= "12-01" && monthDay <= "12-14") return "gradual_build";
   if (monthDay >= "12-15" && monthDay <= "12-24") return "christmas_acceleration";
   if (monthDay === "12-25") return "christmas_closed";
