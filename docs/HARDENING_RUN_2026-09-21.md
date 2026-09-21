@@ -55,7 +55,17 @@ No database migration, access grant, production publication, campaign edit, dele
 
 Test PDFs contain synthetic product/SKU data with supplied store reference maps. They are QA artifacts, not approved instructions for stores. Earlier failing E2E selectors were corrected to actual controls; assertions still exercise real saves/reopens and no-op publication. The PDF test now waits for the requested month's heading before printing. No tests were removed to hide failures.
 
-The local agent-browser binary was unavailable; browser verification used installed Playwright Chromium. No production account credentials were retrieved. Package versions/lockfile were not upgraded. Source and locked dependencies were obtained through a short-lived isolated GitHub Actions bootstrap because the working container had no external network; that bootstrap is removed from the final branch content. CI must independently verify the delivered code.
+The local agent-browser binary was unavailable; browser verification used installed Playwright Chromium. No production account credentials were retrieved. The final security follow-up changes only fflate 0.8.2 to 0.8.3 and the transitive development dependency js-yaml 4.3.1 to 4.3.2; no broad dependency upgrade was performed. Source and locked dependencies were obtained through a short-lived isolated GitHub Actions bootstrap because the working container had no external network; that bootstrap is removed from the final branch content. The initial delivered product changes also passed the normal GitHub PR quality gate: run 35613453220 (226 unit/integration tests, 62 browser passes, one explicitly gated staging skip). The final image-readiness follow-up increases the unit suite to 233 tests across 46 files.
+
+## Final image readiness and dependency security verification
+
+A security retest (run 35614137369) surfaced an intermittent disabled Print button in the OND acceptance flow. Replaced reliance on the SVG image load event with an explicit image decode/readiness check, including already cached images, stale request cancellation, a bounded loading state and Retry floor map. Seven new unit tests protect these transitions; the buyer browser test now intentionally fails a map request and verifies safe recovery before printing. No assertion timeout was increased or disabled to hide the failure.
+
+Inspection of the build log also revealed two existing advisory findings. The ZIP parser finding is relevant to workbook intake, not merely an unused development tool. Updated fflate to 0.8.3 (GHSA-px8p-9vwx-vf98) and the transitive development parser js-yaml to 4.3.2 (GHSA-2883-xcg3-v3hh). The direct fflate minimum is now ^0.8.3. A strict comparison rejects any unrelated dependency changes.
+
+The patched lockfile passed npm audit at the moderate threshold, lint, TypeScript, all 233 unit/integration tests, build and the complete default browser suite (62 passed; one explicit secured-staging skip) before commit. An additional 15 browser tests passed across five repeats of the buyer release and OND importer/print flows. Evidence: https://github.com/Cascadia376/black-betty-planogram/actions/runs/35615335535. A permanent Dependency audit workflow reports advisories and fails on moderate-or-higher findings; no audit suppression or forced major update was used. This scan is evidence about known advisories at this time, not proof of absence of vulnerabilities.
+
+References: https://github.com/101arrowz/fflate/releases/tag/v0.8.3 and https://github.com/nodeca/js-yaml/security/advisories/GHSA-2883-xcg3-v3hh.
 
 ## Remaining issues and next work
 
