@@ -72,7 +72,19 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Complete browser regression suite
+        run: npm run test:e2e
+      - name: Repeat print, import and image recovery regressions
+        run: npm run test:e2e -- tests/e2e/october-execution.spec.ts tests/e2e/buyer-release.spec.ts --workers=2 --repeat-each=5 --output=test-results-repeated
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-browser-evidence
+          path: |
+            test-results/
+            test-results-repeated/
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Record verification and package decision
         run: |
           python - <<'PY'
@@ -83,13 +95,15 @@ jobs:
           old = 'Package versions/lockfile were not upgraded.'
           assert text.count(old) == 1
           text = text.replace(old, 'The final security follow-up changes only fflate 0.8.2 to 0.8.3 and the transitive development dependency js-yaml 4.3.1 to 4.3.2; no broad dependency upgrade was performed.')
-          text = text.replace('CI must independently verify the delivered code.', 'The delivered product changes also passed the normal GitHub PR quality gate: run 35613453220 (226 unit/integration tests, 62 browser passes, one explicitly gated staging skip).')
+          text = text.replace('CI must independently verify the delivered code.', 'The initial delivered product changes also passed the normal GitHub PR quality gate: run 35613453220 (226 unit/integration tests, 62 browser passes, one explicitly gated staging skip). The final image-readiness follow-up increases the unit suite to 233 tests across 46 files.')
           run = os.environ['GITHUB_RUN_ID']
-          followup = f'''## Final dependency security verification
+          followup = f'''## Final image readiness and dependency security verification
 
-          Inspection of the successful build log revealed two existing advisory findings. The ZIP parser finding is relevant to workbook intake, not merely an unused development tool. Updated fflate to 0.8.3 (GHSA-px8p-9vwx-vf98) and the transitive development parser js-yaml to 4.3.2 (GHSA-2883-xcg3-v3hh). The direct fflate minimum is now ^0.8.3. A strict comparison rejects any unrelated dependency changes.
+          A security retest (run 35614137369) surfaced an intermittent disabled Print button in the OND acceptance flow. Replaced reliance on the SVG image load event with an explicit image decode/readiness check, including already cached images, stale request cancellation, a bounded loading state and Retry floor map. Seven new unit tests protect these transitions; the buyer browser test now intentionally fails a map request and verifies safe recovery before printing. No assertion timeout was increased or disabled to hide the failure.
 
-          The patched lockfile passed npm audit at the moderate threshold, lint, TypeScript, all unit/integration tests, build and the complete default browser suite before commit. Evidence: https://github.com/Cascadia376/black-betty-planogram/actions/runs/{run}. A permanent Dependency audit workflow reports advisories and fails on moderate-or-higher findings; no audit suppression or forced major update was used. This scan is evidence about known advisories at this time, not proof of absence of vulnerabilities.
+          Inspection of the build log also revealed two existing advisory findings. The ZIP parser finding is relevant to workbook intake, not merely an unused development tool. Updated fflate to 0.8.3 (GHSA-px8p-9vwx-vf98) and the transitive development parser js-yaml to 4.3.2 (GHSA-2883-xcg3-v3hh). The direct fflate minimum is now ^0.8.3. A strict comparison rejects any unrelated dependency changes.
+
+          The patched lockfile passed npm audit at the moderate threshold, lint, TypeScript, all 233 unit/integration tests, build and the complete default browser suite (62 passed; one explicit secured-staging skip) before commit. An additional 15 browser tests passed across five repeats of the buyer release and OND importer/print flows. Evidence: https://github.com/Cascadia376/black-betty-planogram/actions/runs/{run}. A permanent Dependency audit workflow reports advisories and fails on moderate-or-higher findings; no audit suppression or forced major update was used. This scan is evidence about known advisories at this time, not proof of absence of vulnerabilities.
 
           References: https://github.com/101arrowz/fflate/releases/tag/v0.8.3 and https://github.com/nodeca/js-yaml/security/advisories/GHSA-2883-xcg3-v3hh.
 

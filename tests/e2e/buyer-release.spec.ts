@@ -56,6 +56,15 @@ test("buyer creates, places, releases and reopens a durable manager pack without
   await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeEnabled();
   await page.reload();
   await expect(page.getByText("Store-specific approved instruction", { exact: false })).toBeVisible();
+  // Image failure must not strand a manager or permit a map-less printout.
+  await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeEnabled();
+  await page.route("**/floorplans/crown-isle.png", (route) => route.abort());
+  await page.reload();
+  await expect(page.getByText("Floor map unavailable", { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeDisabled();
+  await page.unroute("**/floorplans/crown-isle.png");
+  await page.getByRole("button", { name: "Retry floor map", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeEnabled();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("released-pack-mobile.png"), fullPage: true });
