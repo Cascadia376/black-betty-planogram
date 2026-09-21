@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 20
     env:
       VITE_DATA_ADAPTER: mock
+      VITE_SUPABASE_URL: ""
+      VITE_SUPABASE_PUBLISHABLE_KEY: ""
+      VITE_SUPABASE_ANON_KEY: ""
       E2E_LOCAL_TRANSPORT: "0"
       CI: "true"
     steps:

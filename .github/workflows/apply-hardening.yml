@@ -1,0 +1,82 @@
+name: Validate isolated hardening delivery
+
+on:
+  push:
+    branches: [engineering/black-betty-hardening-2026-09-21]
+    paths: [.github/workflows/apply-hardening.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isolated-hardening-delivery
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/engineering/black-betty-hardening-2026-09-21'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_DATA_ADAPTER: mock
+      VITE_SUPABASE_URL: ""
+      VITE_SUPABASE_PUBLISHABLE_KEY: ""
+      VITE_SUPABASE_ANON_KEY: ""
+      E2E_LOCAL_TRANSPORT: "0"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reconstruct reviewed source with input and output checksums
+        run: python .github/apply_hardening.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Complete browser regression suite (isolated mock data)
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verified-hardening-browser-evidence
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+  commit:
+    needs: validate
+    if: github.ref == 'refs/heads/engineering/black-betty-hardening-2026-09-21'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      EXPECTED_HEAD: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Reapply the identical reviewed source without running project code
+        run: python .github/apply_hardening.py
+      - name: Commit only verified application changes on the isolated branch
+        run: |
+          set -eu
+          BRANCH=engineering/black-betty-hardening-2026-09-21
+          ACTUAL_HEAD=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+          test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
+          git rm .github/hardening/part-1.xz .github/hardening/part-2.xz .github/hardening/part-3.xz .github/apply_hardening.py
+          git add README.md src docs tests
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: harden durable planning, floorplan editing and manager releases'
+          git push origin "HEAD:refs/heads/$BRANCH"
