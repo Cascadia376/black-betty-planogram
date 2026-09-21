@@ -2,7 +2,8 @@
 import { clsx } from "clsx";
 import { MapPin } from "lucide-react";
 import { Fragment } from "react";
-import { FloorplanViewport, type FloorplanGeometryEdit } from "./FloorplanViewport";
+import { FloorplanViewport, type FloorplanGeometryEdit, type FloorplanEditState } from "./FloorplanViewport";
+import { rectanglesOverlap } from "./floorplanGeometry";
 import type { CategorySpace, DisplayArea, DisplayAreaSection, Fixture, Geometry, StoreZone } from "../../domain/types";
 import { humanize } from "../../components/ui";
 
@@ -62,6 +63,7 @@ export function FloorplanCanvas({
   onSelect,
   onSelectCategorySpace,
   onGeometrySave,
+  onEditStateChange,
 }: {
   storeName: string;
   zones: StoreZone[];
@@ -81,6 +83,7 @@ export function FloorplanCanvas({
   onSelect(areaId: string): void;
   onSelectCategorySpace?(categorySpaceId: string): void;
   onGeometrySave?(edit: FloorplanGeometryEdit): Promise<void>;
+  onEditStateChange?(state: FloorplanEditState): void;
 }) {
   const hasRealBackground = Boolean(backgroundImageUrl);
   const displayHotspots = areas.flatMap((area) => [
@@ -91,7 +94,10 @@ export function FloorplanCanvas({
       .map((section) => ({ key: section.id, area, geometry: section.geometry, sectionLabel: section.label })),
   ]);
   return (
-    <FloorplanViewport aspectRatio={backgroundAspectRatio ?? 4 / 3} onSave={onGeometrySave}>{(editor) => (
+    <FloorplanViewport aspectRatio={backgroundAspectRatio ?? 4 / 3} onSave={onGeometrySave} onEditStateChange={onEditStateChange} warningsForEdit={(edit) => {
+      const overlaps = [...new Set(displayHotspots.filter((item) => item.area.id !== edit.areaId && rectanglesOverlap(edit.geometry, item.geometry)).map((item) => item.area.localCode ?? item.area.name))];
+      return overlaps.length ? [`Position overlaps ${overlaps.join(", ")}. Confirm this is intentional; overlap does not block saving. Map outlines are not an aisle-clearance assessment.`] : [];
+    }}>{(editor) => (
     <div
       className="relative w-full overflow-hidden rounded-sm border-4 border-locked bg-surface"
       style={{ aspectRatio: backgroundAspectRatio ?? 4 / 3 }}
@@ -183,7 +189,7 @@ export function FloorplanCanvas({
             className="absolute z-30 h-4 w-4 border-2 border-white bg-primary shadow"
             style={{ left: `${(displayedGeometry.x + displayedGeometry.width) * 100}%`, top: `${(displayedGeometry.y + displayedGeometry.height) * 100}%`, transform: "translate(-50%, -50%)", cursor: "nwse-resize" }}
             onPointerDown={(event) => editor.start(event, target, true)}
-            onKeyDown={(event) => editor.keyboard(event, target)} />}
+            onKeyDown={(event) => editor.keyboard(event, target, true)} />}
           </Fragment>
         );
       })}

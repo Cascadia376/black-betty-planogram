@@ -119,7 +119,8 @@ export function FloorplanRecoveryPage() {
           if (!change.recoveredDisplayArea) throw new Error(`Recovered display data is missing for ${change.label}.`);
           const duplicate = duplicateFor(change);
           if (duplicate) throw new Error(`${change.label} matches existing shared display ${duplicate.localCode ?? duplicate.name}. Clear it from the selection and review the existing display instead.`);
-          const { id: _legacyId, ...area } = change.recoveredDisplayArea;
+          const area = { ...change.recoveredDisplayArea };
+          delete (area as Partial<typeof area>).id;
           await createDisplayArea({ area });
           createdDisplays += 1;
         } else if (change.kind === "display_area") {

@@ -310,7 +310,10 @@ export interface CampaignRelease {
   status: "published" | "superseded";
   publishedAt: string;
   publishedBy: string;
-  snapshot: { campaign: Campaign; stores: CampaignStore[]; displays: CampaignDisplay[]; displayProducts: CampaignDisplayProduct[]; allocations: CampaignDisplayAssignment[]; allocationProducts: CampaignDisplayAssignmentProduct[] };
+  snapshot: { campaign: Campaign; stores: CampaignStore[]; displays: CampaignDisplay[]; displayProducts: CampaignDisplayProduct[]; allocations: CampaignDisplayAssignment[]; allocationProducts: CampaignDisplayAssignmentProduct[];
+    /** Present on releases created after the 2026-09-21 hardening. Image URLs are references, not archived image bytes. */
+    executionData?: Pick<PlatformSnapshot, "products" | "stores" | "storeLayouts" | "displayAreas" | "displayAreaSections" | "campaignImports" | "campaignStoreProductAllocations">;
+  };
   displayAssignmentIds: UUID[];
   planningFingerprint?: string;
 }

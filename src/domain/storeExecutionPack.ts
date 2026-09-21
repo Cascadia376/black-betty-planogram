@@ -20,6 +20,8 @@ export interface ExecutionProduct {
   cases?: number;
   notes: string;
   category: string;
+  minimumFacings?: number;
+  role?: string;
   productResolution?: "MATCHED_ACTIVE" | "MATCHED_INACTIVE" | "PENDING" | "INVALID";
 }
 
@@ -49,8 +51,8 @@ export function buildStoreDisplayPlan(data: PlatformSnapshot, campaignId: string
   const assignments = data.campaignDisplayAssignments.filter((item) => item.campaignId === campaignId && item.storeId === storeId);
   const exceptions: ExecutionException[] = [];
   const shelf: ExecutionProduct[] = [];
-  const sourceForProduct = (productId: string) => findSourceRow(data, sourceRows, productId);
-  const productLine = (productId: string, cases?: number, note?: string): ExecutionProduct => {
+  const sourceForProduct = (productId: string) => findSourceRow(data, sourceRows, productId, storeId, campaignId);
+  const productLine = (productId: string, cases?: number, note?: string, displayNote?: string): ExecutionProduct => {
     const product = data.products.find((item) => item.id === productId);
     const campaignProduct = campaign.products.find((item) => item.productId === productId);
     const source = sourceForProduct(productId);
@@ -60,26 +62,29 @@ export function buildStoreDisplayPlan(data: PlatformSnapshot, campaignId: string
     return {
       id: productId,
       name: product?.name ?? "Unknown product",
-      sku: product?.sku ?? "Unknown SKU",
+      sku: product?.sku?.trim() || "SKU NOT CONFIRMED",
       cases,
       category: product?.category ?? "",
-      productResolution: campaignProduct?.productResolution,
-      notes: [note, source?.additionalNotes, reviewedDisplay].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).join(" · "),
+      productResolution: !product || product.masterStatus === "unresolved" ? "INVALID" : product.masterStatus === "pending" ? "PENDING" : !product.active ? "MATCHED_INACTIVE" : campaignProduct?.productResolution ?? "MATCHED_ACTIVE",
+      notes: [note, displayNote, source?.additionalNotes, reviewedDisplay].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).join(" · "),
     };
   };
 
-  const builds: Array<{ id: string; area: DisplayArea; code: string; name: string; signage: string; notes: string; products: ExecutionProduct[] }> = [];
+  const builds: Array<{ id: string; area: DisplayArea; code: string; name: string; displayName: string; startDate: string; endDate: string; rotatingFlyerSlot: boolean; signage: string; notes: string; products: ExecutionProduct[] }> = [];
   for (const display of data.campaignDisplays.filter((item) => item.campaignId === campaignId).sort((a, b) => a.sortOrder - b.sortOrder)) {
     const assignment = assignments.find((item) => item.campaignDisplayId === display.id);
     const area = data.displayAreas.find((item) => item.id === assignment?.displayAreaId && item.storeId === storeId && item.active);
     const members = data.campaignDisplayProducts.filter((item) => item.campaignDisplayId === display.id);
     const memberIds = new Set(members.map((item) => item.id));
     const displayHasStoreProducts = members.some((item) => allocations.some((allocation) => allocation.campaignProductId === item.campaignProductId));
-    if (imports.length && !displayHasStoreProducts) continue;
+    if (imports.length && !displayHasStoreProducts && !assignment) continue;
     const products = assignment
       ? data.campaignDisplayAssignmentProducts
         .filter((item) => item.campaignDisplayAssignmentId === assignment.id && memberIds.has(item.campaignDisplayProductId) && item.caseQuantity !== 0)
-        .map((item) => productLine(item.productId, item.caseQuantity, item.note))
+        .map((item) => {
+          const member = members.find((candidate) => candidate.id === item.campaignDisplayProductId);
+          return { ...productLine(item.productId, item.caseQuantity, item.note, member?.note), minimumFacings: member?.minimumFacings, role: member?.role };
+        })
       : [];
     if (assignment?.status === "EXCLUDED") {
       shelf.push(...products.map((item) => ({ ...item, notes: ["No display in this store; shelf support approved.", assignment.note, item.notes].filter(Boolean).join(" ") })));
@@ -100,16 +105,24 @@ export function buildStoreDisplayPlan(data: PlatformSnapshot, campaignId: string
       area,
       code: area.localCode ?? area.displayNumber,
       name: area.name,
+      displayName: display.name,
+      startDate: assignment.startDate,
+      endDate: assignment.endDate,
+      rotatingFlyerSlot: Boolean(display.rotatingFlyerSlot),
       signage: display.signage ?? "Not specified — confirm signage before setup",
       notes: [assignment.executionNotes, display.executionNotes, assignment.note].filter(Boolean).join(" · ") || "No additional execution notes supplied.",
       products,
     });
-    if (!products.length || products.some((item) => item.cases === undefined || executionGroup(item.category) === "Category requires review") || !display.signage || area.verificationStatus !== "verified" || assignment.hasConflictingExecutionNotes) {
+    const missingRequired = members.some((member) => member.required && !data.campaignDisplayAssignmentProducts.some((item) => item.campaignDisplayAssignmentId === assignment.id && item.campaignDisplayProductId === member.id));
+    const invalidProducts = products.some((item) => item.productResolution !== "MATCHED_ACTIVE");
+    if (missingRequired || invalidProducts || !products.length || products.some((item) => item.cases === undefined || executionGroup(item.category) === "Category requires review") || !display.signage || area.verificationStatus !== "verified" || assignment.hasConflictingExecutionNotes) {
       exceptions.push({
         id: `${assignment.id}-details`,
         kind: "Execution details missing",
         message: `${display.name}: confirm ${[
-          !products.length ? "products" : "",
+          display.rotatingFlyerSlot && !products.length ? "the current flyer SKU list for this rotating display" : !products.length ? "products" : "",
+          missingRequired ? "missing required product allocation" : "",
+          invalidProducts ? "unconfirmed or inactive Product Master records" : "",
           products.some((item) => item.cases === undefined) ? "store cases" : "",
           !display.signage ? "signage" : "",
           area.verificationStatus !== "verified" ? "area verification" : "",
@@ -136,6 +149,13 @@ export function buildStoreDisplayPlan(data: PlatformSnapshot, campaignId: string
         action: "Choose a campaign display on Products/Displays or explicitly mark this product shelf support.",
         campaignProductId: allocation.campaignProductId,
       });
+    }
+  }
+
+  for (const item of campaign.products.filter((product) => product.merchandisingState === "SHELF_SUPPORTED")) {
+    if (!allocations.some((allocation) => allocation.campaignProductId === item.id)) {
+      shelf.push(productLine(item.productId, undefined, item.note));
+      exceptions.push({ id: `shelf-${item.id}`, kind: "Execution details missing", message: `${data.products.find((product) => product.id === item.productId)?.name ?? "Shelf product"}: store case guidance is not supplied.`, action: "Confirm store-specific shelf support quantities with the buyer; no quantity has been assumed.", campaignProductId: item.id });
     }
   }
 
@@ -176,7 +196,7 @@ export function buildMonthlyOrderPlan(data: PlatformSnapshot, campaignId: string
 
   for (const allocation of data.campaignStoreProductAllocations.filter((item) => item.campaignId === campaignId && item.storeId === storeId)) {
     const product = data.products.find((item) => item.id === allocation.productId);
-    const source = findSourceRow(data, sourceRows, allocation.productId);
+    const source = findSourceRow(data, sourceRows, allocation.productId, storeId, campaignId);
     if (!source?.ltoMonths?.includes(month)) continue;
     const member = data.campaignDisplayProducts.find((item) => item.campaignProductId === allocation.campaignProductId);
     const display = member && data.campaignDisplays.find((item) => item.id === member.campaignDisplayId);
@@ -209,7 +229,14 @@ function isParticipatingStore(data: PlatformSnapshot, campaignId: string, storeI
   return data.campaignStores.some((item) => item.campaignId === campaignId && item.storeId === storeId && item.included);
 }
 
-function findSourceRow(data: PlatformSnapshot, rows: CampaignImportRowMetadata[], productId: string) {
+function findSourceRow(data: PlatformSnapshot, rows: CampaignImportRowMetadata[], productId: string, storeId: string, campaignId: string) {
   const product = data.products.find((item) => item.id === productId);
-  return rows.find((item) => (item.reviewedSku ?? item.skuRaw).trim().toUpperCase() === product?.sku.trim().toUpperCase());
+  const pending = data.campaigns.find((campaign) => campaign.id === campaignId)?.products.find((item) => item.productId === productId)?.pendingSource;
+  const sku = product?.sku.trim().toUpperCase();
+  const candidates = sku
+    ? rows.filter((row) => (row.reviewedSku ?? row.skuRaw).trim().toUpperCase() === sku)
+    : pending ? data.campaignImports.filter((item) => item.campaignId === campaignId && item.sourceFileName === pending.workbook).flatMap((item) => item.rows).filter((row) => row.sourceSheet === pending.sheet && row.sourceRow === pending.row && row.productName === pending.productName) : [];
+  // Newer applied workbooks take precedence, but another store's row never does.
+  return candidates.slice().reverse().find((row) => row.allocations.some((allocation) => allocation.storeId === storeId))
+    ?? candidates.slice().reverse().find((row) => row.allocations.length === 0);
 }

@@ -20,7 +20,7 @@ import { usePlatform } from "../services/PlatformProvider";
 import type { PlatformSnapshot, UserRole } from "../domain/types";
 import { Button } from "./ui";
 
-function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
+function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole, shared = false) {
   const program = data?.programs.find((item) => item.status === "active") ?? data?.programs.find((item) => item.name.startsWith("OND")) ?? data?.programs[0];
   const membership = data?.programStores.find((item) => item.programId === program?.id && item.included && item.status !== "not_started")
     ?? data?.programStores.find((item) => item.programId === program?.id && item.included);
@@ -42,7 +42,8 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole) {
     { to: "/performance", label: "Performance", icon: BarChart3, matches: (path: string, search: string) => path === "/performance" && !search.includes("view=recommendations"), roles: reviewRoles },
     { to: "/performance?view=recommendations", label: "Recommendations", icon: Lightbulb, matches: (path: string, search: string) => path === "/performance" && search.includes("view=recommendations"), roles: reviewRoles },
   ];
-  return items.filter((item) => !item.roles || item.roles.includes(role));
+  const liveLabels = new Set(["Campaigns", "Import OND workbook", "Displays", "Stores"]);
+  return items.filter((item) => (!shared || liveLabels.has(item.label)) && (!item.roles || item.roles.includes(role)));
 }
 
 const roleLabels: Record<UserRole, string> = {
@@ -86,8 +87,8 @@ function RoleSelect({ role, setRole, compact = false }: { role: UserRole; setRol
 
 function Navigation({ close }: { close?: () => void }) {
   const location = useLocation();
-  const { data, role } = usePlatform();
-  const navigation = buildNavigation(data, role);
+  const { data, role, authEnabled } = usePlatform();
+  const navigation = buildNavigation(data, role, authEnabled);
   return (
     <nav aria-label="Primary navigation" className="space-y-1 px-2 py-2">
       {navigation.map(({ to, label, icon: Icon, matches }) => {
@@ -117,9 +118,16 @@ function Navigation({ close }: { close?: () => void }) {
 function SidebarContent({ close }: { close?: () => void }) {
   const { role, setRole, resetDemo, authEnabled } = usePlatform();
   const canCreateCampaign = role === "admin" || role === "merchandising";
+  const [resetError, setResetError] = useState<string>();
+  const reset = async () => {
+    if (!window.confirm("Reset this browser's demo workspace? All locally saved campaigns and layout edits will be replaced. Shared Supabase data will not be changed.")) return;
+    try { await resetDemo(); setResetError(undefined); }
+    catch (cause) { setResetError(cause instanceof Error ? cause.message : "Demo data was not reset."); }
+  };
   return (
     <div className="flex h-full flex-col">
       <Brand />
+      {resetError && <p role="alert" className="px-4 text-sm text-error">{resetError}</p>}
       {canCreateCampaign && <div className="border-y border-border px-4 py-4">
         <Link
           to="/campaigns/new"
@@ -133,10 +141,10 @@ function SidebarContent({ close }: { close?: () => void }) {
       <div className="min-h-0 flex-1 overflow-y-auto"><Navigation close={close} /></div>
       <div className="space-y-3 border-t border-border p-4 lg:hidden">
         {!authEnabled && <RoleSelect role={role} setRole={setRole} />}
-        {!authEnabled && <Button variant="secondary" className="w-full" onClick={() => void resetDemo()}><RotateCcw className="h-4 w-4" />Reset demo data</Button>}
+        {!authEnabled && <Button variant="secondary" className="w-full" onClick={() => void reset()}><RotateCcw className="h-4 w-4" />Reset demo data</Button>}
       </div>
       <div className="hidden border-t border-border px-4 py-3 lg:block">
-        {!authEnabled && <button className="flex h-8 w-full items-center gap-3 rounded-md px-3 text-xs font-medium text-text-muted transition-colors hover:bg-sidebar-hover hover:text-text-primary" onClick={() => void resetDemo()}>
+        {!authEnabled && <button className="flex h-8 w-full items-center gap-3 rounded-md px-3 text-xs font-medium text-text-muted transition-colors hover:bg-sidebar-hover hover:text-text-primary" onClick={() => void reset()}>
           <RotateCcw className="h-3.5 w-3.5" />Reset demo data
         </button>}
         <p className="mt-1 px-3 text-[11px] text-text-muted">{authEnabled ? "Shared campaign planning" : "Synthetic development data"}</p>
@@ -168,7 +176,7 @@ export function AppShell() {
             </button>
             <div className="min-w-0">
               <p className="truncate text-base font-semibold leading-5">Merchandising</p>
-              <p className="truncate text-xs text-text-muted">{pilotStore ? `${pilotStore.name} pilot` : "Merchandising operations"}</p>
+              <p className="truncate text-xs text-text-muted">{authEnabled ? "Shared campaign planning" : pilotStore ? `${pilotStore.name} demo` : "Merchandising operations"}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

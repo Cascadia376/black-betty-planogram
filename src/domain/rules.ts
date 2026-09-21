@@ -33,11 +33,18 @@ export function validateCampaign(input: NewCampaignInput): string[] {
   return errors;
 }
 
+export function isBusinessDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 export function validateCampaignDetails(input: Pick<NewCampaignInput, "name" | "owner" | "startDate" | "endDate">): string[] {
   const errors: string[] = [];
   if (!input.name.trim()) errors.push("Campaign name is required.");
   if (!input.owner.trim()) errors.push("Campaign owner is required.");
   if (!input.startDate || !input.endDate) errors.push("Start and end dates are required.");
+  else if (!isBusinessDate(input.startDate) || !isBusinessDate(input.endDate)) errors.push("Each date must be a real calendar date in YYYY-MM-DD format.");
   if (input.startDate && input.endDate && input.endDate < input.startDate) {
     errors.push("End date must be on or after start date.");
   }

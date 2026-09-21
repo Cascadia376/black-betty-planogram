@@ -1,5 +1,5 @@
 import { CheckCircle2, MapPin, Send } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Badge, Button, Card, DataState, EmptyState, PageHeader, humanize } from "../../components/ui";
 import { evaluateCampaignPublishReadiness, type PublishReadinessSection } from "../../domain/campaignPublishReadiness";
@@ -19,6 +19,7 @@ const sections: Array<[PublishReadinessSection, string, string]> = [
 export function CampaignReviewPage() {
   const { campaignId } = useParams();
   const { data, loading, error, publishCampaign, userEmail } = usePlatform();
+  const submissionInFlight = useRef(false);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string>();
   const [publishMessage, setPublishMessage] = useState<string>();
@@ -33,18 +34,20 @@ export function CampaignReviewPage() {
   const latestRelease = data?.campaignReleases.filter((item) => item.campaignId === campaign?.id).sort((a, b) => b.version - a.version)[0];
 
   const publish = async () => {
-    if (!campaign || readiness.state === "BLOCKED") return;
+    if (!campaign || readiness.state === "BLOCKED" || submissionInFlight.current) return;
     const warnings = readiness.issues.filter((item) => item.severity === "WARNING");
     if (warnings.length && !window.confirm(`Publish with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}?\n\n${warnings.map((item) => `• ${item.message}`).join("\n")}`)) return;
+    submissionInFlight.current = true;
     setPublishing(true);
     setPublishError(undefined);
     setPublishMessage(undefined);
     try {
       const result = await publishCampaign({ campaignId: campaign.id, publishedBy: userEmail ?? campaign.owner });
-      setPublishMessage(`Release ${result.version} published to ${result.noticeCount} store${result.noticeCount === 1 ? "" : "s"} with ${result.assignmentCount} finalized display assignment${result.assignmentCount === 1 ? "" : "s"}.`);
+      setPublishMessage(`Release ${result.version} saved for ${result.noticeCount} store${result.noticeCount === 1 ? "" : "s"}. Print and share the released packs; no email or external notification was sent.`);
     } catch (cause) {
       setPublishError(cause instanceof Error ? cause.message : "The campaign could not be published.");
     } finally {
+      submissionInFlight.current = false;
       setPublishing(false);
     }
   };
@@ -112,12 +115,13 @@ export function CampaignReviewPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold">Store release</h2>
-                <p className="mt-2 text-sm text-text-secondary">Finalize the reviewed placements, create store execution work, and notify participating stores.</p>
+                <p className="mt-2 text-sm text-text-secondary">Save the reviewed placements and a versioned manager pack. Store delivery is manual: print and share the released packs. This does not send an email, place an order or grant store access.</p>
                 <p className="mt-1 text-sm text-text-muted">This release will create {allocations.length} operational display assignments with {products.length} assignment products.</p>
               </div>
               <Badge tone={readiness.state === "BLOCKED" ? "error" : readiness.state === "WARNING" ? "warning" : "success"}>{readiness.state === "BLOCKED" ? "Not ready" : readiness.state === "WARNING" ? "Ready with warnings" : "Ready"}</Badge>
             </div>
             {latestRelease && <p className="mt-3 flex items-center gap-2 text-sm text-success"><CheckCircle2 className="h-4 w-4" />Release {latestRelease.version} published {new Date(latestRelease.publishedAt).toLocaleString()}.</p>}
+            {latestRelease?.snapshot.executionData && <div className="mt-3 flex flex-wrap gap-3">{latestRelease.snapshot.stores.filter((scope) => scope.included).map((scope) => <Link key={scope.id} className="text-sm font-semibold text-primary" to={`/campaigns/${campaign.id}/stores/${scope.storeId}/pack?release=${latestRelease.id}`}>Release {latestRelease.version}: {data.stores.find((store) => store.id === scope.storeId)?.name ?? "Store"} pack</Link>)}</div>}
             {publishMessage && <p role="status" className="mt-3 rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">{publishMessage}</p>}
             {publishError && <p role="alert" className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">{publishError}</p>}
             <Button className="mt-4" disabled={publishing || readiness.state === "BLOCKED"} onClick={() => void publish()}>

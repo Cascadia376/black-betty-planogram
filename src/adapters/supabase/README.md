@@ -1,46 +1,29 @@
 # Supabase adapter boundary
 
-The full merchandising repository remains intentionally non-operational in the MVP. UI code depends on `MerchandisingRepository`, not `supabase-js`.
+The shared adapter is implemented. Older phase documents describing it as a skeleton are historical. UI uses `MerchandisingRepository`, not table calls.
 
-Product Master reconciliation is the one narrow read-only exception. `SupabaseProductMasterLookup` reads only the fields required from `ursus_major.public.product`, whose RLS and public SELECT policy were verified on September 14, 2026. It uses `VITE_SUPABASE_URL` plus the browser-safe `VITE_SUPABASE_PUBLISHABLE_KEY` (with `VITE_SUPABASE_ANON_KEY` retained for legacy compatibility) and never a service-role key. `public.products` is not a fallback. A unique trim/uppercase SKU match is required because the live table's case-sensitive primary key does not prevent normalized collisions.
+## Current contract
 
-Before enabling this adapter:
+`black_betty_planning_snapshot` contains the allowlisted shared campaign, import, store allocation and release collections. Referenced Product Master attributes are copied into `campaignProducts` for durable planning; this does not update the master catalog.
 
-- approve the shared store, SKU, and user identifier mapping;
-- create reviewed migrations for the merchandising schema;
-- explicitly grant Data API access where required;
-- enable RLS on every exposed table and implement role/store-scoped policies;
-- use authorization claims from `app_metadata`, never user-editable metadata;
-- use only a publishable/anonymous browser key and never a service-role key;
-- add contract tests that run against an isolated non-production project.
+`black_betty_physical_snapshot` contains store layouts, category geometry, fixtures/zones and promotional display areas/sections. It has its own optimistic version. Editing planning never serializes physical collections, and physical editing never serializes planning.
 
-## OND planning migration outline
+Both documents are existing singletons protected by RLS and version triggers. Reads and mutations run through one local queue. Mutations commit against the last-loaded version; zero matching rows is a conflict. Failed writes restore the local committed checkpoint. `getCommittedSnapshot` allows the provider to render an accepted write without making a second fallible network call. Refresh explicitly fetches both remote documents.
 
-The additive mock contracts imply future tables for:
+Incomplete collection envelopes or invalid versions fail closed; they are not replaced with demo campaigns. Product references can still use seed attributes for historic demo records, but shared publication explicitly rejects synthetic products.
 
-- `merchandising_programs`;
-- `program_periods`;
-- `display_assignments`;
-- `display_assignment_products`;
-- `suppliers`;
-- `supplier_product_options`;
-- `inventory_positions`;
-- `inbound_orders`;
-- `order_recommendations`;
-- `historical_demand`;
-- `residual_demand_inputs`;
-- `bridge_strategies`.
+`SHARED_PLANNING_MUTATIONS` and `PHYSICAL_LAYOUT_MUTATIONS` are security-adjacent durability allowlists, not replacements for RLS. Methods whose full effects are not serialized (prototype ordering, legacy program operations, supplier intake, measurement and execution entry) reject before mutation. Add an operation only after its entire persistence scope and authorization are implemented and tested.
 
-`display_areas` will need non-null, store-scoped unique `display_number` and `code` columns while preserving its UUID primary key. Campaigns may optionally reference a program and period; programs and campaigns remain separate entities.
+## Product Master
 
-Use foreign keys for every program, period, store, display-area, product, and supplier relationship. Enforce non-overlapping active date ranges per display area with a PostgreSQL exclusion constraint over a daterange, excluding cancelled assignments. Keep `case_quantity` on `display_assignment_products`, supplier preference on `supplier_product_options`, and bridge policy in a buying-owned `bridge_strategies` table.
+`SupabaseProductMasterLookup` reads the configured `public.product` contract; it does not fall back to `public.products`. Matching uses exact normalized SKUs and reports ambiguous/inactive/missing matches. A browser-safe publishable key is required (legacy anon key accepted); never supply a service-role key.
 
-Inventory positions should use a store/product unique key and retain source update timestamps. Inbound orders and order recommendations should preserve their status history rather than overwriting external order facts. The current selector and coverage calculation are deterministic mock-domain helpers, not forecasting or purchasing integrations.
+The app does not freshly re-query every Product Master attribute at publication. Latest imported/selected attributes and pending flags are validated. A dedicated final catalog refresh/reconciliation pass is a remaining integration improvement.
 
-Historical demand access must implement the `HistoricalDemandSource` boundary. The rule-based OND service consumes that interface and must not query Supabase directly; a future adapter can supply approved store/SKU and category aggregates without changing recommendation logic.
+## Authorization and deployment
 
-Bridge strategy persistence should include strategy classification, LTO end date, horizon, weeks-of-supply and case limits, plus optional promotional and expected post-LTO costs. Buying/Merchandising owns these policy fields. Store-facing mutations must remain limited to recommendation status, edited cases, and notes.
+The read-only 21 September audit found buyer/admin SELECT and UPDATE policies for both planning and physical snapshots. This supersedes older admin-only physical-edit documentation. No permissions were changed by the hardening run. Store-scoped manager access is not implemented by these buyer/admin aggregate policies; printed packs are a manual distribution path.
 
-No migration or live connection is included in this prototype.
+Do not run bootstrap/seed SQL over the existing production documents. No SQL migration is needed for the optional release `executionData` JSON extension. Future per-campaign tables, narrower concurrent updates, audit history and store-scoped access require a reviewed migration/rollout plan.
 
-Supabase changed new-table Data API exposure defaults in 2026, so grants and RLS must be treated as separate, explicit controls.
+See [architecture decision](../../../docs/ADR-0002-reliability-and-release-boundaries.md) and [production gate](../../../docs/PRODUCTION_GATE.md). Two-user and RLS browser checks require a deliberately isolated staging target; no production passwords belong in this repository.

@@ -5,12 +5,9 @@ import type { Campaign, CampaignType, NewCampaignInput } from "../../domain/type
 import { validateCampaignDetails } from "../../domain/rules";
 import { usePlatform } from "../../services/PlatformProvider";
 import { Button, Card, DataState, Field, PageHeader, inputClass } from "../../components/ui";
-import { mockBusinessClock } from "../../services/clock";
+import { mockBusinessClock, SystemBusinessClock } from "../../services/clock";
 import { CampaignWorkflowStepper } from "./campaignWorkflow";
 import { campaignSaveError } from "./campaignErrors";
-
-const defaultCampaignStart = mockBusinessClock.today();
-const defaultCampaignEnd = (() => { const date = new Date(`${defaultCampaignStart}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + 30); return date.toISOString().slice(0, 10); })();
 
 export function CampaignBuilderPage() {
   const { campaignId } = useParams();
@@ -26,7 +23,11 @@ export function CampaignBuilderPage() {
   return <CampaignDetailsForm key={existing?.id ?? "new"} existing={existing} />;
 }
 
-function initialCampaignInput(existing?: Campaign): NewCampaignInput {
+function initialCampaignInput(existing?: Campaign, shared = false): NewCampaignInput {
+  const defaultCampaignStart = (shared ? new SystemBusinessClock() : mockBusinessClock).today();
+  const end = new Date(`${defaultCampaignStart}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + 30);
+  const defaultCampaignEnd = end.toISOString().slice(0, 10);
   if (existing) {
     return {
       name: existing.name,
@@ -55,12 +56,12 @@ function initialCampaignInput(existing?: Campaign): NewCampaignInput {
 
 function CampaignDetailsForm({ existing }: { existing?: Campaign }) {
   const navigate = useNavigate();
-  const { createCampaign, updateCampaign, data } = usePlatform();
+  const { createCampaign, updateCampaign, data, authEnabled } = usePlatform();
   const editing = Boolean(existing);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string>();
   const submitting = useRef(false);
-  const [input, setInput] = useState<NewCampaignInput>(() => initialCampaignInput(existing));
+  const [input, setInput] = useState<NewCampaignInput>(() => initialCampaignInput(existing, authEnabled));
   const set = <K extends keyof NewCampaignInput>(key: K, value: NewCampaignInput[K]) => setInput((current) => {
     if (!existing && key === "type" && value === "OND") {
       const year = current.startDate.slice(0, 4) || String(new Date().getFullYear());

@@ -54,7 +54,7 @@ describe("mock merchandising workflow", () => {
       endDate: "2027-12-31",
       owner: "Jeremy",
       supplier: "Multiple vendors",
-      products: [{ productId: IDS.ondHarvestProduct, role: "Feature", required: true }],
+      products: [{ id: "release-test-product", productId: IDS.ondHarvestProduct, role: "Feature", required: true }],
     });
     const campaign = (await repository.load()).campaigns.find((item) => item.id === campaignId)!;
     const display = await repository.createCampaignDisplay({

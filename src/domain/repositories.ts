@@ -278,9 +278,11 @@ export interface UpdateDisplayAreaInput {
   displayAreaId: UUID;
   patch: Partial<Omit<DisplayArea, "id" | "storeId">>;
   sectionGeometry?: { sectionId: string; geometry: DisplayArea["geometry"] };
+  /** Optional edit-base guard; applies to the section when sectionGeometry is present. */
+  expectedGeometry?: DisplayArea["geometry"];
 }
 
-/** Canonical physical-layout API. Production mutations require an admin role. */
+/** Canonical physical-layout API. Production mutations require a Black Betty buyer or admin role. */
 export interface PhysicalLayoutRepository {
   getStoreLayouts(storeId: UUID): Promise<StoreLayout[]>;
   getStoreLayout(layoutId: UUID): Promise<StoreLayout | undefined>;
@@ -318,6 +320,8 @@ export interface ReconcilePendingCampaignProductInput { campaignId: UUID; campai
 /** Shared campaign and operational planning API for ordinary Black Betty users. */
 export interface MerchandisingRepository extends PhysicalLayoutRepository {
   load(): Promise<PlatformSnapshot>;
+  /** Last acknowledged state, without a network refresh. Optional for other adapters. */
+  getCommittedSnapshot?(): Promise<PlatformSnapshot>;
   searchProducts(query: string): Promise<Product[]>;
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;

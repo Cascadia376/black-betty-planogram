@@ -4,8 +4,9 @@
 .execution-pack h3 { font-size: 17px; font-weight: bold; margin: 8px 0; }
 .execution-pack p { margin: 8px 0; }
 .execution-pack table { width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: fixed; overflow-wrap: anywhere; }
-.execution-pack th, .execution-pack td { border: 1px solid #aaa; padding: 8px; text-align: left; vertical-align: top; }
+.execution-pack th, .execution-pack td { border: 1px solid #aaa; padding: 8px; text-align: left; vertical-align: middle; }
 .execution-pack th:nth-child(3) { width: 12%; }
+.execution-pack th:nth-child(3), .execution-pack td:nth-child(3) { text-align: center; }
 .execution-pack svg { width: 100%; height: auto; display: block; }
 .pack-controls { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .pack-controls button, .pack-controls a { border: 1px solid #6f1d36; padding: 10px; border-radius: 4px; }
@@ -27,9 +28,21 @@
   .pack-build { break-before: page; }
   .pack-build h3, .pack-build p { overflow-wrap: anywhere; }
   .pack-group { break-before: page; }
+  .pack-continuation { break-before: auto; margin-top: 20px; }
   .pack-group > .pack-build:first-of-type { break-before: auto; }
   .pack-location { width: 5in; max-width: 100%; break-inside: avoid; }
   .execution-pack tr, .pack-exception { break-inside: avoid; }
   .execution-pack thead { display: table-header-group; }
   .execution-pack svg { max-height: 6.5in; }
+}
+
+.pack-controls { flex-wrap: wrap; }
+.pack-controls > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.pack-controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+.pack-checklist { border: 1px solid #aaa; padding: 10px; margin-top: 14px; break-inside: avoid; }
+@media (max-width: 640px) {
+  .execution-pack { padding: 12px; }
+  .execution-pack table { font-size: 11px; }
+  .execution-pack th, .execution-pack td { padding: 5px; }
+  .pack-controls > div { width: 100%; }
 }

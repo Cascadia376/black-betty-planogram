@@ -5,7 +5,7 @@ import { usePlatform } from "../../services/PlatformProvider";
 import { storePhysicalCoverage } from "./storeCoverage";
 
 export function StoreDirectoryPage() {
-  const { data, loading, error } = usePlatform();
+  const { data, loading, error, authEnabled } = usePlatform();
   const coverage = data ? storePhysicalCoverage(data) : [];
 
   return (
@@ -50,9 +50,9 @@ export function StoreDirectoryPage() {
                       <MapPin className="h-4 w-4" />View floorplan
                     </Link>
                   ) : <span className="inline-flex min-h-9 flex-1 items-center justify-center rounded-md border border-border px-3 text-sm text-text-muted">Floorplan unavailable</span>}
-                  <Link className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${item.store.id}/workspace`}>
+                  {!authEnabled && <Link className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-border px-3 text-sm font-semibold hover:bg-subtle" to={`/stores/${item.store.id}/workspace`}>
                     Workspace <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  </Link>}
                 </div>
               </Card>
             ))}
