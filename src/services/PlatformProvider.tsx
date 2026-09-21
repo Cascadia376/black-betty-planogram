@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient, type Session } from "@supabase/supabase-js";
 import { MockMerchandisingRepository } from "../adapters/mock/MockMerchandisingRepository";
+import { buildOpeningOrderSandboxSnapshot } from "../adapters/mock/openingOrderSandbox";
 import { MockProductMasterLookup } from "../adapters/mock/MockProductMasterLookup";
 import { createSupabaseMerchandisingRepository } from "../adapters/supabase/SupabaseMerchandisingRepository";
 import { SupabaseProductMasterLookup } from "../adapters/supabase/SupabaseProductMasterLookup";
@@ -14,8 +15,32 @@ import { readEnvironment } from "../lib/environment";
 import type { ProductMasterLookup } from "./products/ProductMasterLookup";
 
 const environment = readEnvironment();
+
+function sandboxModeRequested() {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  const request = params.get("sandbox");
+  const scenario = params.get("scenario");
+  if (request === "1") window.sessionStorage.setItem("black-betty-sandbox", "1");
+  if (request === "0") {
+    window.sessionStorage.removeItem("black-betty-sandbox");
+    window.sessionStorage.removeItem("black-betty-sandbox-scenario");
+  }
+  if (scenario) window.sessionStorage.setItem("black-betty-sandbox-scenario", scenario);
+  return request === "1" || (request !== "0" && window.sessionStorage.getItem("black-betty-sandbox") === "1");
+}
+
+function sandboxScenarioRequested() {
+  if (typeof window === "undefined") return undefined;
+  return new URLSearchParams(window.location.search).get("scenario")
+    ?? window.sessionStorage.getItem("black-betty-sandbox-scenario")
+    ?? undefined;
+}
+
+const sandboxMode = sandboxModeRequested();
+const sandboxScenario = sandboxScenarioRequested();
 const productMasterKey = environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
-const configuredSupabase = environment.VITE_SUPABASE_URL && productMasterKey
+const configuredSupabase = !sandboxMode && environment.VITE_SUPABASE_URL && productMasterKey
   ? createClient(environment.VITE_SUPABASE_URL, productMasterKey)
   : undefined;
 const configuredProductMaster = configuredSupabase
@@ -23,7 +48,10 @@ const configuredProductMaster = configuredSupabase
   : undefined;
 const repository = configuredSupabase
   ? createSupabaseMerchandisingRepository(configuredSupabase)
-  : new MockMerchandisingRepository();
+  : new MockMerchandisingRepository(
+      undefined,
+      sandboxMode && sandboxScenario === "opening-order" ? buildOpeningOrderSandboxSnapshot() : undefined,
+    );
 
 export type BlackBettyRole = "buyer" | "admin";
 
