@@ -12,6 +12,7 @@ import type {
 import type { Campaign, CampaignDisplay, CampaignDisplayAssignment, CampaignDisplayAssignmentProduct, CampaignDisplayProduct, CampaignProduct, CategorySpace, DisplayArea, NewCampaignInput, PlatformSnapshot, Product, PromotionOpportunity, RecommendationStatus, StoreLayout, UUID, UserRole } from "../domain/types";
 import { readEnvironment } from "../lib/environment";
 import type { ProductMasterLookup } from "./products/ProductMasterLookup";
+import { fetchPurchasingReadiness, type CampaignPurchasingReadiness, type PurchasingReadinessRequest } from "./purchasingReadiness";
 
 const environment = readEnvironment();
 const productMasterKey = environment.VITE_SUPABASE_PUBLISHABLE_KEY || environment.VITE_SUPABASE_ANON_KEY;
@@ -40,6 +41,8 @@ interface PlatformContextValue {
   userEmail?: string;
   blackBettyRole?: BlackBettyRole;
   productMaster: ProductMasterLookup;
+  purchasingReadinessAvailable: boolean;
+  loadPurchasingReadiness(input: PurchasingReadinessRequest): Promise<CampaignPurchasingReadiness>;
   setRole(role: UserRole): void;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
@@ -189,6 +192,13 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     authEnabled: Boolean(configuredSupabase),
     userEmail: session?.user.email,
     blackBettyRole,
+    purchasingReadinessAvailable: Boolean(configuredSupabase && environment.VITE_URSUS_MAJOR_BASE_URL),
+    loadPurchasingReadiness: async (input) => {
+      if (!configuredSupabase || !environment.VITE_URSUS_MAJOR_BASE_URL) throw new Error("The purchasing readiness connection is not configured.");
+      const { data: { session: current }, error: sessionError } = await configuredSupabase.auth.getSession();
+      if (sessionError || !current) throw new Error("Sign in again to check purchasing readiness.");
+      return fetchPurchasingReadiness(environment.VITE_URSUS_MAJOR_BASE_URL, current.access_token, input);
+    },
     signOut: async () => {
       if (!configuredSupabase) return;
       const { error: signOutError } = await configuredSupabase.auth.signOut();

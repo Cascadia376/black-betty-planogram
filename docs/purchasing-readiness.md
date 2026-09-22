@@ -1,0 +1,15 @@
+# Ursus Major purchasing readiness consumer
+
+The campaign review page now requests requirement-level purchasing/stock evidence separately from merchandising publication checks. Publishing a display plan is neither purchasing authorization nor proof of available inventory. This consumer never creates orders, modifies stock or writes a merchandising plan.
+
+It uses the existing native Supabase session and the existing public `VITE_URSUS_MAJOR_BASE_URL` setting. The bearer is sent only to that configured HTTPS origin, with cookies omitted and redirects refused. There are no service keys, role overrides, guessed proxy endpoints or permission changes. Ursus revalidates current provisioned role/store scope on every request.
+
+Contract: `POST /api/purchasing/readiness` with exact `campaign_id`, canonical `store_ids` and explicit `max_confirmation_age_days`. Response version is `purchasing-readiness-v1`; source fingerprint, evidence date, source requirement keys, review status, saved order/dispatch/confirmation/receipt facts and Ready/At risk/Critical/Unknown remain separate. Store mapping matches the reviewed Ursus `BB_STORE_IDS` mapping; unmapped layouts are shown as Unknown rather than guessed.
+
+The user selects one participating store and supplies the existing confirmation-freshness rule. No default standing policy is invented. Changed filters hide older results until refreshed. Missing connection/session/access/schema, stale/unavailable inventory or unsupported quantity meanings stay Unknown. Even an issued/confirmed order cannot make a row green without current dated usable-stock evidence. Receipt annotations are never added to stock by this consumer.
+
+Deployment order: approved Ursus purchasing migration and compatible authenticated API first; then this Black Betty frontend. No deployment or production migration was performed by this change. Actual shared-project session validity, CORS/deployment configuration, mapped store coverage and a real authorized buyer must be verified in the intended environment. Existing Ursus CORS configuration was inspected and not broadened. Existing Black Betty publish-readiness and purchasing/report fallbacks remain unchanged.
+
+Validation includes client contract/scope/token-transport tests, component tests for Unknown, missing mappings, explicit freshness, read failure and issued/not-sent display, existing campaign review regression, TypeScript, lint and build. Exact execution results belong in the corresponding PR and Ursus project checkpoint; this document alone is not acceptance evidence.
+
+Local validation: TypeScript, scoped ESLint and production build passed. Vitest's fork and thread workers both timed out before loading any tests on the Windows/OneDrive worktree; no assertions were skipped or weakened. The ordinary GitHub workflow runs the full unit suite on Linux, plus TypeScript, scoped lint and build. Two inherited type errors were repaired minimally: the existing floorplan ref now passes explicit `undefined` for React 19, and the existing mock repository test product supplies its required ID. These changes do not alter floorplan behavior or styling.

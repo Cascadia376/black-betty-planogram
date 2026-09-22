@@ -1,0 +1,31 @@
+name: Purchasing readiness
+
+on:
+  push:
+    branches: [codex/purchasing-readiness]
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'package*.json'
+      - '*config*'
+      - '.github/workflows/purchasing-readiness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Lint readiness changes
+        run: npx eslint src/services/purchasingReadiness.ts src/services/purchasingReadiness.test.ts src/services/PlatformProvider.tsx src/features/campaigns/CampaignPurchasingReadiness.tsx src/features/campaigns/CampaignPurchasingReadiness.test.tsx src/features/campaigns/CampaignReviewPage.tsx
+      - run: npm test
+      - run: npm run build
