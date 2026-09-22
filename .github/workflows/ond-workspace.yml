@@ -1,0 +1,31 @@
+name: OND isolated workspace
+on:
+  push:
+    branches: [feature/ond-purchase-orders-2026-09-22]
+    paths: [.github/workflows/ond-workspace.yml]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: |
+          mkdir -p workspace-export
+          git archive --format=tar.gz --output=workspace-export/source.tar.gz HEAD
+          git rev-parse HEAD > workspace-export/source-commit.txt
+      - run: npm ci --no-fund
+      - run: tar -czf workspace-export/dependencies.tar.gz node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ond-workspace
+          path: workspace-export/
+          retention-days: 1
