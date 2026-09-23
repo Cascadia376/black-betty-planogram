@@ -7,6 +7,7 @@ import type { CampaignDisplay, PlatformSnapshot, Store } from "../../domain/type
 import { usePlatform } from "../../services/PlatformProvider";
 import { CampaignWorkflowStepper } from "./campaignWorkflow";
 import { CampaignExceptionReview } from "./CampaignExceptionReview";
+import { CampaignPurchasingReadiness } from "./CampaignPurchasingReadiness";
 
 const sections: Array<[PublishReadinessSection, string, string]> = [
   ["CAMPAIGN", "Campaign", ""],
@@ -18,7 +19,7 @@ const sections: Array<[PublishReadinessSection, string, string]> = [
 
 export function CampaignReviewPage() {
   const { campaignId } = useParams();
-  const { data, loading, error, publishCampaign, userEmail } = usePlatform();
+  const { data, loading, error, publishCampaign, userEmail, purchasingReadinessAvailable, loadPurchasingReadiness } = usePlatform();
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string>();
   const [publishMessage, setPublishMessage] = useState<string>();
@@ -56,6 +57,7 @@ export function CampaignReviewPage() {
           <PageHeader eyebrow="Review" title={campaign.name} description="Check products, quantities, and physical store placements, then finalize the plan for stores." />
           <CampaignWorkflowStepper campaign={campaign} data={data} current="review" />
           <CampaignExceptionReview data={data} campaignId={campaign.id} />
+          <CampaignPurchasingReadiness key={campaign.id} campaignId={campaign.id} stores={data.stores.filter((store) => includedStores.some((scope) => scope.storeId === store.id))} products={data.products} available={purchasingReadinessAvailable} load={loadPurchasingReadiness} />
 
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
