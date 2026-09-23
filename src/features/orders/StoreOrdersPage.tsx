@@ -6,6 +6,7 @@ import type { PlatformSnapshot } from "../../domain/types";
 import { usePlatform } from "../../services/PlatformProvider";
 import { OrderRecommendationCard } from "./OrderRecommendationCard";
 import { buildOrderWorkspaceItems, type OrderWorkspaceGroup } from "./orderingWorkspace";
+import { createPurchaseOrderCsvExport, downloadPurchaseOrderCsv, purchaseOrderExportFormatForSupplier } from "./purchaseOrderExport";
 
 const groups: { id: OrderWorkspaceGroup; title: string; description: string; icon: typeof ShoppingCart }[] = [
   { id: "order_today", title: "Order today", description: "Actionable recommendations with a supplier path that can meet the required date.", icon: ShoppingCart },
@@ -49,13 +50,23 @@ export function StoreOrdersPage() {
 }
 
 function SupplierOrderBatches({ data, storeId, programId, createOrder }: { data: PlatformSnapshot; storeId: string; programId?: string; createOrder(supplierId: string, recommendationIds: string[]): Promise<void> }) {
+  const [exportError, setExportError] = useState("");
   const assignmentIds = new Set(data.displayAssignments.filter((item) => item.storeId === storeId && (!programId || item.programId === programId)).map((item) => item.id));
   const actionable = data.orderRecommendations.filter((item) => item.storeId === storeId && assignmentIds.has(item.displayAssignmentId ?? "") && item.recommendedCases > 0 && !["dismissed", "ordered"].includes(item.status));
   const suppliers = [...new Set(actionable.map((item) => item.supplierId))];
   const orders = data.purchaseOrders.filter((item) => item.storeId === storeId && (!programId || item.programId === programId));
-  return <Card className="mt-5 p-0"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Supplier order batches</h2><p className="mt-1 text-xs text-text-muted">Actionable recommendations grouped into one submitted mock order per supplier.</p></div><div className="divide-y divide-border">{suppliers.map((supplierId) => {
+  const downloadOrder = (orderId: string) => {
+    setExportError("");
+    const order = orders.find((item) => item.id === orderId);
+    if (!order) return;
+    const supplier = data.suppliers.find((item) => item.id === order.supplierId);
+    if (!supplier) return;
+    try { downloadPurchaseOrderCsv(createPurchaseOrderCsvExport(order, supplier, data.products)); }
+    catch (cause) { setExportError(cause instanceof Error ? cause.message : "Unable to create the supplier order CSV."); }
+  };
+  return <Card className="mt-5 p-0"><div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold">Supplier order batches</h2><p className="mt-1 text-xs text-text-muted">Actionable recommendations grouped into one submitted order per supplier.</p></div><div className="divide-y divide-border">{suppliers.map((supplierId) => {
     const supplier = data.suppliers.find((item) => item.id === supplierId);
     const recommendations = actionable.filter((item) => item.supplierId === supplierId);
     return <div key={supplierId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-semibold">{supplier?.name ?? "Supplier not configured"}</p><p className="mt-1 text-xs text-text-muted">{recommendations.length} products · {recommendations.reduce((sum, item) => sum + item.recommendedCases, 0)} cases</p></div><Button type="button" onClick={() => void createOrder(supplierId, recommendations.map((item) => item.id))}><ShoppingCart className="h-4 w-4" />Create supplier order</Button></div>;
-  })}{!suppliers.length && <p className="px-4 py-4 text-sm text-text-muted">No recommendations are ready to batch.</p>}</div>{orders.length > 0 && <div className="border-t border-border bg-subtle/50 px-4 py-3"><p className="text-xs font-semibold">Submitted orders</p><div className="mt-2 flex flex-wrap gap-2">{orders.map((order) => <Badge key={order.id} tone="success">{data.suppliers.find((item) => item.id === order.supplierId)?.name ?? "Supplier"} · {order.lines.reduce((sum, line) => sum + line.cases, 0)} cases · due {formatDate(order.expectedArrivalDate)}</Badge>)}</div></div>}</Card>;
+  })}{!suppliers.length && <p className="px-4 py-4 text-sm text-text-muted">No recommendations are ready to batch.</p>}</div>{orders.length > 0 && <div className="border-t border-border bg-subtle/50 px-4 py-3"><p className="text-xs font-semibold">Submitted orders</p><div className="mt-2 flex flex-wrap gap-2">{orders.map((order) => { const supplier = data.suppliers.find((item) => item.id === order.supplierId); const exportFormat = supplier && purchaseOrderExportFormatForSupplier(supplier); return <div key={order.id} className="flex items-center gap-2"><Badge tone="success">{supplier?.name ?? "Supplier"} · {order.lines.reduce((sum, line) => sum + line.cases, 0)} cases · due {formatDate(order.expectedArrivalDate)}</Badge>{exportFormat && <Button type="button" variant="secondary" onClick={() => downloadOrder(order.id)}>Download {exportFormat} CSV</Button>}</div>; })}</div>{exportError && <p role="alert" className="mt-2 text-xs font-semibold text-error">{exportError}</p>}</div>}</Card>;
 }
