@@ -1,0 +1,77 @@
+name: Black Betty quality
+
+on:
+  push:
+    branches: [main, engineering/black-betty-hardening-2026-09-21]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_DATA_ADAPTER: mock
+      VITE_SUPABASE_URL: ""
+      VITE_SUPABASE_PUBLISHABLE_KEY: ""
+      VITE_SUPABASE_ANON_KEY: ""
+      E2E_LOCAL_TRANSPORT: "0"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+      - name: Type check
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck
+      - name: Unit and integration tests
+        id: unit
+        continue-on-error: true
+        run: npm test
+      - name: Production build
+        id: build
+        continue-on-error: true
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Browser regression tests (local mock data only)
+        id: browser
+        continue-on-error: true
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-evidence
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Enforce quality gate
+        if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          UNIT: ${{ steps.unit.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          BROWSER: ${{ steps.browser.outcome }}
+        run: |
+          printf 'lint=%s typecheck=%s unit=%s build=%s browser=%s\n' "$LINT" "$TYPECHECK" "$UNIT" "$BUILD" "$BROWSER"
+          test "$LINT" = success && test "$TYPECHECK" = success && test "$UNIT" = success && test "$BUILD" = success && test "$BROWSER" = success

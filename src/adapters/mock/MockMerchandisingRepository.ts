@@ -18,16 +18,24 @@ import { RuleBasedOndDemandService } from "../../services/demand/RuleBasedOndDem
 import { RuleBasedOrderRecommendationService } from "../../services/orders/OrderRecommendationService";
 import { calculateResidualInventory } from "../../services/orders/ResidualInventoryService";
 import { seedSnapshot } from "./seed";
-import { applyPublishedFloorplans, PUBLISHED_FLOORPLAN_VERSION } from "./publishedFloorplans";
 import { campaignDisplayAreaCompatibility } from "../../domain/campaignDisplayAllocation";
 import type { CampaignDisplayAssignmentProduct } from "../../domain/types";
-import { isNormalizedGeometry, validateCategorySpace } from "../../domain/storeLayouts";
+import { isNormalizedGeometry, sameGeometry, validateCategorySpace } from "../../domain/storeLayouts";
 import { displayAreaDependencies, validateDisplayArea } from "../../domain/displayAreas";
 import { deserializeSnapshot, serializeSnapshot } from "./snapshotStorage";
+import { campaignReleaseSnapshot, sameReleaseContent } from "../../domain/campaignReleaseSnapshot";
 import { evaluateCampaignPublishReadiness } from "../../domain/campaignPublishReadiness";
 
 const STORAGE_KEY = "cascadia-merchandising-platform-v1";
-const PUBLISHED_FLOORPLAN_VERSION_KEY = "cascadia-merchandising-published-floorplan-version";
+const STORAGE_SCHEMA_VERSION = 1;
+type StoredSnapshot = PlatformSnapshot & { __blackBettyStorage?: { schemaVersion: number } };
+
+export class LocalPlanningConflictError extends Error {
+  constructor() {
+    super("Another tab changed the saved merchandising plan. Your last saved work is safe. Reload the latest plan before editing; do not retry over the other tab's changes.");
+    this.name = "LocalPlanningConflictError";
+  }
+}
 const defaultDisplayRequirement: DisplayRequirement = {
   displayType: "flex",
   priority: "standard",
@@ -130,22 +138,23 @@ function normalizeSnapshot(snapshot: PlatformSnapshot): PlatformSnapshot {
   };
 }
 
-function readInitialState(): PlatformSnapshot {
-  if (typeof window === "undefined") return cloneSeed();
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return cloneSeed();
-
-    const snapshot = normalizeSnapshot(deserializeSnapshot(stored));
-    if (window.localStorage.getItem(PUBLISHED_FLOORPLAN_VERSION_KEY) === PUBLISHED_FLOORPLAN_VERSION) return snapshot;
-
-    // A newly deployed baseline replaces only floorplan data. Non-floorplan work
-    // remains intact, and future local edits continue to persist as usual.
-    window.localStorage.setItem(PUBLISHED_FLOORPLAN_VERSION_KEY, PUBLISHED_FLOORPLAN_VERSION);
-    return applyPublishedFloorplans(snapshot);
-  } catch {
-    return cloneSeed();
+/** Migrate old formats without ever replacing saved physical or planning records. */
+function readInitialState(stored: string | null): PlatformSnapshot {
+  if (!stored) return cloneSeed();
+  const decoded = deserializeSnapshot(stored) as StoredSnapshot;
+  if (!decoded || typeof decoded !== "object" || !Array.isArray(decoded.campaigns)) {
+    throw new Error("The saved merchandising data is not a valid snapshot.");
   }
+  const version = decoded.__blackBettyStorage?.schemaVersion;
+  if (version !== undefined && version !== STORAGE_SCHEMA_VERSION) {
+    throw new Error("This browser data was saved by a different application version. Use the matching version before editing.");
+  }
+  delete decoded.__blackBettyStorage;
+  const snapshot = version === STORAGE_SCHEMA_VERSION ? decoded : normalizeSnapshot(decoded);
+  for (const key of Object.keys(seedSnapshot) as Array<keyof PlatformSnapshot>) {
+    if (!Array.isArray(snapshot[key])) throw new Error(`The saved ${key} collection is damaged or missing.`);
+  }
+  return snapshot;
 }
 
 function isStorageQuotaError(cause: unknown): boolean {
@@ -157,38 +166,63 @@ function isStorageQuotaError(cause: unknown): boolean {
 
 export class MockMerchandisingRepository implements MerchandisingRepository {
   private state: PlatformSnapshot;
+  private committedState: PlatformSnapshot;
+  private lastStored: string | null = null;
+  private initializationError?: Error;
 
   constructor(
     private readonly clock: BusinessClock = mockBusinessClock,
     initialState?: PlatformSnapshot,
     private readonly persistToBrowserStorage = true,
   ) {
-    this.state = initialState ? structuredClone(initialState) : readInitialState();
+    try {
+      if (typeof window !== "undefined" && persistToBrowserStorage) this.lastStored = window.localStorage.getItem(STORAGE_KEY);
+      this.state = initialState ? structuredClone(initialState) : readInitialState(this.lastStored);
+    } catch (cause) {
+      // Keep the app renderable so its load error can explain recovery. Never expose
+      // demo data as a successful load or overwrite the unreadable source bytes.
+      this.state = cloneSeed();
+      this.initializationError = new Error("Saved merchandising work could not be opened. The original browser data has not been changed. Keep this browser's site data and ask for recovery support.", { cause });
+    }
+    this.committedState = structuredClone(this.state);
   }
 
   /** Replaces the in-memory snapshot without writing to browser storage. */
   replaceSnapshot(snapshot: PlatformSnapshot): void {
     this.state = structuredClone(snapshot);
+    this.committedState = structuredClone(snapshot);
   }
 
   private persist(): void {
-    if (typeof window === "undefined" || !this.persistToBrowserStorage) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, serializeSnapshot(this.state));
-      // Snapshots written by this build already contain the published physical
-      // baseline. Mark them so a subsequent repository instance does not
-      // reapply that baseline and overwrite legitimate edits.
-      window.localStorage.setItem(PUBLISHED_FLOORPLAN_VERSION_KEY, PUBLISHED_FLOORPLAN_VERSION);
+      if (this.initializationError) throw this.initializationError;
+      if (typeof window !== "undefined" && this.persistToBrowserStorage) {
+        // A single atomic localStorage value includes the format marker. Checking
+        // the exact last-read bytes rejects stale tabs instead of overwriting them.
+        if (window.localStorage.getItem(STORAGE_KEY) !== this.lastStored) throw new LocalPlanningConflictError();
+        const stored: StoredSnapshot = { ...this.state, __blackBettyStorage: { schemaVersion: STORAGE_SCHEMA_VERSION } };
+        const serialized = serializeSnapshot(stored);
+        window.localStorage.setItem(STORAGE_KEY, serialized);
+        this.lastStored = serialized;
+      }
+      this.committedState = structuredClone(this.state);
     } catch (cause) {
+      this.state = structuredClone(this.committedState);
       if (isStorageQuotaError(cause)) {
-        throw new Error("Browser storage is full. Remove older local site data or connect a persistent repository, then try again.", { cause });
+        throw new Error("Browser storage is full. This change was not saved; your previous saved work is safe. Keep the site's data, reduce the import size or ask for backup/recovery support, then retry.", { cause });
       }
       throw cause;
     }
   }
 
   async load(): Promise<PlatformSnapshot> {
+    if (this.initializationError) throw this.initializationError;
     return structuredClone(this.state);
+  }
+
+  async getCommittedSnapshot(): Promise<PlatformSnapshot> {
+    if (this.initializationError) throw this.initializationError;
+    return structuredClone(this.committedState);
   }
 
   async getStoreLayouts(storeId: UUID): Promise<StoreLayout[]> {
@@ -267,6 +301,12 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
   async updateDisplayArea(input: UpdateDisplayAreaInput): Promise<DisplayArea> {
     const index = this.state.displayAreas.findIndex((area) => area.id === input.displayAreaId);
     if (index < 0) throw new Error("Display area was not found.");
+    const baseGeometry = input.sectionGeometry
+      ? this.state.displayAreaSections.find((section) => section.id === input.sectionGeometry?.sectionId && section.displayAreaId === input.displayAreaId)?.geometry
+      : this.state.displayAreas[index].geometry;
+    if (input.expectedGeometry && (!baseGeometry || !sameGeometry(baseGeometry, input.expectedGeometry))) {
+      throw new Error("This display position changed after you began editing. Cancel the unsaved change, reload the latest layout, and review it before moving the display again.");
+    }
     const area = { ...this.state.displayAreas[index], ...input.patch };
     validateDisplayArea(area, this.state);
     if (input.sectionGeometry) {
@@ -522,31 +562,28 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
     if (!campaign) throw new Error("Campaign was not found.");
     if (!input.importKey.trim() || !input.fingerprint.trim()) throw new Error("Workbook provenance is required.");
-    const priorImportIndex = this.state.campaignImports.findIndex((item) => item.importKey === input.importKey);
+    const priorImport = this.state.campaignImports.find((item) => item.campaignId === campaign.id && item.importKey === input.importKey);
+    if (priorImport) {
+      if (priorImport.fingerprint !== input.fingerprint) throw new Error("This import key already belongs to different content. Review the revised workbook as a new import; no saved work was changed.");
+      return;
+    }
+    const seenRows = new Set<string>();
+    for (const row of input.rows) {
+      const location = `${row.source.sourceSheet} row ${row.source.sourceRow}`;
+      if (!this.state.stores.some((store) => store.id === row.storeId)) throw new Error(`${location}: store was not found.`);
+      if (row.caseQuantity !== undefined && (!Number.isSafeInteger(row.caseQuantity) || row.caseQuantity < 0)) throw new Error(`${location}: cases must be a non-negative whole number.`);
+      if (row.productResolution === "INVALID" || row.productResolution === "MATCHED_INACTIVE" || !row.product.name.trim()) throw new Error(`${location}: resolve the product before applying this row.`);
+      const identity = row.product.sku.trim().toUpperCase() || row.product.id;
+      const key = `${row.storeId}:${row.displayLocalCode ?? "shelf"}:${identity}`;
+      if (seenRows.has(key)) throw new Error(`${location}: duplicate product for this store display. Resolve the duplicate before applying; no rows were saved.`);
+      seenRows.add(key);
+    }
+    for (const row of [...input.rows, ...input.rotationSlots]) {
+      if (!this.state.stores.some((store) => store.id === row.storeId)) throw new Error("A workbook row references an unknown store.");
+      if (row.displayAreaId && !this.state.displayAreas.some((area) => area.id === row.displayAreaId && area.storeId === row.storeId && area.active)) throw new Error("A workbook display does not belong to its store or is inactive. Review the placement before applying.");
+    }
     const prior = structuredClone(this.state);
     try {
-      const priorDisplayCodes = new Set(priorImportIndex < 0 ? [] : this.state.campaignImports[priorImportIndex].rows
-        .map((row) => row.displayLocalCode?.toLocaleUpperCase()).filter((code): code is string => Boolean(code)));
-      const priorGeneratedDisplayIds = new Set(this.state.campaignDisplays
-        .filter((display) => display.campaignId === campaign.id && display.description?.startsWith("Store-workbook display concept ")
-          && priorDisplayCodes.has(display.sourceLocalCode?.toLocaleUpperCase() ?? ""))
-        .map((display) => display.id));
-      const priorDisplayProductCampaignIds = new Set(this.state.campaignDisplayProducts
-        .filter((product) => priorGeneratedDisplayIds.has(product.campaignDisplayId))
-        .map((product) => product.campaignProductId));
-      if (priorGeneratedDisplayIds.size) {
-        const priorAssignmentIds = new Set(this.state.campaignDisplayAssignments
-          .filter((assignment) => priorGeneratedDisplayIds.has(assignment.campaignDisplayId))
-          .map((assignment) => assignment.id));
-        this.state.campaignDisplayAssignmentProducts = this.state.campaignDisplayAssignmentProducts
-          .filter((product) => !priorAssignmentIds.has(product.campaignDisplayAssignmentId));
-        this.state.campaignDisplayAssignments = this.state.campaignDisplayAssignments
-          .filter((assignment) => !priorGeneratedDisplayIds.has(assignment.campaignDisplayId));
-        this.state.campaignDisplayProducts = this.state.campaignDisplayProducts
-          .filter((product) => !priorGeneratedDisplayIds.has(product.campaignDisplayId));
-        this.state.campaignDisplays = this.state.campaignDisplays
-          .filter((display) => !priorGeneratedDisplayIds.has(display.id));
-      }
       const productFor = (row: ApplyStoreDisplayWorkbookInput["rows"][number]) => {
         const sku = row.product.sku.trim().toLocaleUpperCase();
         let product = this.state.products.find((item) => item.id === row.product.id)
@@ -595,7 +632,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       for (const row of input.rows) {
         const { product, campaignProduct } = productFor(row);
         const scope = this.state.campaignStores.find((item) => item.campaignId === campaign.id && item.storeId === row.storeId);
-        if (scope) { scope.included = true; scope.status = "PLANNING"; }
+        if (scope) { if (scope.included) scope.status = "PLANNING"; }
         else this.state.campaignStores.push({ id: crypto.randomUUID(), campaignId: campaign.id, storeId: row.storeId, included: true, status: "PLANNING" });
         const existingAllocation = this.state.campaignStoreProductAllocations.find((item) => item.campaignId === campaign.id && item.storeId === row.storeId && item.campaignProductId === campaignProduct.id);
         if (existingAllocation) {
@@ -625,15 +662,27 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
           this.state.campaignDisplayAssignments.push(assignment);
         }
         const note = input.displayNotes.find((item) => item.storeId === row.storeId && item.displayLocalCode.toLocaleUpperCase() === row.displayLocalCode!.toLocaleUpperCase());
-        if (note) { assignment.executionNotes = note.executionNotes; assignment.hasConflictingExecutionNotes = note.hasConflict; }
+        if (note) {
+          const incoming = note.executionNotes?.trim();
+          const existing = assignment.executionNotes?.trim();
+          // Revised workbooks must not silently replace instructions already reviewed by a buyer.
+          if (note.hasConflict || (incoming && existing && incoming !== existing)) assignment.hasConflictingExecutionNotes = true;
+          else if (incoming && !existing) assignment.executionNotes = incoming;
+        }
         const allocationProduct = this.state.campaignDisplayAssignmentProducts.find((item) => item.campaignDisplayAssignmentId === assignment!.id && item.campaignDisplayProductId === member!.id);
-        if (allocationProduct) { allocationProduct.caseQuantity = row.caseQuantity; allocationProduct.quantitySource = "SPREADSHEET"; }
+        if (allocationProduct) {
+          allocationProduct.recommendedCases = row.caseQuantity;
+          if (!allocationProduct.buyerOverride) {
+            allocationProduct.caseQuantity = row.caseQuantity;
+            allocationProduct.quantitySource = "SPREADSHEET";
+          }
+        }
         else this.state.campaignDisplayAssignmentProducts.push({ id: crypto.randomUUID(), campaignDisplayAssignmentId: assignment.id, campaignDisplayProductId: member.id, productId: product.id,
-          caseQuantity: row.caseQuantity, quantitySource: "SPREADSHEET", buyerOverride: false });
+          caseQuantity: row.caseQuantity, recommendedCases: row.caseQuantity, quantitySource: "SPREADSHEET", buyerOverride: false });
       }
       for (const slot of input.rotationSlots) {
         const scope = this.state.campaignStores.find((item) => item.campaignId === campaign.id && item.storeId === slot.storeId);
-        if (scope) { scope.included = true; scope.status = "PLANNING"; }
+        if (scope) { if (scope.included) scope.status = "PLANNING"; }
         else this.state.campaignStores.push({ id: crypto.randomUUID(), campaignId: campaign.id, storeId: slot.storeId, included: true, status: "PLANNING" });
         const display = displayFor(slot.displayLocalCode);
         display.rotatingFlyerSlot = true;
@@ -645,19 +694,15 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
             startDate: campaign.startDate, endDate: campaign.endDate, createdAt: this.clock.now(), updatedAt: this.clock.now() };
           this.state.campaignDisplayAssignments.push(assignment);
         }
-        if (slot.note) assignment.executionNotes = slot.note;
+        if (slot.note?.trim()) {
+          if (assignment.executionNotes?.trim() && assignment.executionNotes.trim() !== slot.note.trim()) assignment.hasConflictingExecutionNotes = true;
+          else assignment.executionNotes = slot.note.trim();
+        }
       }
-      campaign.products.forEach((product) => {
-        if (priorDisplayProductCampaignIds.has(product.id) && !this.state.campaignDisplayProducts.some((member) => member.campaignProductId === product.id)) product.merchandisingState = "UNASSIGNED";
-      });
-      campaign.products = campaign.products.filter((product) => !(priorDisplayProductCampaignIds.has(product.id)
-        && Boolean(product.pendingSource) && /rotating\s+(?:flyer\s+)?(?:sku|beer|rtd)/i.test(product.pendingSource!.productName)
-        && !this.state.campaignDisplayProducts.some((member) => member.campaignProductId === product.id)));
-      const importRecord = { id: priorImportIndex >= 0 ? this.state.campaignImports[priorImportIndex].id : crypto.randomUUID(), campaignId: campaign.id, formatId: "store-display-workbook-import-v1" as const, workbookKind: "ond" as const,
+      const importRecord = { id: crypto.randomUUID(), campaignId: campaign.id, formatId: "store-display-workbook-import-v1" as const, workbookKind: "ond" as const,
         importKey: input.importKey, fingerprint: input.fingerprint, sourceFileName: input.sourceFileName, sourceSheet: input.sourceSheet,
         importedAt: this.clock.now(), rows: structuredClone(input.reviewRows) };
-      if (priorImportIndex >= 0) this.state.campaignImports[priorImportIndex] = importRecord;
-      else this.state.campaignImports.push(importRecord);
+      this.state.campaignImports.push(importRecord);
       this.persist();
     } catch (cause) {
       this.state = prior;
@@ -1065,7 +1110,18 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       }
 
       const includedStores = this.state.campaignStores.filter((item) => item.campaignId === campaign.id && item.included);
-      const planningAssignments = this.state.campaignDisplayAssignments.filter((item) => item.campaignId === campaign.id && item.status === "ASSIGNED");
+      const participating = new Set(includedStores.map((item) => item.storeId));
+      const planningAssignments = this.state.campaignDisplayAssignments.filter((item) => item.campaignId === campaign.id && participating.has(item.storeId) && item.status === "ASSIGNED");
+      const latestRelease = this.state.campaignReleases.filter((item) => item.campaignId === campaign.id && item.status === "published").sort((a, b) => b.version - a.version)[0];
+      if (latestRelease && sameReleaseContent(latestRelease.snapshot, campaignReleaseSnapshot(this.state, campaign.id))) {
+        return {
+          releaseId: latestRelease.id, version: latestRelease.version,
+          assignmentCount: latestRelease.displayAssignmentIds.length,
+          executionCount: this.state.executions.filter((item) => item.programReleaseId === latestRelease.id).length,
+          noticeCount: this.state.storeReleaseNotices.filter((item) => item.releaseId === latestRelease.id).length,
+          warnings: readiness.issues.filter((item) => item.severity === "WARNING").map((item) => item.message),
+        };
+      }
       const releaseId = crypto.randomUUID();
       const version = Math.max(0, ...this.state.campaignReleases.filter((item) => item.campaignId === campaign.id).map((item) => item.version)) + 1;
       const publishedAt = this.clock.now();
@@ -1182,14 +1238,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
         status: "published",
         publishedAt,
         publishedBy: input.publishedBy.trim(),
-        snapshot: {
-          campaign: structuredClone(campaign),
-          stores: structuredClone(this.state.campaignStores.filter((item) => item.campaignId === campaign.id)),
-          displays: structuredClone(this.state.campaignDisplays.filter((item) => item.campaignId === campaign.id)),
-          displayProducts: structuredClone(this.state.campaignDisplayProducts.filter((item) => this.state.campaignDisplays.some((display) => display.campaignId === campaign.id && display.id === item.campaignDisplayId))),
-          allocations: structuredClone(this.state.campaignDisplayAssignments.filter((item) => item.campaignId === campaign.id)),
-          allocationProducts: structuredClone(this.state.campaignDisplayAssignmentProducts.filter((item) => planningAssignments.some((assignment) => assignment.id === item.campaignDisplayAssignmentId))),
-        },
+        snapshot: campaignReleaseSnapshot(this.state, campaign.id),
         displayAssignmentIds,
       });
 
@@ -1523,6 +1572,6 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
 
   async reset(): Promise<void> {
     this.state = cloneSeed();
-    if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_KEY);
+    this.persist();
   }
 }

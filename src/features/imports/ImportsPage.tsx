@@ -10,7 +10,7 @@ function linkClass(primary = false) {
 }
 
 export function ImportsPage() {
-  const { data, loading, error } = usePlatform();
+  const { data, loading, error, authEnabled } = usePlatform();
   const ondProgram = data?.programs.find((program) => program.status === "active") ?? data?.programs.find((program) => program.name.startsWith("OND"));
 
   return (
@@ -18,12 +18,13 @@ export function ImportsPage() {
       <PageHeader
         eyebrow="Uploads"
         title="Spreadsheet imports"
-        description="Known-format workbook intake for merchandising planning. The prototype only writes to mock localStorage."
-        actions={<Badge tone="info">Mock repository</Badge>}
+        description={authEnabled ? "Review workbook rows before applying them to shared campaign planning." : "Known-format workbook intake in this browser's demo workspace."}
+        actions={<Badge tone="info">{authEnabled ? "Shared planning" : "Demo workspace"}</Badge>}
       />
 
       <Card className="mb-5 border-primary"><h2 className="text-lg font-semibold">Start here: import a merchandising workbook</h2><p className="my-3">Upload a monthly flyer, consolidated OND plan, or a workbook with one sheet per store. The app recognizes the format and opens the right review automatically, including display codes, cases, and build notes.</p><Link className={linkClass(true)} to="/imports/flyer">Upload workbook</Link></Card>
       <div className="grid gap-5 lg:grid-cols-2">
+        {!authEnabled && <>
         <Card className="flex min-h-72 flex-col justify-between">
           <div>
             <div className="flex items-start justify-between gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-primary-subtle text-primary"><Handshake className="h-5 w-5" /></span><Badge tone="success">Available</Badge></div>
@@ -56,6 +57,7 @@ export function ImportsPage() {
           </div>
         </Card>
 
+        </>}
         <Card className="flex min-h-72 flex-col justify-between">
           <div>
             <div className="flex items-start justify-between gap-3">

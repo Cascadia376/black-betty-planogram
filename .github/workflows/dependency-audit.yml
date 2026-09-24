@@ -1,0 +1,51 @@
+name: Dependency audit
+
+on:
+  push:
+    branches: [main, engineering/black-betty-hardening-2026-09-21]
+    paths: [package.json, package-lock.json, .github/workflows/dependency-audit.yml]
+  pull_request:
+    branches: [main]
+    paths: [package.json, package-lock.json, .github/workflows/dependency-audit.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Audit the exact lockfile without running package scripts
+        id: audit
+        continue-on-error: true
+        run: npm audit --package-lock-only --audit-level=moderate --json > dependency-audit.json
+      - name: Summarize findings
+        if: always()
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync('dependency-audit.json', 'utf8'));
+          console.log(JSON.stringify({ metadata: report.metadata, error: report.error }, null, 2));
+          for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+            console.log(JSON.stringify({name, ...item}, null, 2));
+          }
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-audit
+          path: dependency-audit.json
+          retention-days: 7
+      - name: Enforce dependency gate
+        if: always()
+        env:
+          AUDIT: ${{ steps.audit.outcome }}
+        run: test "$AUDIT" = success

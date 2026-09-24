@@ -15,6 +15,10 @@ type SnapshotTable = "black_betty_planning_snapshot" | "black_betty_physical_sna
 class FakeSharedStore {
   planningUpdates = 0;
   physicalUpdates = 0;
+  reads = 0;
+  malformedPlanning = false;
+  failReads = false;
+  beforeWrite?: () => Promise<void>;
   private planningRow = {
     singleton: true,
     planning: sharedPlanningFromSnapshot(seedSnapshot),
@@ -35,7 +39,14 @@ class FakeSharedStore {
   }
 
   client(): SupabaseClient {
-    const readRow = (table: SnapshotTable) => structuredClone(table === "black_betty_planning_snapshot" ? this.planningRow : this.physicalRow);
+    const recordRead = () => { this.reads += 1; };
+    const beforeWrite = () => this.beforeWrite?.();
+    const readRow = (table: SnapshotTable) => {
+      if (this.failReads) throw new Error("Network unavailable");
+      const row = structuredClone(table === "black_betty_planning_snapshot" ? this.planningRow : this.physicalRow);
+      if (this.malformedPlanning && "planning" in row) (row.planning as unknown as Record<string, unknown>).campaigns = null;
+      return row;
+    };
     const updateRow = (table: SnapshotTable, values: { planning?: SharedPlanningSnapshot; physical?: PhysicalReferenceSnapshot }, expectedVersion: unknown) => {
       if (table === "black_betty_planning_snapshot") {
         if (expectedVersion !== this.planningRow.version || !values.planning) return null;
@@ -54,7 +65,7 @@ class FakeSharedStore {
         const table = tableName as SnapshotTable;
         return {
           select() {
-            return { eq() { return { single: async () => ({ data: readRow(table), error: null }) }; } };
+            return { eq() { return { single: async () => { recordRead(); return { data: readRow(table), error: null }; } }; } };
           },
           update(values: { planning?: SharedPlanningSnapshot; physical?: PhysicalReferenceSnapshot }) {
             const filters = new Map<string, unknown>();
@@ -62,6 +73,7 @@ class FakeSharedStore {
               eq(column: string, value: unknown) { filters.set(column, value); return builder; },
               select() { return builder; },
               async maybeSingle() {
+                await beforeWrite();
                 if (filters.get("singleton") !== true) return { data: null, error: null };
                 return { data: updateRow(table, values, filters.get("version")), error: null };
               },
@@ -135,4 +147,83 @@ describe("Supabase merchandising repository", () => {
     expect(shared.physicalSnapshot().displayAreas.find((candidate) => candidate.id === area.id)?.geometry).toEqual(geometry);
     expect((await repository.load()).campaigns).toEqual(before.campaigns);
   });
+  it("queues refresh behind an in-flight save instead of replacing its local state or version", async () => {
+    const shared = new FakeSharedStore();
+    const repository = createSupabaseMerchandisingRepository(shared.client());
+    await repository.load();
+    let release!: () => void;
+    let entered!: () => void;
+    const writing = new Promise<void>((resolve) => { entered = resolve; });
+    const paused = new Promise<void>((resolve) => { release = resolve; });
+    shared.beforeWrite = async () => { entered(); await paused; };
+    const saving = repository.createCampaign({ name: "Concurrent refresh", type: "Monthly flyer", description: "", startDate: "2027-10-01", endDate: "2027-10-31", owner: "Test buyer", supplier: "", products: [] });
+    await writing;
+    const refreshing = repository.load();
+    await Promise.resolve();
+    expect(shared.reads).toBe(2);
+    release();
+    const campaignId = await saving;
+    expect((await refreshing).campaigns.some((campaign) => campaign.id === campaignId)).toBe(true);
+    expect(shared.reads).toBe(4);
+    expect(shared.planningUpdates).toBe(1);
+  });
+
+  it("rejects a stale physical save and allows a deliberate reload/retry", async () => {
+    const shared = new FakeSharedStore();
+    const buyerA = createSupabaseMerchandisingRepository(shared.client());
+    const buyerB = createSupabaseMerchandisingRepository(shared.client());
+    const before = await buyerA.load(); await buyerB.load();
+    const area = before.displayAreas.find((item) => item.active)!;
+    const geometry = { x: 0.1, y: 0.2, width: 0.06, height: 0.07 };
+    await buyerB.updateDisplayArea({ displayAreaId: area.id, patch: { geometry } });
+    await expect(buyerA.updateDisplayArea({ displayAreaId: area.id, patch: { geometry: { ...geometry, x: 0.4 } } })).rejects.toThrow("physical store layout changed");
+    expect(shared.physicalUpdates).toBe(1);
+    const latest = await buyerA.load();
+    await buyerA.updateDisplayArea({ displayAreaId: area.id, expectedGeometry: latest.displayAreas.find((item) => item.id === area.id)!.geometry, patch: { geometry: { ...geometry, x: 0.3 } } });
+    expect(shared.physicalUpdates).toBe(2);
+    expect(shared.planningUpdates).toBe(0);
+  });
+
+  it("refuses incomplete server data and recovers without inserting demo campaigns", async () => {
+    const shared = new FakeSharedStore();
+    shared.malformedPlanning = true;
+    const repository = createSupabaseMerchandisingRepository(shared.client());
+    await expect(repository.load()).rejects.toThrow("incomplete or damaged");
+    await expect(repository.createCampaign({ name: "Do not save", type: "OND", owner: "Test buyer", description: "", supplier: "", startDate: "2027-10-01", endDate: "2027-12-31", products: [] })).rejects.toThrow("incomplete or damaged");
+    expect(shared.planningUpdates).toBe(0);
+    shared.malformedPlanning = false;
+    expect((await repository.load()).campaigns).toEqual(seedSnapshot.campaigns);
+  });
+
+  it("does not report a successful prototype operation that cannot be persisted", async () => {
+    const shared = new FakeSharedStore();
+    const repository = createSupabaseMerchandisingRepository(shared.client());
+    const before = await repository.load();
+    await expect(repository.updateRecommendation(before.recommendations[0].id, "accepted")).rejects.toThrow("not available in shared planning");
+    expect(shared.planningUpdates).toBe(0);
+    expect(await repository.getCommittedSnapshot!()).toEqual(before);
+  });
+
+  it("returns the acknowledged snapshot even when a subsequent network refresh fails", async () => {
+    const shared = new FakeSharedStore();
+    const repository = createSupabaseMerchandisingRepository(shared.client());
+    await repository.load();
+    const id = await repository.createCampaign({ name: "Acknowledged", type: "OND", owner: "Test buyer", description: "", supplier: "", startDate: "2027-10-01", endDate: "2027-12-31", products: [] });
+    shared.failReads = true;
+    expect((await repository.getCommittedSnapshot!()).campaigns.some((item) => item.id === id)).toBe(true);
+    await expect(repository.load()).rejects.toThrow("Network unavailable");
+    expect((await repository.getCommittedSnapshot!()).campaigns.some((item) => item.id === id)).toBe(true);
+  });
+
+  it("refuses to publish synthetic catalog records through shared production planning", async () => {
+    const shared = new FakeSharedStore();
+    const repository = createSupabaseMerchandisingRepository(shared.client());
+    const before = await repository.load();
+    const campaign = before.campaigns.find((item) => item.products.some((member) => before.products.some((product) => product.id === member.productId && product.synthetic)))!;
+    expect(campaign).toBeDefined();
+    await expect(repository.publishCampaign({ campaignId: campaign.id, publishedBy: "Test buyer" })).rejects.toThrow("demo products");
+    expect(shared.planningUpdates).toBe(0);
+    expect(await repository.getCommittedSnapshot!()).toEqual(before);
+  });
+
 });

@@ -1,4 +1,5 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from "react-router-dom";
+import { PlanningScopeBoundary, PlanningHome, StorePlanningHome } from "./components/PlanningScopeBoundary";
 import { AppShell } from "./components/AppShell";
 import { EmptyState } from "./components/ui";
 import { CompliancePage } from "./features/compliance/CompliancePage";
@@ -31,9 +32,8 @@ import { DisplayAreaAdminPage } from "./features/stores/DisplayAreaAdminPage";
 import { StoreWorkspacePage } from "./features/stores/OndStoreWorkspacePage";
 import { PlatformProvider } from "./services/PlatformProvider";
 
-export function App() {
-  return <PlatformProvider><BrowserRouter><Routes><Route path="campaigns/:campaignId/stores/:storeId/pack" element={<StoreExecutionPackPage />} /><Route element={<AppShell />}>
-    <Route index element={<DashboardPage />} />
+const router = createBrowserRouter(createRoutesFromElements(<><Route path="campaigns/:campaignId/stores/:storeId/pack" element={<StoreExecutionPackPage />} /><Route element={<AppShell />}>
+    <Route index element={<PlanningHome><DashboardPage /></PlanningHome>} />
     <Route path="campaigns" element={<CampaignsPage />} />
     <Route path="campaigns/new" element={<CampaignBuilderPage />} />
     <Route path="campaigns/:campaignId/edit" element={<CampaignBuilderPage />} />
@@ -42,26 +42,29 @@ export function App() {
     <Route path="campaigns/:campaignId/display" element={<CampaignDisplaysPage />} />
     <Route path="campaigns/:campaignId/assign" element={<CampaignStoreAllocationPage />} />
     <Route path="campaigns/:campaignId/review" element={<CampaignReviewPage />} />
-    <Route path="programs/:programId" element={<ProgramWorkspacePage />} />
-    <Route path="programs/:programId/allocations" element={<AllocationPlannerPage />} />
-    <Route path="programs/:programId/import" element={<OndImportPage />} />
+    <Route path="programs/:programId" element={<PlanningScopeBoundary><ProgramWorkspacePage /></PlanningScopeBoundary>} />
+    <Route path="programs/:programId/allocations" element={<PlanningScopeBoundary><AllocationPlannerPage /></PlanningScopeBoundary>} />
+    <Route path="programs/:programId/import" element={<PlanningScopeBoundary><OndImportPage /></PlanningScopeBoundary>} />
     <Route path="imports" element={<ImportsPage />} />
     <Route path="imports/flyer" element={<FlyerWorkbookImportPage />} />
     <Route path="imports/store-displays" element={<StoreDisplayWorkbookImportPage />} />
-    <Route path="imports/supplier" element={<SupplierSubmissionImportPage />} />
-    <Route path="opportunities" element={<PromotionOpportunitiesPage />} />
+    <Route path="imports/supplier" element={<PlanningScopeBoundary><SupplierSubmissionImportPage /></PlanningScopeBoundary>} />
+    <Route path="opportunities" element={<PlanningScopeBoundary><PromotionOpportunitiesPage /></PlanningScopeBoundary>} />
     <Route path="stores" element={<StoreDirectoryPage />} />
     <Route path="stores/floorplan-recovery" element={<FloorplanRecoveryPage />} />
-    <Route path="stores/:storeId" element={<StoreOverviewPage />} />
+    <Route path="stores/:storeId" element={<StorePlanningHome><StoreOverviewPage /></StorePlanningHome>} />
     <Route path="stores/:storeId/floorplan" element={<PhysicalStoreFloorplanPage />} />
     <Route path="stores/:storeId/display-areas/new" element={<DisplayAreaAdminPage />} />
     <Route path="display-areas/:displayAreaId/edit" element={<DisplayAreaAdminPage />} />
-    <Route path="stores/:storeId/workspace" element={<StoreWorkspacePage />} />
-    <Route path="stores/:storeId/orders" element={<StoreOrdersPage />} />
-    <Route path="executions/:executionId" element={<ExecutionPage />} />
-    <Route path="compliance/:executionId" element={<CompliancePage />} />
-    <Route path="performance" element={<PerformancePage />} />
-    <Route path="display-areas/:displayAreaId" element={<DisplayAreaProfilePage />} />
+    <Route path="stores/:storeId/workspace" element={<PlanningScopeBoundary><StoreWorkspacePage /></PlanningScopeBoundary>} />
+    <Route path="stores/:storeId/orders" element={<PlanningScopeBoundary><StoreOrdersPage /></PlanningScopeBoundary>} />
+    <Route path="executions/:executionId" element={<PlanningScopeBoundary><ExecutionPage /></PlanningScopeBoundary>} />
+    <Route path="compliance/:executionId" element={<PlanningScopeBoundary><CompliancePage /></PlanningScopeBoundary>} />
+    <Route path="performance" element={<PlanningScopeBoundary><PerformancePage /></PlanningScopeBoundary>} />
+    <Route path="display-areas/:displayAreaId" element={<PlanningScopeBoundary><DisplayAreaProfilePage /></PlanningScopeBoundary>} />
     <Route path="*" element={<EmptyState title="Page not found" message="This merchandising route does not exist." />} />
-  </Route></Routes></BrowserRouter></PlatformProvider>;
+  </Route></>));
+
+export function App() {
+  return <PlatformProvider><RouterProvider router={router} /></PlatformProvider>;
 }

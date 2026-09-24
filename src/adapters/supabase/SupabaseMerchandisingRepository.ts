@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MerchandisingRepository } from "../../domain/repositories";
+import type { MerchandisingRepository, PublishCampaignInput } from "../../domain/repositories";
 import type { PlatformSnapshot, Product } from "../../domain/types";
 import { MockMerchandisingRepository } from "../mock/MockMerchandisingRepository";
 import { seedSnapshot } from "../mock/seed";
+import { SystemBusinessClock } from "../../services/clock";
 
 export type PhysicalReferenceSnapshot = Pick<
   PlatformSnapshot,
@@ -72,7 +73,21 @@ export const PHYSICAL_LAYOUT_MUTATIONS = new Set<keyof MerchandisingRepository>(
   "createDisplayArea", "updateDisplayArea", "deleteDisplayArea",
 ]);
 
-const READ_ONLY_METHODS = new Set(["getStoreLayouts", "getStoreLayout", "getCategorySpaces", "searchProducts"]);
+// Only operations whose complete effects are serialized may succeed in shared mode.
+// Prototype ordering, supplier intake and measurement mutate collections not in
+// SHARED_KEYS; permitting them would report success and then lose the change.
+export const SHARED_PLANNING_MUTATIONS = new Set<keyof MerchandisingRepository>([
+  "createCampaign", "updateCampaign", "addCampaignProducts", "applyCampaignProductImport",
+  "applyCampaignWorkbookImport", "applyStoreDisplayWorkbook", "reconcilePendingCampaignProduct",
+  "updateCampaignProduct", "removeCampaignProduct", "createCampaignDisplay", "updateCampaignDisplay",
+  "reorderCampaignDisplay", "removeCampaignDisplay", "assignCampaignProductsToDisplay",
+  "removeCampaignProductFromDisplay", "setCampaignProductShelfSupport", "setCampaignProductUnassigned",
+  "updateCampaignDisplayProduct", "reorderCampaignDisplayProduct", "setCampaignStores",
+  "suggestCampaignDisplay", "updateCampaignDisplayAssignment", "updateCampaignDisplayAssignmentProduct",
+  "applyCampaignDisplayQuantity", "publishCampaign",
+]);
+
+const READ_ONLY_METHODS = new Set(["getCommittedSnapshot", "getStoreLayouts", "getStoreLayout", "getCategorySpaces", "searchProducts"]);
 
 export class SharedPlanningConflictError extends Error {
   constructor() {
@@ -83,7 +98,7 @@ export class SharedPlanningConflictError extends Error {
 
 export class PhysicalReferenceConflictError extends Error {
   constructor() {
-    super("The physical store layout changed after you opened it. Reload the latest layout before making another admin edit.");
+    super("The physical store layout changed after you opened it. Reload the latest layout before making another layout edit.");
     this.name = "PhysicalReferenceConflictError";
   }
 }
@@ -102,10 +117,19 @@ export function physicalReferenceFromSnapshot(snapshot: PlatformSnapshot): Physi
 }
 
 function mergeSharedState(planning: SharedPlanningSnapshot, physical: PhysicalReferenceSnapshot): PlatformSnapshot {
+  // Reject incomplete server documents rather than filling them with demo plans.
+  for (const [label, value, keys] of [
+    ["planning", planning, [...SHARED_KEYS, "campaignProducts"]],
+    ["physical", physical, PHYSICAL_KEYS],
+  ] as const) {
+    if (!value || typeof value !== "object" || keys.some((key) => !Array.isArray((value as unknown as Record<string, unknown>)[key]))) {
+      throw new Error(`The shared ${label} document is incomplete or damaged. No data was changed. Ask support to validate the stored snapshot before continuing.`);
+    }
+  }
   const shared = structuredClone(planning);
   const products = new Map(seedSnapshot.products.map((product) => [product.id, structuredClone(product)]));
   (shared.campaignProducts ?? []).forEach((product) => products.set(product.id, product));
-  const collections = Object.fromEntries(SHARED_KEYS.map((key) => [key, shared[key] ?? structuredClone(seedSnapshot[key])])) as SharedPlanningCollections;
+  const collections = Object.fromEntries(SHARED_KEYS.map((key) => [key, shared[key]])) as SharedPlanningCollections;
   return { ...structuredClone(seedSnapshot), ...collections, ...structuredClone(physical), products: [...products.values()] };
 }
 
@@ -115,11 +139,16 @@ function mergeSharedState(planning: SharedPlanningSnapshot, physical: PhysicalRe
  * reference documents.
  */
 export function createSupabaseMerchandisingRepository(client: SupabaseClient): MerchandisingRepository {
-  const localRepository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
+  const localRepository = new MockMerchandisingRepository(new SystemBusinessClock(), structuredClone(seedSnapshot), false);
   let initialized = false;
   let loadedPlanningVersion = 0;
   let loadedPhysicalVersion = 0;
   let mutationQueue = Promise.resolve();
+  const enqueue = <T,>(operation: () => Promise<T>): Promise<T> => {
+    const result = mutationQueue.then(operation);
+    mutationQueue = result.then(() => undefined, () => undefined);
+    return result;
+  };
 
   const loadRemote = async (): Promise<PlatformSnapshot> => {
     const [planningResult, physicalResult] = await Promise.all([
@@ -130,11 +159,14 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
     if (physicalResult.error) throw new Error(`Unable to load canonical Black Betty physical data: ${physicalResult.error.message}`);
     const planningRow = planningResult.data as SharedPlanningRow;
     const physicalRow = physicalResult.data as PhysicalReferenceRow;
+    if (!Number.isSafeInteger(planningRow?.version) || planningRow.version < 1 || !Number.isSafeInteger(physicalRow?.version) || physicalRow.version < 1) {
+      throw new Error("The shared snapshot revision is invalid. No data was changed; ask support to check the stored revision.");
+    }
+    const snapshot = mergeSharedState(planningRow.planning, physicalRow.physical);
+    localRepository.replaceSnapshot(snapshot);
     loadedPlanningVersion = planningRow.version;
     loadedPhysicalVersion = physicalRow.version;
     initialized = true;
-    const snapshot = mergeSharedState(planningRow.planning, physicalRow.physical);
-    localRepository.replaceSnapshot(snapshot);
     return structuredClone(snapshot);
   };
 
@@ -174,11 +206,11 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
     get(target, property, receiver) {
       const member = Reflect.get(target, property, receiver);
       if (typeof member !== "function") return member;
-      if (property === "load") return loadRemote;
+      if (property === "load") return () => enqueue(loadRemote);
 
       return (...args: unknown[]) => {
         if (READ_ONLY_METHODS.has(String(property))) {
-          return ensureInitialized().then(() => member.apply(target, args));
+          return enqueue(async () => { await ensureInitialized(); return member.apply(target, args); });
         }
         if (property === "reset") {
           return Promise.reject(new Error("Shared planning data cannot be reset from the browser."));
@@ -187,9 +219,19 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
           return Promise.reject(new Error("Create pending products through the secured Product Master workflow before adding them to a shared campaign."));
         }
 
-        const mutation = mutationQueue.then(async () => {
+        if (!SHARED_PLANNING_MUTATIONS.has(property as keyof MerchandisingRepository) && !PHYSICAL_LAYOUT_MUTATIONS.has(property as keyof MerchandisingRepository)) {
+          return Promise.reject(new Error("This prototype action is not available in shared planning. Nothing was changed. Use campaigns, store placements and floorplan editing; ordering and execution integrations are not live."));
+        }
+        return enqueue(async () => {
           await ensureInitialized();
           const before = await localRepository.load();
+          if (property === "publishCampaign") {
+            const { campaignId } = args[0] as PublishCampaignInput;
+            const productIds = new Set(before.campaigns.find((campaign) => campaign.id === campaignId)?.products.map((item) => item.productId));
+            if (before.products.some((product) => productIds.has(product.id) && product.synthetic)) {
+              throw new Error("This campaign contains demo products. Replace them with verified Product Master products before publishing a shared store pack. Nothing was published.");
+            }
+          }
           try {
             const result = await member.apply(target, args);
             if (PHYSICAL_LAYOUT_MUTATIONS.has(property as keyof MerchandisingRepository)) await persistPhysicalReference();
@@ -200,8 +242,6 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
             throw cause;
           }
         });
-        mutationQueue = mutation.then(() => undefined, () => undefined);
-        return mutation;
       };
     },
   }) as MerchandisingRepository;

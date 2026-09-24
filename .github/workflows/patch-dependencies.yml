@@ -1,0 +1,156 @@
+name: Validate targeted security patches
+
+on:
+  push:
+    branches: [engineering/black-betty-hardening-2026-09-21]
+    paths: [.github/workflows/patch-dependencies.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: targeted-security-patches
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/engineering/black-betty-hardening-2026-09-21'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_DATA_ADAPTER: mock
+      VITE_SUPABASE_URL: ""
+      VITE_SUPABASE_PUBLISHABLE_KEY: ""
+      VITE_SUPABASE_ANON_KEY: ""
+      E2E_LOCAL_TRANSPORT: "0"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Update only the reviewed vulnerable packages
+        run: |
+          cp package.json /tmp/package-before.json
+          cp package-lock.json /tmp/lock-before.json
+          npm pkg set 'devDependencies.fflate=^0.8.3'
+          npm update fflate js-yaml --package-lock-only --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const before = JSON.parse(fs.readFileSync('/tmp/lock-before.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const oldPackage = JSON.parse(fs.readFileSync('/tmp/package-before.json', 'utf8'));
+          const newPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          oldPackage.devDependencies.fflate = '^0.8.3';
+          assert.deepEqual(newPackage, oldPackage);
+          assert.deepEqual(Object.keys(after.packages).sort(), Object.keys(before.packages).sort());
+          const changed = [];
+          for (const name of Object.keys(before.packages)) {
+            if (name === '') {
+              before.packages[name].devDependencies.fflate = '^0.8.3';
+              assert.deepEqual(after.packages[name], before.packages[name]);
+            } else if (name === 'node_modules/fflate' || name === 'node_modules/js-yaml') {
+              changed.push({name, from: before.packages[name].version, to: after.packages[name].version});
+            } else {
+              assert.deepEqual(after.packages[name], before.packages[name], `Unexpected dependency change: ${name}`);
+            }
+          }
+          assert.equal(after.packages['node_modules/fflate'].version, '0.8.3');
+          assert.equal(after.packages['node_modules/js-yaml'].version, '4.3.2');
+          console.log(JSON.stringify(changed, null, 2));
+          JS
+      - run: npm ci
+      - name: Verify advisory fixes against the lockfile
+        run: npm audit --package-lock-only --audit-level=moderate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Complete browser regression suite
+        run: npm run test:e2e
+      - name: Repeat print, import and image recovery regressions
+        run: npm run test:e2e -- tests/e2e/october-execution.spec.ts tests/e2e/buyer-release.spec.ts --workers=2 --repeat-each=5 --output=test-results-repeated
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-browser-evidence
+          path: |
+            test-results/
+            test-results-repeated/
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Record verification and package decision
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          path = Path('docs/HARDENING_RUN_2026-09-21.md')
+          text = path.read_text()
+          old = 'Package versions/lockfile were not upgraded.'
+          assert text.count(old) == 1
+          text = text.replace(old, 'The final security follow-up changes only fflate 0.8.2 to 0.8.3 and the transitive development dependency js-yaml 4.3.1 to 4.3.2; no broad dependency upgrade was performed.')
+          text = text.replace('CI must independently verify the delivered code.', 'The initial delivered product changes also passed the normal GitHub PR quality gate: run 35613453220 (226 unit/integration tests, 62 browser passes, one explicitly gated staging skip). The final image-readiness follow-up increases the unit suite to 233 tests across 46 files.')
+          run = os.environ['GITHUB_RUN_ID']
+          followup = f'''## Final image readiness and dependency security verification
+
+          A security retest (run 35614137369) surfaced an intermittent disabled Print button in the OND acceptance flow. Replaced reliance on the SVG image load event with an explicit image decode/readiness check, including already cached images, stale request cancellation, a bounded loading state and Retry floor map. Seven new unit tests protect these transitions; the buyer browser test now intentionally fails a map request and verifies safe recovery before printing. No assertion timeout was increased or disabled to hide the failure.
+
+          Inspection of the build log also revealed two existing advisory findings. The ZIP parser finding is relevant to workbook intake, not merely an unused development tool. Updated fflate to 0.8.3 (GHSA-px8p-9vwx-vf98) and the transitive development parser js-yaml to 4.3.2 (GHSA-2883-xcg3-v3hh). The direct fflate minimum is now ^0.8.3. A strict comparison rejects any unrelated dependency changes.
+
+          The patched lockfile passed npm audit at the moderate threshold, lint, TypeScript, all 233 unit/integration tests, build and the complete default browser suite (62 passed; one explicit secured-staging skip) before commit. An additional 15 browser tests passed across five repeats of the buyer release and OND importer/print flows. Evidence: https://github.com/Cascadia376/black-betty-planogram/actions/runs/{run}. A permanent Dependency audit workflow reports advisories and fails on moderate-or-higher findings; no audit suppression or forced major update was used. This scan is evidence about known advisories at this time, not proof of absence of vulnerabilities.
+
+          References: https://github.com/101arrowz/fflate/releases/tag/v0.8.3 and https://github.com/nodeca/js-yaml/security/advisories/GHSA-2883-xcg3-v3hh.
+
+          '''
+          text = text.replace('## Remaining issues and next work', '\n'.join(line.lstrip() for line in followup.splitlines()) + '\n## Remaining issues and next work')
+          path.write_text(text)
+          PY
+          git diff --check
+          git diff --stat
+          mkdir -p security-patch/docs
+          cp package.json package-lock.json security-patch/
+          cp docs/HARDENING_RUN_2026-09-21.md security-patch/docs/
+          cd security-patch
+          sha256sum package.json package-lock.json docs/HARDENING_RUN_2026-09-21.md > checksums.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-security-patch
+          path: security-patch/
+          retention-days: 1
+  commit:
+    needs: validate
+    if: github.ref == 'refs/heads/engineering/black-betty-hardening-2026-09-21'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      EXPECTED_HEAD: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-security-patch
+          path: /tmp/verified-security-patch
+      - name: Commit only the verified lockfile, package minimum and evidence
+        run: |
+          set -eu
+          BRANCH=engineering/black-betty-hardening-2026-09-21
+          ACTUAL_HEAD=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+          test "$ACTUAL_HEAD" = "$EXPECTED_HEAD"
+          (cd /tmp/verified-security-patch && sha256sum -c checksums.sha256)
+          cp /tmp/verified-security-patch/package.json .
+          cp /tmp/verified-security-patch/package-lock.json .
+          cp /tmp/verified-security-patch/docs/HARDENING_RUN_2026-09-21.md docs/
+          git add package.json package-lock.json docs/HARDENING_RUN_2026-09-21.md
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: patch ZIP parser and YAML denial-of-service advisories'
+          git push origin "HEAD:refs/heads/$BRANCH"

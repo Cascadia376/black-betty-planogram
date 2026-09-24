@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { IDS, seedSnapshot } from "../../adapters/mock/seed";
 import { FloorplanCanvas } from "./FloorplanCanvas";
@@ -37,7 +37,7 @@ describe("FloorplanCanvas", () => {
     fireEvent.pointerUp(viewport, { pointerId: 1, clientX: 150, clientY: 100 });
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText("Saved to the shared floorplan.")).toBeInTheDocument();
+    expect(await screen.findByText("Floorplan saved. You can leave and reopen this layout.")).toBeInTheDocument();
     rectSpy.mockRestore();
   });
 
@@ -65,4 +65,62 @@ describe("FloorplanCanvas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Vodka category space" }));
     expect(onSelect).toHaveBeenCalledWith(spaces.find((space) => space.name === "Vodka")?.id);
   });
+  it("keeps Done editing disabled while dirty and locks duplicate saves until acknowledgement", async () => {
+    const area = seedSnapshot.displayAreas[0];
+    let finish!: () => void;
+    const save = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<FloorplanCanvas storeName="Test" zones={[]} fixtures={[]} areas={[area]} stateFor={() => "available"} onSelect={() => undefined} onGeometrySave={save} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit display positions" }));
+    const hotspot = screen.getByRole("button", { name: new RegExp(area.name) });
+    fireEvent.keyDown(hotspot, { key: "ArrowRight" });
+    expect(screen.getByRole("button", { name: "Done editing" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save floorplan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Saving..." }));
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0]).toBeDefined();
+    await act(async () => finish());
+    expect(screen.getByRole("button", { name: "Done editing" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Undo last saved change" })).toBeEnabled();
+  });
+
+  it("Escape cancels an active drag, so its later pointer-up cannot save it", () => {
+    const area = seedSnapshot.displayAreas[0];
+    const save = vi.fn();
+    const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 1000, height: 800 } as DOMRect);
+    Object.defineProperty(HTMLElement.prototype, "setPointerCapture", { configurable: true, value: vi.fn() });
+    render(<FloorplanCanvas storeName="Test" zones={[]} fixtures={[]} areas={[area]} stateFor={() => "available"} onSelect={() => undefined} onGeometrySave={save} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit display positions" }));
+    const hotspot = screen.getByRole("button", { name: new RegExp(area.name) });
+    const original = hotspot.getAttribute("style");
+    const viewport = screen.getByTestId("floorplan-viewport");
+    fireEvent.pointerDown(hotspot, { pointerId: 1, button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(viewport, { pointerId: 1, clientX: 160, clientY: 100 });
+    fireEvent.keyDown(hotspot, { key: "Escape" });
+    fireEvent.pointerUp(viewport, { pointerId: 1 });
+    expect(save).not.toHaveBeenCalled();
+    expect(hotspot).toHaveAttribute("style", original);
+    rectSpy.mockRestore();
+  });
+
+  it("does not let a second touch cancel the primary drag, and pointer cancellation restores the saved position", () => {
+    const area = seedSnapshot.displayAreas[0];
+    const save = vi.fn();
+    const rectSpy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 1000, height: 800 } as DOMRect);
+    Object.defineProperty(HTMLElement.prototype, "setPointerCapture", { configurable: true, value: vi.fn() });
+    render(<FloorplanCanvas storeName="Test" zones={[]} fixtures={[]} areas={[area]} stateFor={() => "available"} onSelect={() => undefined} onGeometrySave={save} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit display positions" }));
+    const hotspot = screen.getByRole("button", { name: new RegExp(area.name) });
+    const original = hotspot.getAttribute("style");
+    const viewport = screen.getByTestId("floorplan-viewport");
+    fireEvent.pointerDown(hotspot, { pointerId: 1, button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(viewport, { pointerId: 1, clientX: 160, clientY: 100 });
+    fireEvent.pointerCancel(viewport, { pointerId: 2 });
+    expect(hotspot.getAttribute("style")).not.toBe(original);
+    fireEvent.pointerCancel(viewport, { pointerId: 1 });
+    fireEvent.pointerUp(viewport, { pointerId: 1 });
+    expect(save).not.toHaveBeenCalled();
+    expect(hotspot).toHaveAttribute("style", original);
+    rectSpy.mockRestore();
+  });
+
 });
