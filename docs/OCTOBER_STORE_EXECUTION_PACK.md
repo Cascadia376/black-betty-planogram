@@ -1,6 +1,6 @@
 # Store manager execution packs
 
-Current behaviour: 21 September 2026 hardening branch. Packs support ordinary campaigns and OND; OND-only month controls are not shown for other campaign types. [Release gate](PRODUCTION_GATE.md).
+Current behaviour: 1 October 2026 consolidated candidate. Packs support ordinary campaigns and OND; OND-only month controls are not shown for other campaign types. [Release gate](PRODUCTION_GATE.md).
 
 ## Buyer-to-store handoff
 

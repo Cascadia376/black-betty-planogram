@@ -2,7 +2,7 @@
 
 Merchandising planning and store instructions for Cascadia Liquor. Black Betty is a standalone React/Vite application designed to work alongside Ursus Major. It uses the existing Product Master and authenticated Supabase planning/physical reference documents when configured; without those credentials it runs an explicitly labelled local demo.
 
-**Current scope and release evidence:** [21 September hardening record](docs/HARDENING_RUN_2026-09-21.md) and [production gate](docs/PRODUCTION_GATE.md). Older phase documents describe historical decisions, not the current deployment or readiness status.
+**Current scope and release evidence:** [hardening record](docs/HARDENING_RUN_2026-09-21.md), [production gate](docs/PRODUCTION_GATE.md) and [rollback runbook](docs/PRODUCTION_ROLLBACK.md). Older phase documents describe historical decisions, not the current deployment or readiness status.
 
 ## Buyer workflow
 
@@ -55,7 +55,7 @@ The provider currently selects authenticated shared mode when **both a Supabase 
 
 Authenticated buyers/admins can use campaigns, reviewed imports, store placements, canonical floorplan management and release-pack generation. Existing RLS remains the authorization boundary; hidden navigation is not security. Synthetic demo products cannot be published through shared mode.
 
-Ordering, legacy OND program operations, supplier submission/opportunity management, execution/compliance entry and measurement are retained for isolated demo development, but their routes and unsupported mutations are blocked in shared mode. Their complete effects are not durably serialized or integrated. They must not be presented as live capabilities.
+The campaign review can make a separately authenticated, read-only Ursus purchasing-readiness request when configured. It fails closed to Unknown and cannot create an order or write inventory. Ordering mutations, legacy OND program operations, supplier submission/opportunity management, execution/compliance entry and measurement are retained for isolated demo development, but their routes and unsupported mutations are blocked in shared mode. Their complete effects are not durably serialized or integrated. They must not be presented as live capabilities.
 
 ## Development and testing
 

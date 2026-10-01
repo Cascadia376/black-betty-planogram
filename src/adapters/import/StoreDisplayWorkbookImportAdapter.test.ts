@@ -92,7 +92,7 @@ describe("store display workbook importer", () => {
     const product = before.products.find((item) => item.active)!;
     const result = await new StoreDisplayWorkbookImportAdapter().parseSheets([{ sheet: "Crown Isle", rows: [headers,
       row(["Vendor", "Wine", product.sku, product.name, area.localCode!, "4", "Retry safely"]),
-      row(["Vendor", "Beer", "", "Rotating flyer SKU", area.localCode!, "", "Retry safely"]),
+      row(["Vendor", "Beer", "", "Pending new beer", area.localCode!, "", "Retry safely"]),
     ] }],
       { snapshot: { stores: before.stores, displayAreas: before.displayAreas, products: before.products }, productMaster: new MockProductMasterLookup(before.products) }, { sourceFileName: "retry.xlsx", fingerprint: "retry" });
     const campaignId = await repository.createCampaign({ name: "OND 2026", type: "OND", description: "", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Jeremy", supplier: "", products: [] });
@@ -108,9 +108,9 @@ describe("store display workbook importer", () => {
     const imported = await repository.load();
     expect(imported.campaignImports.filter((item) => item.importKey === input.importKey)).toHaveLength(1);
     expect(imported.campaignDisplays.filter((item) => item.campaignId === campaignId)).toHaveLength(1);
-    expect(imported.campaignDisplayProducts.filter((item) => item.campaignDisplayId === imported.campaignDisplays.find((item) => item.campaignId === campaignId)?.id)).toHaveLength(1);
-    expect(imported.campaigns.find((item) => item.id === campaignId)?.products).toHaveLength(1);
-    expect(imported.campaignDisplays.find((item) => item.campaignId === campaignId)?.rotatingFlyerSlot).toBe(true);
+    expect(imported.campaignDisplayProducts.filter((item) => item.campaignDisplayId === imported.campaignDisplays.find((item) => item.campaignId === campaignId)?.id)).toHaveLength(2);
+    expect(imported.campaigns.find((item) => item.id === campaignId)?.products).toHaveLength(2);
+    expect(imported.campaignDisplays.find((item) => item.campaignId === campaignId)?.rotatingFlyerSlot).not.toBe(true);
   });
 
   it("preserves buyer quantities, store exclusions and instructions when a revised workbook changes the baseline", async () => {
@@ -137,6 +137,28 @@ describe("store display workbook importer", () => {
     expect(revised.campaignStores.find((item) => item.campaignId === campaignId && item.storeId === crown.id)?.included).toBe(false);
     expect(revised.campaignImports.filter((item) => item.campaignId === campaignId)).toHaveLength(2);
     expect(revised.campaignDisplays.filter((item) => item.campaignId === campaignId)).toHaveLength(1);
+  });
+
+  it("reapplies a rotating flyer slot without inventing a product or duplicating the placement", async () => {
+    const repository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
+    const before = await repository.load();
+    const crown = before.stores.find((store) => store.name === "Crown Isle")!;
+    const area = before.displayAreas.find((item) => item.storeId === crown.id && item.active && item.localCode)!;
+    const result = await new StoreDisplayWorkbookImportAdapter().parseSheets([{ sheet: "Crown Isle", rows: [headers,
+      row(["Vendor", "Beer", "", "Rotating flyer SKU", area.localCode!, "", "Rotate with flyer"]),
+    ] }], { snapshot: { stores: before.stores, displayAreas: before.displayAreas, products: before.products }, productMaster: new MockProductMasterLookup(before.products) }, { sourceFileName: "rotation-retry.xlsx", fingerprint: "rotation-retry" });
+    const campaignId = await repository.createCampaign({ name: "OND rotation", type: "OND", description: "", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Jeremy", supplier: "", products: [] });
+    const input = toApplyStoreDisplayWorkbookImport(result, campaignId);
+    await repository.applyStoreDisplayWorkbook(input);
+    await repository.applyStoreDisplayWorkbook(input);
+    const imported = await repository.load();
+    const displays = imported.campaignDisplays.filter((item) => item.campaignId === campaignId);
+    expect(displays).toHaveLength(1);
+    expect(displays[0].rotatingFlyerSlot).toBe(true);
+    expect(imported.campaignDisplayAssignments.filter((item) => item.campaignId === campaignId)).toHaveLength(1);
+    expect(imported.campaignDisplayProducts.filter((item) => item.campaignDisplayId === displays[0].id)).toHaveLength(0);
+    expect(imported.campaigns.find((item) => item.id === campaignId)?.products).toHaveLength(0);
+    expect(imported.campaignImports.filter((item) => item.importKey === input.importKey)).toHaveLength(1);
   });
 
   it("blocks Apply when a temporary N source marker remains", async () => {

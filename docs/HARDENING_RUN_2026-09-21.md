@@ -2,6 +2,27 @@
 
 Status: implemented and locally verified on an isolated engineering branch. Production data has not been changed. This note supersedes historical scope/readiness claims where they conflict with inspected code. Deployment remains subject to the engineering PR and the current production gate.
 
+## Consolidation update - 1 October 2026
+
+The production-readiness consolidation rebased the durable-planning work onto `main` at `b9f9b70`, preserving the newer BDL/LDB export implementation and tests. PR #11 was then reconciled on top of the hardening changes instead of replacing their shared files. Conflicts retained the release double-submit guard and complete floorplan autosave/Undo/navigation behavior.
+
+The Ursus consumer was rechecked against current Ursus `main` at `414a491dfe247f956fc3c8109bc50735ff36d5f2`. The endpoint and v1 contract remain available, but the current response also carries per-store source fingerprints, ledger version, calculation issues and reconciled counts. Black Betty now requires and cross-checks those fields, enforces Ursus's 0–90 day freshness bound and surfaces calculation issues without weakening Unknown/fail-closed behavior.
+
+Branch-only CI used to manufacture the completed dependency patch and PR #11's duplicate partial workflow were removed. The permanent quality and dependency-audit workflows remain. [Rollback instructions](PRODUCTION_ROLLBACK.md) now distinguish safe application/integration rollback from unauthorized production-data, floorplan or supplier actions.
+
+Final local consolidation validation on the reconciled candidate:
+
+| Check | Result |
+| --- | --- |
+| ESLint | Pass: full repository |
+| TypeScript | Pass: `tsc -b` |
+| Unit/integration | Pass: 250 tests across 49 files |
+| Production build | Pass: 1,841 modules; 4,083.08 kB main JS / 617.79 kB gzip |
+| Chromium browser suite | Pass: 62 tests; one secured two-user staging test intentionally skipped |
+| Dependency audit | Pass: 0 known vulnerabilities at the configured threshold after lockfile-only `brace-expansion` patches to 1.1.21 and 5.0.12 |
+
+The browser run covered the buyer release/reopen path, floorplan mouse/touch/keyboard save recovery, workbook import, manager packs, responsive views and existing BDL/LDB ordering screens. The skipped test requires explicit shared-staging write authorization and credentials. Operational acceptance remains limited to the external checklist in [the current production gate](PRODUCTION_GATE.md).
+
 ## Product requirement
 
 A buyer can create a campaign, review product intake, select participating stores, assign permanent display areas, save/reopen changes, edit canonical display positions, and produce intelligible store instructions. Planning must never silently destroy saved work. Unimplemented ordering, measurement, notification and store-account workflows must not masquerade as production capabilities.
