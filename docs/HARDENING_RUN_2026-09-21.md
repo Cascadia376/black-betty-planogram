@@ -10,6 +10,8 @@ The Ursus consumer was rechecked against current Ursus `main` at `414a491dfe247f
 
 Branch-only CI used to manufacture the completed dependency patch and PR #11's duplicate partial workflow were removed. The permanent quality and dependency-audit workflows remain. [Rollback instructions](PRODUCTION_ROLLBACK.md) now distinguish safe application/integration rollback from unauthorized production-data, floorplan or supplier actions.
 
+The first consolidated Linux CI run exposed an outdated winter-offset assertion: [British Columbia adopted permanent UTC-7 after the final 8 March 2026 clock change](https://www2.gov.bc.ca/gov/content/governments/celebrating-british-columbia/daylight-saving-time), while the local Windows time-zone database still modelled a November fallback. The business clock now encodes the effective transition explicitly and tests the UTC-7 winter date boundary, so production dates do not depend on host time-zone database freshness.
+
 Final local consolidation validation on the reconciled candidate:
 
 | Check | Result |
@@ -17,7 +19,7 @@ Final local consolidation validation on the reconciled candidate:
 | ESLint | Pass: full repository |
 | TypeScript | Pass: `tsc -b` |
 | Unit/integration | Pass: 250 tests across 49 files |
-| Production build | Pass: 1,841 modules; 4,083.08 kB main JS / 617.79 kB gzip |
+| Production build | Pass: 1,841 modules; approximately 4.08 MB main JS / 618 kB gzip |
 | Chromium browser suite | Pass: 62 tests; one secured two-user staging test intentionally skipped |
 | Dependency audit | Pass: 0 known vulnerabilities at the configured threshold after lockfile-only `brace-expansion` patches to 1.1.21 and 5.0.12 |
 
