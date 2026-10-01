@@ -1,151 +1,90 @@
 # Black Betty
 
-Standalone merchandising operations application for Cascadia Liquor.
+Merchandising planning and store instructions for Cascadia Liquor. Black Betty is a standalone React/Vite application designed to work alongside Ursus Major. It uses the existing Product Master and authenticated Supabase planning/physical reference documents when configured; without those credentials it runs an explicitly labelled local demo.
 
-This application manages persistent high-value merchandising spaces such as endcaps, feature tables, cooler-door groups, seasonal areas, and floor displays. It is intentionally separate from `Cascadia376/ursus-major`, but is designed to integrate with Ursus Major authentication, Supabase-backed data, navigation, and shared package boundaries later.
+**Current scope and release evidence:** [21 September hardening record](docs/HARDENING_RUN_2026-09-21.md) and [production gate](docs/PRODUCTION_GATE.md). Older phase documents describe historical decisions, not the current deployment or readiness status.
 
-It also models regular category homes through versioned `StoreLayout` and `CategorySpace` records. A category home is never a promotional `DisplayArea`; both layers can be viewed together on the store floorplan.
+## Buyer workflow
 
-## Current Scope
+1. **Create a campaign.** Enter a name, owner, type and valid start/end dates. Save and reopen the same campaign rather than treating it as a temporary wizard.
+2. **Select products.** Search Product Master, paste SKUs or review a supported workbook. Known products retain authoritative identities. Pending/inactive/unmatched products stay visible and must be resolved before release.
+3. **Build displays.** Define the merchandising concept, products, signage, execution notes, minimum facings and default case quantities. Shelf-supported products do not require a promotional floor area.
+4. **Assign stores.** Include stores, accept or select each physical location, and review store-specific quantities and instructions. Store adjustments remain separate from campaign defaults.
+5. **Review.** Resolve blocking errors. Warnings require judgement but do not automatically prevent release. Draft store packs remain explicitly labelled as drafts.
+6. **Release and distribute.** Finalize a versioned store pack, then print/share it manually. The release does not send email, grant manager access, submit a purchase order or record store execution.
+7. **Continue editing.** Later edits change the planning copy, not an existing released pack. Publishing changed content creates a new version; publishing identical content is a no-op.
 
-Phase 0 reliability decisions, terminology, deferred controls, and the store quantity state model are documented in [`docs/PHASE_0_STABILIZATION.md`](docs/PHASE_0_STABILIZATION.md).
+### Two workbook paths are intentionally different
 
-The MVP supports the broader merchandising workflow:
+- The consolidated OND importer reviews cross-store allocations and creates a new campaign draft. Its quick-import handoff retains the file and entered dates, but does not silently merge it into the originating campaign.
+- Store-sheet imports apply reviewed records to the selected campaign. Retrying an applied fingerprint does not recreate records. A newly reviewed revision preserves buyer quantity overrides, exclusions and placement identities; conflicting instructions require confirmation. Absence from a later file does not delete an existing product.
 
-Plan -> Publish -> Order -> Execute -> Verify -> Measure -> Improve
+Skipped/problematic source rows remain in review/provenance. Never assume that a successful partial import means every row was accepted. See [workbook contracts](docs/STORE_DISPLAY_WORKBOOK_MODEL.md) and [execution pack guide](docs/OCTOBER_STORE_EXECUTION_PACK.md).
 
-Campaign planning now begins with a guided Phase 1 flow:
+## Floorplans
 
-Create Campaign -> Build Product Assortment -> Build Displays -> Continue to Stores
+Open **Stores -> Floorplan -> Edit display positions** in physical-layout management. Drag/resize saves on pointer release. Keyboard arrows move a display; Shift+arrows resize; keyboard changes use **Save floorplan**. Escape cancels, and **Undo last saved change** reverses one acknowledged edit. Snapping is optional; overlaps are advisory, not an aisle-clearance or safety assessment.
 
-Product intake supports four paths:
+Positions use normalized rectangles and stable DisplayArea/section IDs. Bounds are enforced; pan/zoom do not change stored geometry. A failed save retains a visible draft for retry/cancel. Navigation/reload protection warns about unsaved work. Save, leave, reopen and continue editing without duplicating a display.
 
-- Product Master search for known products.
-- Bulk SKU paste from Excel, email, or another source.
-- Known-format campaign spreadsheet import.
-- Controlled pending-product creation when a valid SKU is new to Product Master.
+Physical positions are **store-wide**, not campaign-owned. Only the current physical layout exposes the display editor. Campaign/program floorplans and category-layout drafts do not move canonical displays. CategorySpace and promotional DisplayArea layers remain independent. [Detailed controls and recovery](docs/FLOORPLAN_EDITING.md).
 
-Product Master remains authoritative for known product attributes such as SKU, name, category, case pack, and active status. Campaign records store campaign-specific metadata such as role, required/optional state, and notes. Pending products can continue through planning, but remain clearly flagged for Product Master review.
+## Architecture and durable data
 
-Campaign product spreadsheet import is intentionally separate from OND allocation import. The campaign Products workspace accepts the documented `campaign-product-v1` format and applies rows only after review and approval.
+UI -> `PlatformProvider` -> `MerchandisingRepository` -> domain rules + persistence adapter.
 
-## Phase 2 Display Planning
+| Boundary | Responsibility |
+| --- | --- |
+| `src/domain` | Typed records, readiness/validation, placement rules and manager-pack projection |
+| `src/adapters/mock` | Deterministic demo/domain engine; versioned compressed browser snapshot, committed checkpoint and failed-write rollback |
+| `src/adapters/supabase` | Authenticated, version-checked shared planning and physical reference documents; Product Master lookup |
+| `src/features` | Campaign, import, store and output screens |
+| `src/services` | Provider, business clock and explicitly prototype downstream services |
 
-`CampaignDisplay` is a campaign-level merchandising concept (for example, a Feature Display or RTD Endcap). It is deliberately distinct from `DisplayArea`, which is a persistent physical location in a store. A display can be **STANDARD**, a reusable concept whose compatible locations are chosen later, or **STORE_SPECIFIC**, a named setup whose physical location will be selected per store in Phase 3.
+Shared planning and physical layouts remain separate singleton JSON documents with separate optimistic versions and existing database authorization. A single adapter queue serializes refreshes and writes. UI refresh after an acknowledged mutation uses its committed snapshot, not another fallible network request. Stale writes fail rather than overwriting another buyer's work.
 
-Campaign products are explicitly **unassigned**, **display assigned**, or **shelf supported**. Shelf-supported products remain in the campaign assortment without requiring a dedicated display. A display may have zero or one **Hero** product; setting a new Hero demotes the prior Hero to Supporting. Minimum facings and quantity are display-specific guidance. Campaign display ordering represents planning priority, not shelf coordinates or physical location. Buyers may continue to Stores with unassigned-product or empty-display warnings; physical store placement remains a Phase 3 responsibility.
+A release includes the campaign, products, allocations, instructions and normalized geometry needed by its manager packs. Linked map URLs are retained, but image bytes are not archived. Legacy releases without complete execution data are not silently rebuilt from today's unpublished plan. The new optional JSON field requires **no SQL migration**. [Architecture decision](docs/ADR-0002-reliability-and-release-boundaries.md), [runtime data model](docs/DATA_MODEL.md), [adapter contract](src/adapters/supabase/README.md).
 
-The display-product pool supports category, campaign role, requirement, brand, package/size, and merchandising-state filters. Supplier is intentionally not exposed there yet: the current Product/SupplierProductOption data does not provide a dependable campaign-product supplier resolution rule. That remains a real-data integration decision for Phase 3.
+### Local and shared modes are not interchangeable
 
-## Phase 3 Store Allocation
+Local mode is a browser/device-specific demo, not a backup or collaboration service. It preserves old saved geometry, rejects corrupt snapshots without overwriting their bytes, and checks for stale tabs before writing. This local check is best-effort, not atomic cross-tab locking. Real collaboration relies on Supabase version checks.
 
-`CampaignDisplay` describes what should be built. `DisplayArea` is the persistent physical asset in one store. `CampaignDisplayAssignment` is the planning-layer mapping between them for a participating store, and `CampaignDisplayAssignmentProduct` records store-specific product quantities and buyer overrides. A STANDARD display receives an explainable suggestion per store and must be accepted; it never assumes matching display numbers across stores. STORE_SPECIFIC displays require buyer placement per store. At Publish, approved planning allocations will be converted into canonical `DisplayAssignment` records for operational ordering and execution; that conversion remains a later phase.
+The provider currently selects authenticated shared mode when **both a Supabase URL and a browser-safe key are configured**. `VITE_DATA_ADAPTER=mock` alone is not an isolation switch when those credentials exist. For isolated tests clear the URL and both key variables. Do not add a query-string bypass to production authentication.
 
-## Physical Store Layouts
+## Supported live boundary
 
-`/stores/:storeId/floorplan` is the primary physical-layout view. It layers a data-owned PNG background, optional `CategorySpace` outlines, and persistent `DisplayArea` markers. Current source layouts are populated for Allandale, Caddy Bay, Crown Isle, Eagle Creek, Hatley Park, Langford, Nanoose, Parksville, Port Alberni, Quadra, Royal Bay, and Uptown. Allandale uses the superseding August 5 source map; the older Allandale map is not active.
+Authenticated buyers/admins can use campaigns, reviewed imports, store placements, canonical floorplan management and release-pack generation. Existing RLS remains the authorization boundary; hidden navigation is not security. Synthetic demo products cannot be published through shared mode.
 
-Category spaces support optional normalized geometry, fixture type, shelf dimensions, shelf count, maximum facings, fractional cooler-door equivalents, source notes, and lightweight irregular sections. Capacity records come from the detailed June 2026 planogram workbook. Exact embedded PDF labels provide the initial geometry; ambiguous one-to-many label matches remain unmapped. Cooler-summary classifications are retained as separate records and never overwrite detailed allocations. Users can edit category metadata in a form. A current layout can be duplicated into a draft and later made current; the prior current version becomes archived and remains readable.
+Ordering, legacy OND program operations, supplier submission/opportunity management, execution/compliance entry and measurement are retained for isolated demo development, but their routes and unsupported mutations are blocked in shared mode. Their complete effects are not durably serialized or integrated. They must not be presented as live capabilities.
 
-Display areas remain an independent promotional layer. The 12 supplied Word display maps provide 247 active, verified logical `DisplayArea` records. Store-local identifiers (`W*`, `BR*`, and `M*`) are preserved separately from globally unique store-prefixed codes. Named Seasonal and Window locations are supported without fabricated numeric codes. `Master Display Naming.xlsx` supplies 63 shared `DisplayClassDefinition` records; each physical area references that taxonomy where the store mapping is explicit. The legacy abbreviation is descriptive rather than an identifier because medium/mini abbreviations collide.
+## Development and testing
 
-The floorplan links to form-based DisplayArea creation and editing for local/global identity, family, shared class, type, description, capacity, category compatibility, flexibility, normalized geometry, active/verification state, source reference, and notes. Minimal manual creation requires a local code or name, display type, and valid geometry. A record cannot be marked verified without a source reference. Deactivation is the safe path for referenced areas; permanent deletion is allowed only when no campaign, assignment, performance, history, or recommendation dependency exists. Seven earlier synthetic areas remain inactive and unverified so historical IDs continue to resolve. Parksville W5 and Royal Bay M3 use `DisplayAreaSection` for a second source-marked hotspot.
-
-This foundation does not include OCR ingestion, individual shelves, drag/resize editing, automated reset optimization, historical product assignment import, or production database migrations. Known display-map limitations and per-store counts are documented in `docs/DISPLAY_AREA_VALIDATION.md`; category-layout limitations remain in `docs/STORE_LAYOUT_VALIDATION.md`.
-
-## Phase 1 Campaign Workflow
-
-Create Campaign -> Build Product Assortment -> Continue to Displays
-
-Campaign product intake supports Product Master search, bulk SKU paste, known-format spreadsheet import, and controlled pending new-product intake. Product Master is authoritative for known SKU, name, category, case pack, and active-state details. Pending new products may continue through planning, but remain visibly flagged for Product Master review.
-
-The known campaign product workbook format is documented in `docs/campaign-product-import.md`.
-
-Routes included:
-
-- `/`
-- `/campaigns`
-- `/campaigns/new`
-- `/campaigns/:campaignId`
-- `/campaigns/:campaignId/products`
-- `/campaigns/:campaignId/display`
-- `/campaigns/:campaignId/assign`
-- `/imports`
-- `/programs/:programId`
-- `/programs/:programId/allocations`
-- `/programs/:programId/import`
-- `/stores/:storeId`
-- `/stores/:storeId/floorplan`
-- `/stores/:storeId/workspace`
-- `/stores/:storeId/orders`
-- `/executions/:executionId`
-- `/compliance/:executionId`
-- `/performance`
-- `/display-areas/:displayAreaId`
-
-## Architecture
-
-UI components do not call Supabase directly. They read and mutate data through the domain-facing `MerchandisingRepository` exposed by `src/services/PlatformProvider.tsx`.
-
-Primary boundaries:
-
-- `src/domain`: domain types, repository interfaces, validation, scoring, and recommendation rules.
-- `src/adapters/mock`: deterministic mock/local seed adapter used by the MVP.
-- `src/adapters/supabase`: Supabase adapter skeleton for future implementation.
-- `src/features`: screen-level components grouped by merchandising domain.
-- `src/components`: reusable application shell and UI primitives.
-- `docs`: architecture and Ursus Major integration notes.
-
-The table-level schema contract is documented in `docs/DATA_MODEL.md`. No production database migration is included or applied in the mock-first MVP.
-
-OND programs use `DisplayAssignment` as the canonical operational allocation. Publishing creates a versioned mock release, direct initial-set/reset execution tasks, and explainable order recommendations. Supplier order batches create mock purchase orders and inbound records. Legacy campaign assignments remain supported for existing campaign screens.
-
-The deterministic mock business clock is centralized in `src/services/clock.ts`. A production repository should inject the system/business date rather than copy the mock date into UI code.
-
-## Development
+Use Node 22 and the committed lockfile:
 
 ```bash
-npm install
-npm run dev
+npm ci
+npm run dev -- --host 127.0.0.1
 ```
 
-Run validation:
+For a local demo, leave `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` and `VITE_SUPABASE_ANON_KEY` empty. For a deliberately configured shared/staging instance, use its URL plus publishable key (legacy anon key supported). Never put service-role keys in browser variables, source, screenshots or test fixtures.
 
 ```bash
 npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run test:e2e
+npx playwright install --with-deps chromium
+E2E_LOCAL_TRANSPORT=0 npm run test:e2e
 ```
 
-## Vercel Deployment
+On managed hosts that deny Chromium direct loopback sockets, `E2E_LOCAL_TRANSPORT=1` uses the local-only request fixture. `E2E_EXTERNAL_SERVER=1` skips Playwright's server startup when the test server is already running. Default tests use isolated demo data and do not require Supabase credentials.
 
-This repository is a Vite single-page application using `BrowserRouter`. The root-level `vercel.json` rewrites direct route requests to `index.html`, allowing React Router to resolve deep links and browser refreshes.
+The secured two-user test is opt-in: it requires staging credentials, a disposable staging campaign, **`E2E_ALLOW_SHARED_TEST_WRITES=1`**, and the variables documented in [the production gate](docs/PRODUCTION_GATE.md). Never point it at the real buyer campaign. Default CI intentionally skips that test; a green demo suite is not proof of live authentication/RLS behaviour.
 
-Use these Vercel project settings:
+CI runs lint, TypeScript, unit/integration tests, build and Chromium tests independently, then fails if any required check fails. Screenshots/PDFs/failure evidence are retained as workflow artifacts. Vite build success alone does not prove type or test health.
 
-- Framework Preset: `Vite`
-- Root Directory: `.` (repository root)
-- Install Command: `npm install` (Vercel default)
-- Build Command: `npm run build`
-- Output Directory: `dist`
-- Node.js Version: `22.x`
+## Deployment
 
-No environment variables are required for the prototype. Leave `VITE_DATA_ADAPTER` unset so the application continues to use its mock repository and browser `localStorage`.
+Vercel: Vite preset, repository root, Node 22, `npm ci`, `npm run build`, output `dist`. `vercel.json` keeps parameterized deep links on the SPA route. Validate a direct campaign URL and refresh after deployment.
 
-After deployment, verify at least one parameterized route by opening it directly in a new browser tab and refreshing it. The rewrite should return the application shell while preserving the requested URL.
-
-## Environment
-
-The MVP defaults to mock data. Supabase configuration is optional until the adapter is implemented.
-
-```bash
-VITE_DATA_ADAPTER=mock
-VITE_SUPABASE_URL=
-VITE_SUPABASE_PUBLISHABLE_KEY=
-VITE_SUPABASE_ANON_KEY=
-VITE_URSUS_MAJOR_BASE_URL=
-```
-
-Never put service-role Supabase keys in browser-accessible environment variables.
+Keep preview/staging data isolated from production. Review the PR and quality evidence before promoting; this engineering run does not modify production records, migrate schemas, grant roles or promote its branch. Existing Supabase access policies and version triggers are prerequisites, not objects to recreate or reset. [Current release gate and remaining evidence](docs/PRODUCTION_GATE.md).

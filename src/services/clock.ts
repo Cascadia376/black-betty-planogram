@@ -4,12 +4,19 @@ export interface BusinessClock {
 }
 
 export class SystemBusinessClock implements BusinessClock {
+  constructor(private readonly nowDate: () => Date = () => new Date()) {}
+
   today() {
-    return new Date().toISOString().slice(0, 10);
+    // Store trading dates are Vancouver-local; audit timestamps remain UTC.
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Vancouver", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(this.nowDate());
+    const value = (name: string) => parts.find((part) => part.type === name)!.value;
+    return `${value("year")}-${value("month")}-${value("day")}`;
   }
 
   now() {
-    return new Date().toISOString();
+    return this.nowDate().toISOString();
   }
 }
 

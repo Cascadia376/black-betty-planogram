@@ -11,8 +11,8 @@ test("moves, resizes, cancels, saves and pans Crown Isle displays", async ({ pag
   const original = await area.getAttribute("style");
   await area.focus();
   await area.press("ArrowRight");
-  await expect(page.getByRole("button", { name: "Save display position", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Cancel change", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save floorplan", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Cancel unsaved change", exact: true }).click();
   await expect(area).toHaveAttribute("style", original!);
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
   await expect(page.getByLabel("Floorplan zoom")).toHaveText("125%");
@@ -23,8 +23,7 @@ test("moves, resizes, cancels, saves and pans Crown Isle displays", async ({ pag
   await page.mouse.move(box.x + box.width / 2 + 30, box.y + box.height / 2 + 20, { steps: 5 });
   await page.mouse.up();
   await expect(area).not.toHaveAttribute("style", original!);
-  await page.getByRole("button", { name: "Save display position", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Display geometry saved" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Floorplan saved." })).toBeVisible();
   await area.click();
   const handle = page.getByRole("button", { name: /^Resize / }).first();
   const handleBox = (await handle.boundingBox())!;
@@ -35,8 +34,7 @@ test("moves, resizes, cancels, saves and pans Crown Isle displays", async ({ pag
   await page.mouse.up();
   await expect(area).not.toHaveAttribute("style", movedStyle!);
   const savedStyle = await area.getAttribute("style");
-  await page.getByRole("button", { name: "Save display position", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Display geometry saved" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Floorplan saved." })).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Edit display positions", exact: true }).click();
   await expect(page.locator(`[data-display-hotspot="${id}"]`)).toHaveAttribute("style", savedStyle!);
@@ -63,4 +61,74 @@ test("keeps campaign floorplans read-only even when layout mode is requested", a
   await expect(page.getByRole("link", { name: "Manage physical layout" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Edit Display Area" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit category space" })).toHaveCount(0);
+});
+
+test("retains a failed save, retries safely, undoes and protects unsaved navigation", async ({ page }) => {
+  await page.goto(`${crownIsleFloorplan}?mode=layout`);
+  await page.getByRole("button", { name: "Edit display positions", exact: true }).click();
+  const area = page.locator("[data-display-hotspot]").first();
+  const count = await page.locator("[data-display-hotspot]").count();
+  const original = await area.getAttribute("style");
+  await area.focus(); await area.press("ArrowRight");
+  await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Campaigns", exact: true }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Keep editing" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "Discard unsaved change and leave" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Done editing", exact: true })).toBeDisabled();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Object.assign(window, { restoreTestStorage: () => { Storage.prototype.setItem = original; } });
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "cascadia-merchandising-platform-v1") throw new DOMException("Test quota", "QuotaExceededError");
+      return original.call(this, key, value);
+    };
+  });
+  await page.getByRole("button", { name: "Save floorplan", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Browser storage is full" })).toBeVisible();
+  await expect(area).not.toHaveAttribute("style", original!);
+  await expect(page.getByRole("button", { name: "Save floorplan", exact: true })).toBeEnabled();
+  await page.evaluate(() => (window as unknown as { restoreTestStorage(): void }).restoreTestStorage());
+  await page.getByRole("button", { name: "Save floorplan", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Floorplan saved." })).toBeVisible();
+  await expect(page.locator("[data-display-hotspot]")).toHaveCount(count);
+  await page.getByRole("button", { name: "Undo last saved change" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Undo saved." })).toBeVisible();
+  await expect(area).toHaveAttribute("style", original!);
+  await area.focus(); await area.press("ArrowDown");
+  await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Campaigns", exact: true }).click();
+  await page.getByRole("button", { name: "Discard unsaved change and leave" }).click();
+  await expect(page).toHaveURL(/\/campaigns$/);
+  await page.goto(`${crownIsleFloorplan}?mode=layout`);
+  await page.getByRole("button", { name: "Edit display positions", exact: true }).click();
+  await expect(page.locator("[data-display-hotspot]").first()).toHaveAttribute("style", original!);
+});
+
+test("touch cancellation restores the position and a completed touch drag survives reopen", async ({ page }) => {
+  await page.goto(`${crownIsleFloorplan}?mode=layout`);
+  await page.getByRole("button", { name: "Edit display positions", exact: true }).click();
+  const area = page.locator("[data-display-hotspot]").first();
+  await area.scrollIntoViewIfNeeded();
+  const original = await area.getAttribute("style");
+  const box = (await area.boundingBox())!;
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: point.x + 30, y: point.y + 20 }] });
+  await expect(area).not.toHaveAttribute("style", original!);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+  await expect(area).toHaveAttribute("style", original!);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: point.x + 30, y: point.y + 20 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await expect(page.getByRole("status").filter({ hasText: "Floorplan saved." })).toBeVisible();
+  const saved = await area.getAttribute("style");
+  await page.reload();
+  await page.getByRole("button", { name: "Edit display positions", exact: true }).click();
+  await expect(page.locator("[data-display-hotspot]").first()).toHaveAttribute("style", saved!);
+  await cdp.detach();
 });

@@ -1,3 +1,5 @@
+> Historical proposal. Shared planning/physical aggregates are now implemented. Use [ADR 0002](ADR-0002-reliability-and-release-boundaries.md), [the adapter contract](../src/adapters/supabase/README.md) and [the current release gate](PRODUCTION_GATE.md) for actual runtime behaviour. Older empty-database, admin-only physical-write or future-implementation statements below are not current operational instructions.
+
 # Shared OND planning architecture
 
 ## 1. Current behaviour

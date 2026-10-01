@@ -7,18 +7,18 @@ const jeremyPassword = process.env.E2E_JEREMY_PASSWORD;
 const cherieEmail = process.env.E2E_CHERIE_EMAIL;
 const cheriePassword = process.env.E2E_CHERIE_PASSWORD;
 const campaignId = process.env.E2E_SHARED_CAMPAIGN_ID;
-const credentialsReady = Boolean(jeremyEmail && jeremyPassword && cherieEmail && cheriePassword && campaignId);
+const credentialsReady = process.env.E2E_ALLOW_SHARED_TEST_WRITES === "1" && Boolean(jeremyEmail && jeremyPassword && cherieEmail && cheriePassword && campaignId);
 
 async function signIn(page: Page, email: string, password: string) {
   await page.goto("/");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Merchandising Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Campaigns" })).toBeVisible();
 }
 
 test("Jeremy and Cherie share changes and receive a stale-save conflict", async ({ browser, baseURL }) => {
-  test.skip(!credentialsReady, "Set both buyer credentials and E2E_SHARED_CAMPAIGN_ID to run the production collaboration gate.");
+  test.skip(!credentialsReady, "Use an isolated staging project and disposable campaign. Set E2E_ALLOW_SHARED_TEST_WRITES=1, both test credentials and E2E_SHARED_CAMPAIGN_ID explicitly. Never target production.");
 
   const jeremyContext = await browser.newContext({ baseURL });
   const cherieContext = await browser.newContext({ baseURL });

@@ -85,7 +85,7 @@ describe("store display workbook importer", () => {
     expect((await repository.load()).campaignDisplayAssignmentProducts.some((item) => item.campaignDisplayAssignmentId === assignment.id && item.productId === authoritative.id)).toBe(true);
   });
 
-  it("allows the same store-display workbook to be safely reapplied after an interrupted save", async () => {
+  it("makes a committed workbook retry a no-op, preserving identities and buyer edits", async () => {
     const repository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
     const before = await repository.load(); const crown = before.stores.find((store) => store.name === "Crown Isle")!;
     const area = before.displayAreas.find((item) => item.storeId === crown.id && item.active && item.localCode)!;
@@ -98,18 +98,50 @@ describe("store display workbook importer", () => {
     const campaignId = await repository.createCampaign({ name: "OND 2026", type: "OND", description: "", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Jeremy", supplier: "", products: [] });
     const input = toApplyStoreDisplayWorkbookImport(result, campaignId);
     await repository.applyStoreDisplayWorkbook(input);
+    const first = await repository.load();
+    const assignment = first.campaignDisplayAssignments.find((item) => item.campaignId === campaignId)!;
+    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: assignment.id, executionNotes: "Buyer adjustment: keep this instruction" });
+    const reviewed = await repository.load();
     await repository.applyStoreDisplayWorkbook(input);
+    expect(await repository.load()).toEqual(reviewed);
+    await expect(repository.applyStoreDisplayWorkbook({ ...input, fingerprint: "different-content" })).rejects.toThrow("different content");
     const imported = await repository.load();
     expect(imported.campaignImports.filter((item) => item.importKey === input.importKey)).toHaveLength(1);
     expect(imported.campaignDisplays.filter((item) => item.campaignId === campaignId)).toHaveLength(1);
-    expect(imported.campaignDisplayProducts.filter((item) => item.campaignDisplayId === imported.campaignDisplays.find((item) => item.campaignId === campaignId)?.id)).toHaveLength(2);
-    expect(imported.campaigns.find((item) => item.id === campaignId)?.products).toHaveLength(2);
+    expect(imported.campaignDisplayProducts.filter((item) => item.campaignDisplayId === imported.campaignDisplays.find((item) => item.campaignId === campaignId)?.id)).toHaveLength(1);
+    expect(imported.campaigns.find((item) => item.id === campaignId)?.products).toHaveLength(1);
+    expect(imported.campaignDisplays.find((item) => item.campaignId === campaignId)?.rotatingFlyerSlot).toBe(true);
+  });
+
+  it("preserves buyer quantities, store exclusions and instructions when a revised workbook changes the baseline", async () => {
+    const repository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
+    const before = await repository.load();
+    const crown = before.stores.find((store) => store.name === "Crown Isle")!;
+    const area = before.displayAreas.find((item) => item.storeId === crown.id && item.active && item.localCode)!;
+    const product = before.products.find((item) => item.active)!;
+    const parse = (quantity: string, note: string, fingerprint: string) => new StoreDisplayWorkbookImportAdapter().parseSheets([
+      { sheet: "Crown Isle", rows: [headers, row(["Vendor", "Wine", product.sku, product.name, area.localCode!, quantity, note])] },
+    ], { snapshot: before, productMaster: new MockProductMasterLookup(before.products) }, { sourceFileName: "revised.xlsx", fingerprint });
+    const campaignId = await repository.createCampaign({ name: "Revised workbook", type: "OND", description: "", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Buyer", supplier: "", products: [] });
+    await repository.applyStoreDisplayWorkbook(toApplyStoreDisplayWorkbookImport(await parse("4", "Original note", "v1"), campaignId));
+    const imported = await repository.load();
+    const assignment = imported.campaignDisplayAssignments.find((item) => item.campaignId === campaignId)!;
+    const allocation = imported.campaignDisplayAssignmentProducts.find((item) => item.campaignDisplayAssignmentId === assignment.id)!;
+    await repository.updateCampaignDisplayAssignment({ campaignDisplayAssignmentId: assignment.id, executionNotes: "Buyer reviewed note" });
+    await repository.updateCampaignDisplayAssignmentProduct({ campaignDisplayAssignmentProductId: allocation.id, caseQuantity: 7 });
+    await repository.setCampaignStores({ campaignId, storeIds: [] });
+    await repository.applyStoreDisplayWorkbook(toApplyStoreDisplayWorkbookImport(await parse("9", "Changed source note", "v2"), campaignId));
+    const revised = await repository.load();
+    expect(revised.campaignDisplayAssignmentProducts.find((item) => item.id === allocation.id)).toMatchObject({ caseQuantity: 7, buyerOverride: true, quantitySource: "BUYER_OVERRIDE", recommendedCases: 9 });
+    expect(revised.campaignDisplayAssignments.find((item) => item.id === assignment.id)).toMatchObject({ executionNotes: "Buyer reviewed note", hasConflictingExecutionNotes: true });
+    expect(revised.campaignStores.find((item) => item.campaignId === campaignId && item.storeId === crown.id)?.included).toBe(false);
+    expect(revised.campaignImports.filter((item) => item.campaignId === campaignId)).toHaveLength(2);
+    expect(revised.campaignDisplays.filter((item) => item.campaignId === campaignId)).toHaveLength(1);
   });
 
   it("blocks Apply when a temporary N source marker remains", async () => {
     const repository = new MockMerchandisingRepository(undefined, structuredClone(seedSnapshot), false);
-    const before = await repository.load(); const crown = before.stores.find((store) => store.name === "Crown Isle")!;
-    const area = before.displayAreas.find((item) => item.storeId === crown.id && item.active)!;
+    const before = await repository.load();
     const adapter = new StoreDisplayWorkbookImportAdapter();
     const result = await adapter.parseSheets([{ sheet: "Crown Isle", rows: [headers, row(["Vendor", "Wine", "888888", "Ambiguous source product", "N", "2", ""]) ] }],
       { snapshot: { stores: before.stores, displayAreas: before.displayAreas, products: before.products }, productMaster: new MockProductMasterLookup(before.products) }, { sourceFileName: "n.xlsx", fingerprint: "n" });

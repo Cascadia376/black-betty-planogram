@@ -127,6 +127,7 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     void configuredSupabase
       .from("black_betty_user_access")
       .select("role")
+      .eq("is_active", true)
       .eq("email", session.user.email?.trim().toLowerCase() ?? "")
       .maybeSingle()
       .then(({ data: access, error: accessError }) => {
@@ -165,12 +166,14 @@ export function PlatformProvider({ children, adapter = repository, productMaster
   const mutate = useCallback(async (operation: () => Promise<unknown>) => {
     try {
       await operation();
-      await refresh();
+      const committed = adapter.getCommittedSnapshot ? await adapter.getCommittedSnapshot() : await adapter.load();
+      setData(committed);
+      setError(undefined);
     } catch (cause) {
       console.error("Merchandising operation failed", cause);
       throw cause;
     }
-  }, [refresh]);
+  }, [adapter]);
 
   const mutatePhysicalReference = useCallback(async (operation: () => Promise<unknown>) => {
     if (!canManagePhysicalReference(Boolean(configuredSupabase), blackBettyRole)) {

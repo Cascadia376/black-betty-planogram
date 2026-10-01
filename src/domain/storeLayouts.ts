@@ -1,7 +1,8 @@
 import type { CategorySpace, Geometry, PlatformSnapshot, StoreLayout, UUID } from "./types";
 
 export function isNormalizedGeometry(geometry: Geometry): boolean {
-  return geometry.x >= 0
+  return [geometry.x, geometry.y, geometry.width, geometry.height, geometry.rotation ?? 0].every(Number.isFinite)
+    && geometry.x >= 0
     && geometry.y >= 0
     && geometry.width >= 0
     && geometry.height >= 0
@@ -25,4 +26,9 @@ export function validateCategorySpace(space: CategorySpace, snapshot: Pick<Platf
 
 export function currentLayoutForStore(layouts: StoreLayout[], storeId: UUID): StoreLayout | undefined {
   return layouts.find((layout) => layout.storeId === storeId && layout.status === "current");
+}
+
+/** Compare geometry values, independent of JSON property order or omitted zero rotation. */
+export function sameGeometry(a: Geometry, b: Geometry): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && (a.rotation ?? 0) === (b.rotation ?? 0);
 }

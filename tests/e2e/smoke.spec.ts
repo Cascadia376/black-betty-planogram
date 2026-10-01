@@ -108,8 +108,8 @@ test("links to available spreadsheet upload workflows", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Flyer and campaign-planning workbook" })).toBeVisible();
   await expect(page.getByText("Available", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Upload OND spreadsheet" })).toHaveAttribute("href", ondImport);
-  await expect(page.getByRole("link", { name: "Import consolidated OND workbook" })).toHaveAttribute("href", "/imports/flyer");
-  await page.getByRole("link", { name: "Import consolidated OND workbook" }).click();
+  await expect(page.getByRole("link", { name: "Import workbook" })).toHaveAttribute("href", "/imports/flyer");
+  await page.getByRole("link", { name: "Import workbook" }).click();
   await expect(page.getByRole("heading", { name: "Import merchandising workbook" })).toBeVisible();
 });
 

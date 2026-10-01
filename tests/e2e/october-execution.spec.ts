@@ -54,12 +54,14 @@ test("consolidated OND → explicit exception approval → Crown Isle and Port A
     await instructions.getByRole("button", { name: "Save display instructions" }).click();
   }
   await expect(page.getByLabel("Execution pack store")).toHaveValue(/.+/);
-  await page.getByRole("link", { name: "Open Crown Isle October pack" }).click();
+  await page.getByRole("link", { name: "Open Crown Isle OND execution pack" }).click();
   await expect(page.locator(".execution-pack").getByRole("heading", { name: "Crown Isle", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Harvest Red Blend" })).toContainText("6");
   await expect(page.getByRole("row").filter({ hasText: "Coastal Lager 12 Pack" })).toContainText("12");
-  await expect(page.getByRole("heading", { name: "Display build sheets", exact: true })).toBeVisible();
-  await expect(page.getByText("Display notes:", { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Display setup instructions", exact: true })).toBeVisible();
+  await expect(page.getByText("Store instructions:", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("DRAFT - buyer review required").first()).toBeVisible();
+  await expect(page.getByText("Successful setup - check on the printed copy:").first()).toBeVisible();
   await expect(page.locator("svg image").first()).toHaveAttribute("href", /.+/);
   await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeEnabled();
   await expect(page.getByText("OND campaign header and approved price tickets", { exact: false }).first()).toBeVisible();
@@ -71,6 +73,7 @@ test("consolidated OND → explicit exception approval → Crown Isle and Port A
     await expect(displayMap.evaluate((node) => node.outerHTML)).resolves.toBe(octoberMap);
   }
   await page.getByRole("link", { name: "October order plan" }).click();
+  await expect(page.getByRole("heading", { name: "October OND order plan" })).toBeVisible();
   await page.emulateMedia({ media: "print" });
   await expect(page.getByRole("button", { name: "Print / Save letter-size PDF" })).toBeHidden();
   await page.pdf({ path: testInfo.outputPath("crown-isle-execution.pdf"), preferCSSPageSize: true, printBackground: true });
@@ -82,10 +85,10 @@ test("consolidated OND → explicit exception approval → Crown Isle and Port A
   await expect(exception).toContainText("3 cases");
   await exception.getByRole("button", { name: "Approve suggested area" }).click();
   await expect(exception).toHaveCount(0);
-  await page.getByRole("link", { name: "Open Port Alberni October pack" }).click();
+  await page.getByRole("link", { name: "Open Port Alberni OND execution pack" }).click();
   await expect(page.locator(".execution-pack").getByRole("heading", { name: "Port Alberni", exact: true })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: "Harvest Red Blend" })).toContainText("3");
-  await expect(page.getByRole("heading", { name: "No-display / shelf-support items" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Shelf-supported products" })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("row").filter({ hasText: "Harvest Red Blend" })).toContainText("3");
 });
