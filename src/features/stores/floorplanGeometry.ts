@@ -13,3 +13,16 @@ export function constrainPan(x: number, y: number, zoom: number, width: number, 
   if (zoom <= 1) return { x: 0, y: 0 };
   return { x: clamp(x, -width * (zoom - 1), 0), y: clamp(y, -height * (zoom - 1), 0) };
 }
+
+/** Optional normalized half-percent grid; always clamp again after rounding. */
+export function snapFloorplanGeometry(geometry: Geometry, resize: boolean): Geometry {
+  const rounded = (value: number) => Math.round(value / 0.005) * 0.005;
+  return resize
+    ? changeFloorplanGeometry(geometry, rounded(geometry.width) - geometry.width, rounded(geometry.height) - geometry.height, true)
+    : changeFloorplanGeometry(geometry, rounded(geometry.x) - geometry.x, rounded(geometry.y) - geometry.y, false);
+}
+
+/** Advisory only: map rectangles may legitimately overlap; this is not a safety/aisle-clearance check. */
+export function rectanglesOverlap(a: Geometry, b: Geometry): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}

@@ -1,5 +1,12 @@
 export function campaignSaveError(cause: unknown): string {
-  const message = cause instanceof Error ? cause.message : "";
+  // Preserve the actionable inner conflict/quota message when a repository adds context.
+  let error = cause;
+  for (let depth = 0; depth < 4 && error instanceof Error && error.cause instanceof Error; depth += 1) {
+    if (!/campaign storage failed/i.test(error.message)) break;
+    error = error.cause;
+  }
+  const message = error instanceof Error ? error.message : "";
+  if (/previous saved work is safe|no data was changed|saved merchandising work|another tab|original browser data/i.test(message)) return message;
   if (/required|date must|date range/i.test(message)) return message;
   if (/changed after you opened|stale.*save|conflict/i.test(message)) return message;
   if (/storage|quota|persist|database/i.test(message)) {

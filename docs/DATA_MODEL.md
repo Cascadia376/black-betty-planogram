@@ -1,3 +1,19 @@
+# Current runtime persistence contract (September 2026)
+
+The detailed table model below is a historical domain/schema design, not a statement that all of those tables are deployed. The current runtime uses the existing `black_betty_planning_snapshot` and `black_betty_physical_snapshot` singleton JSON documents with independent optimistic versions and existing RLS. See [adapter contract](../src/adapters/supabase/README.md) and [ADR 0002](ADR-0002-reliability-and-release-boundaries.md).
+
+Stable IDs connect `Campaign` -> `CampaignProduct` -> `CampaignDisplay` / `CampaignDisplayProduct` -> `CampaignStore` -> `CampaignDisplayAssignment` / `CampaignDisplayAssignmentProduct`. A campaign display describes a build; a store-owned `DisplayArea` is a permanent location. Normalized `geometry` belongs to the area or its split section, not to the campaign. Store quantity overrides remain separate from campaign case defaults. Category-space geometry remains a separate floorplan layer.
+
+Local persistence uses one compressed `cascadia-merchandising-platform-v1` item with additive `__blackBettyStorage.schemaVersion = 1` metadata. Older formats migrate without replacing saved physical geometry. Failed writes restore a committed checkpoint; a damaged snapshot is not reseeded automatically. This marker is a browser envelope version, not a production database revision.
+
+New `CampaignRelease.snapshot.executionData` optionally contains the manager pack's products, stores, current store layout metadata, display areas/sections, import provenance and store product allocations. Existing core snapshot fields retain campaign/displays/store membership/assignments/quantities. This freezes the business copy without changing SQL schema. A legacy release without this field cannot be rendered as a frozen pack. Map assets are still referenced by URL rather than archived bytes.
+
+Unsupported prototype mutations are rejected in shared mode because their effects are not fully serialized. Adding a live operation requires its complete document scope, validation, authorization and tests; see the allowlists in `SupabaseMerchandisingRepository.ts`.
+
+---
+
+## Historical table-level design
+
 # Merchandising Data Model
 
 This document defines the initial Supabase-compatible relational contract. The MVP implements the same model as TypeScript domain types and synthetic local data. It does not create or modify a database.

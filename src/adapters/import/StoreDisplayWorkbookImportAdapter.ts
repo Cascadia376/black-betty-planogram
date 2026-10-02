@@ -176,7 +176,7 @@ export function toApplyStoreDisplayWorkbookImport(result: StoreDisplayWorkbookIm
     sourceFileName: result.sourceFileName, sourceSheet: result.sheetNames.join(", "), reviewRows: result.rows.map((row) => row.source),
     rows: applicable.map((row) => ({ storeId: row.store!.id, product: row.product, productResolution: row.productResolution, source: row.source,
       caseQuantity: row.caseQuantity, displayLocalCode: row.displayLocalCode, displayAreaId: row.displayArea?.id, displayInterpretation: row.displayInterpretation })),
-    rotationSlots: result.rows.filter((row) => row.store && row.rotatingFlyerSlot && row.displayLocalCode).map((row) => ({ storeId: row.store!.id, displayLocalCode: row.displayLocalCode!, displayAreaId: row.displayArea?.id, displayInterpretation: row.displayInterpretation, note: row.displayNotes })),
+    rotationSlots: result.rows.filter((row) => row.store && row.status !== "invalid" && row.rotatingFlyerSlot && row.displayLocalCode).map((row) => ({ storeId: row.store!.id, displayLocalCode: row.displayLocalCode!, displayAreaId: row.displayArea?.id, displayInterpretation: row.displayInterpretation, note: row.displayNotes })),
     displayNotes: result.displayNotes.filter((note) => note.store).map((note) => ({ storeId: note.store!.id, displayLocalCode: note.displayLocalCode, executionNotes: note.executionNotes, hasConflict: note.hasConflict })),
   };
 }
