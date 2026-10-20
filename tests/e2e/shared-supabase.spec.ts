@@ -1,13 +1,17 @@
+import { allowSharedPilotRequest, assertDisposablePilotCampaign, sharedStagingTarget } from "../support/stagingSafety";
 import { expect, test, type Page } from "@playwright/test";
 
 declare const process: { env: Record<string, string | undefined> };
+
+test.use({ trace: "off", video: "off" });
 
 const jeremyEmail = process.env.E2E_JEREMY_EMAIL;
 const jeremyPassword = process.env.E2E_JEREMY_PASSWORD;
 const cherieEmail = process.env.E2E_CHERIE_EMAIL;
 const cheriePassword = process.env.E2E_CHERIE_PASSWORD;
 const campaignId = process.env.E2E_SHARED_CAMPAIGN_ID;
-const credentialsReady = process.env.E2E_ALLOW_SHARED_TEST_WRITES === "1" && Boolean(jeremyEmail && jeremyPassword && cherieEmail && cheriePassword && campaignId);
+const staging = sharedStagingTarget(process.env);
+const credentialsReady = Boolean(staging && jeremyEmail && jeremyPassword && cherieEmail && cheriePassword && campaignId);
 
 async function signIn(page: Page, email: string, password: string) {
   await page.goto("/");
@@ -18,12 +22,13 @@ async function signIn(page: Page, email: string, password: string) {
 }
 
 test("Jeremy and Cherie share changes and receive a stale-save conflict", async ({ browser, baseURL }) => {
-  test.skip(!credentialsReady, "Use an isolated staging project and disposable campaign. Set E2E_ALLOW_SHARED_TEST_WRITES=1, both test credentials and E2E_SHARED_CAMPAIGN_ID explicitly. Never target production.");
+  test.skip(!credentialsReady, "Use an isolated staging project and disposable campaign. Set E2E_ALLOW_SHARED_TEST_WRITES=1, E2E_BASE_URL, isolated E2E_SHARED_SUPABASE_URL, both existing test-user credentials and a Synthetic pilot/QA/staging campaign ID explicitly. Never target production.");
 
   const jeremyContext = await browser.newContext({ baseURL });
   const cherieContext = await browser.newContext({ baseURL });
   const jeremy = await jeremyContext.newPage();
   const cherie = await cherieContext.newPage();
+  await Promise.all([jeremyContext, cherieContext].map((context) => context.route("**/*", (route) => allowSharedPilotRequest(route.request().url(), staging!.supabaseOrigin) ? route.continue() : route.abort("blockedbyclient"))));
 
   try {
     await signIn(jeremy, jeremyEmail!, jeremyPassword!);
@@ -31,6 +36,8 @@ test("Jeremy and Cherie share changes and receive a stale-save conflict", async 
 
     const editPath = `/campaigns/${campaignId}/edit`;
     await Promise.all([jeremy.goto(editPath), cherie.goto(editPath)]);
+    assertDisposablePilotCampaign(await jeremy.getByLabel("Campaign name", { exact: true }).inputValue());
+    assertDisposablePilotCampaign(await cherie.getByLabel("Campaign name", { exact: true }).inputValue());
     const originalDescription = await jeremy.getByLabel("Description").inputValue();
     const marker = `Jeremy shared-edit verification ${new Date().toISOString()}`;
 

@@ -1,0 +1,11 @@
+import { describe, expect, it } from "vitest";
+import { allowSharedPilotRequest, assertDisposablePilotCampaign, sharedStagingTarget } from "./support/stagingSafety";
+const staging = { E2E_ALLOW_SHARED_TEST_WRITES: "1", E2E_BASE_URL: "https://approved-preview.example.test", E2E_SHARED_SUPABASE_URL: "https://isolatedfixture.supabase.co", E2E_SHARED_CAMPAIGN_ID: "disposable-campaign", E2E_JEREMY_EMAIL: "buyer-a@example.test", E2E_JEREMY_PASSWORD: "synthetic-a", E2E_CHERIE_EMAIL: "buyer-b@example.test", E2E_CHERIE_PASSWORD: "synthetic-b" };
+describe("shared pilot isolation guards", () => {
+  it("keeps shared tests disabled without explicit write opt-in", () => { expect(sharedStagingTarget({})).toBeUndefined(); });
+  it("requires complete target/session configuration without printing secret values", () => { expect(() => sharedStagingTarget({ ...staging, E2E_CHERIE_PASSWORD: "" })).toThrow("E2E_CHERIE_PASSWORD"); });
+  it.each(["https://black-betty-planogram.vercel.app", "https://black-betty-planogram-git-main-ursus-majors-projects.vercel.app"])("refuses production app %s", (url) => { expect(() => sharedStagingTarget({ ...staging, E2E_BASE_URL: url })).toThrow("production app"); });
+  it("refuses the known production database even behind a preview app", () => { expect(() => sharedStagingTarget({ ...staging, E2E_SHARED_SUPABASE_URL: "https://wobndqnfqtumbyxxtojl.supabase.co" })).toThrow("production project"); });
+  it("requires distinct existing identities and a disposable campaign", () => { expect(() => sharedStagingTarget({ ...staging, E2E_CHERIE_EMAIL: "BUYER-A@example.test" })).toThrow("distinct"); expect(() => assertDisposablePilotCampaign("Cascadia OND 2026 Display Final")).toThrow("refuses"); expect(() => assertDisposablePilotCampaign("Synthetic pilot shared promotion test")).not.toThrow(); });
+  it("blocks compiled browser requests to a different Supabase project before authentication/writes", () => { const target = sharedStagingTarget(staging)!; expect(allowSharedPilotRequest("https://wobndqnfqtumbyxxtojl.supabase.co/auth/v1/token", target.supabaseOrigin)).toBe(false); expect(allowSharedPilotRequest("https://anotherproject.supabase.co/rest/v1/black_betty_planning_snapshot", target.supabaseOrigin)).toBe(false); expect(allowSharedPilotRequest(`${target.supabaseOrigin}/auth/v1/token`, target.supabaseOrigin)).toBe(true); });
+});

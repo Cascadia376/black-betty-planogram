@@ -77,3 +77,9 @@ PGLITE_MODULE=/tmp/betty-sql/node_modules/@electric-sql/pglite/dist/index.js nod
 ```
 
 The script creates a disposable in-memory PostgreSQL database, baseline role/auth/audit fixtures, and the new table. It cannot connect to production. It checks anonymous/unrelated/inactive denials, buyer/admin access, column permissions, shape constraints, audit fields, stale version rejection and the exact approval-revocation interleaving against the new transactional guard. The counterfactual disabling of the guard occurs only inside a rolled-back transaction in this disposable database. It does not substitute for validating inherited functions and policy semantics in real staging.
+
+## Continued pilot readiness
+
+See [actual staging-resource discovery and pending approvals](PROMOTION_INTELLIGENCE_STAGING_PILOT.md). No feature staging deployment/database or two existing authorized test sessions were available. The shared browser pilot now requires an explicit `E2E_SHARED_SUPABASE_URL`, rejects known production targets and mismatched compiled browser requests, and refuses campaigns outside the Synthetic pilot/QA/staging naming scope before writing. It does not create credentials or grant access.
+
+For genuine concurrent local database verification, run `node scripts/test-promotion-postgres.mjs` on a Docker-capable cloud host. It starts/removes its own network-isolated, tmpfs PostgreSQL container and runs overlapping transaction tests against synthetic fixtures; it cannot connect to an external database URL. This verifies row-lock behaviour, not hosted Supabase/model acceptance.

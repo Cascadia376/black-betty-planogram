@@ -6,11 +6,12 @@ Executed in the saved Linux cloud environment, target checkout `/workspace/black
 | --- | --- |
 | `npm run lint` | Pass; no errors/warnings |
 | `npm run typecheck` | Pass; includes the new server/function modules |
-| `npm test` | **274 passed, 52 files** |
+| `npm test` | **286 passed, 53 files** |
 | `npm run build` | Pass; 1,849 modules; existing large source-backed app bundle remains ~4.14 MB uncompressed / 630.71 kB gzip |
 | Full Playwright suite | **65 passed, 1 skipped**, 66 discovered, system Chromium, direct loopback networking |
 | New Promotion Intelligence browser cases | **3 passed**: end-to-end buyer workflow/retry recovery at 1440×900 and 1280×720; duplicate capture, contradictory evidence, reviewed association and deletion |
 | Isolated PostgreSQL/PGlite checks | **32 passed**: grants/RLS denials and buyer/admin access, audit stamps/version, stale update, client column restrictions document constraints and atomic handoff/revocation regressions |
+| Real PostgreSQL overlapping-session checks | **13 passed**, synthetic isolated Docker database; both lock/revocation orders verified and container removed |
 | `git diff --check` | Pass |
 
 [Full command evidence](evidence/promotion-intelligence-validation.txt). Reviewed synthetic screenshots: [1280 px laptop](evidence/promotion-intelligence-1280.png), [1440 px desktop](evidence/promotion-intelligence-1440.png). The screenshot shows a completed handoff with original supplier claims, current catalog description, buyer decision and missing financial evidence. No production correspondence was captured in these images.
@@ -45,3 +46,11 @@ No merge/deployment was performed. Feature-branch Vercel Git deployment is disab
 ## Approval-race follow-up validation
 
 The final follow-up adds an unapplied planning-update trigger that locks and revalidates approval in the planning transaction; a read-only capability marker makes shared clients fail closed if this guard is absent. The isolated database suite now has **32 passing checks**, including a counterfactual reproduction of the former race in a rolled-back disposable transaction and rejection by the actual migration. No production schema/data was changed. Full lint/typecheck/unit/build checks and relevant browser cases were rerun; see `evidence/promotion-handoff-race-validation.txt`. The prior full browser run remains 65 pass/1 secured-staging skip; follow-up browser evidence is reported separately rather than implying a live shared race test.
+
+## Continued staging discovery and concurrency verification
+
+See [the exact resource/blocker record](PROMOTION_INTELLIGENCE_STAGING_PILOT.md). No isolated Supabase branch/project, PR #13 deployment, configured model gateway or existing two-user staging sessions were available. Production was inspected read-only and still lacks the new feature table/trigger; document versions remain 26/313. No live extraction or hosted-function acceptance is claimed.
+
+Independent follow-up passed lint/typecheck/build, **286 unit/integration tests in 53 files**, the original **32** PostgreSQL/WASM checks, **13** genuine PostgreSQL 17 overlapping-session checks, and relevant browser cases **3 passed / 1 secured-staging skip**. Additional HTTP-fixture authorization coverage and shared-test production-target/disposable-campaign safeguards are included. [Continued verification logs](evidence/promotion-staging-readiness-validation.txt) distinguish these results from cloud staging.
+
+The OND report now incorporates the parent's recovered distribution email, Nanoose/Courtenay draft PDF provenance, Nanoose version/hash metadata, PO-revision caveat and five matching master/PDF/persisted allocation samples. No source document or production campaign was edited.
