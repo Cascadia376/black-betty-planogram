@@ -21,7 +21,7 @@ Consequently **hosted function dispatch, actual two-user Supabase sessions and l
 
 | Action | Target | Reason/status |
 | --- | --- | --- |
-| Initialize shared promotion storage/guard for a pilot | An explicitly approved isolated Supabase staging project/branch, not currently available | **Pending provisioning/approval; not attempted.** Need reviewed schema baseline and both additive PR migrations in that isolated target. Applying them to `wobndqnfqtumbyxxtojl` is prohibited by this assignment. |
+| Initialize shared promotion storage/guard for a pilot | An explicitly approved isolated Supabase staging project/branch, not currently available | **Pending provisioning/approval; not attempted.** Need reviewed schema baseline and all three additive PR migrations in that isolated target. Applying them to `wobndqnfqtumbyxxtojl` is prohibited by this assignment. |
 | Serve and verify the new authenticated function | A staging deployment of PR #13 in a separately approved target/environment | **Pending deployment approval; not attempted.** No existing deployment contains this feature. Deployment was explicitly forbidden during this continuation. |
 | Exercise two authorized users | Two existing authorized staging test identities plus a disposable staging campaign | **Pending supplied existing access; not attempted.** No account/session credentials are available; no accounts, persistent credentials or grants were created. |
 | Run one bounded synthetic natural-language extraction | The approved hosted endpoint with server-only same-staging Supabase settings, approved AI_GATEWAY_API_KEY and PROMOTION_EXTRACTION_MODEL | **Pending approved configuration/access; not attempted.** Current Vercel metadata contains none of this feature's server/model settings. No gateway secret was extracted from another app. |
@@ -46,7 +46,7 @@ The existing opt-in shared browser test now requires an explicit isolated Supaba
 
 ## Reviewable pilot sequence once authorized resources exist
 
-1. Record the exact staging Supabase ref and app deployment SHA; verify they differ from production. Review/apply both migrations there. Confirm `handoff_protocol=1`, trigger installed and caller permissions unchanged. Use only approved synthetic fixtures and existing authorized test users.
+1. Record the exact staging Supabase ref and app deployment SHA; verify they differ from production. Review/apply the three PR migrations there, including the explicit Ursus planning-read grant. Confirm `handoff_protocol=1`, trigger installed and caller permissions unchanged. Use only approved synthetic fixtures and existing authorized test users.
 2. First verify hosted dispatch without source data: GET `/api/promotion-extract` must return 405 JSON; unauthenticated POST must return 401; forged/unrelated/anonymous sessions must be rejected before model use. A 200 SPA HTML fallback is a failure.
 3. Configure only server-side approved model settings. Make **one** bounded extraction request containing a synthetic SKU/reference and contradictory prices, November without exact dates, missing cost, an explicit Jeremy comment and an instruction-like quoted line. Check exact excerpts, preserved conflicts/gaps and no executable action. Do not log source/token/provider output or perform retries that incur unreviewed model calls.
 4. With the same source, buyer A captures; buyer B reloads and sees it. Verify duplicate ingestion, buyer correction/history, rejection retention, stale inbox save, exact Product Master matching and insufficient-evidence behaviour. Choose a disposable campaign named `Synthetic pilot ...`, `Synthetic QA ...` or `Synthetic staging ...`.
@@ -55,3 +55,5 @@ The existing opt-in shared browser test now requires an explicit isolated Supaba
 7. Attach sanitized test results and retain the distinction between staging acceptance and production rollout. Production migration, merge and deployment remain separate approval steps.
 
 The existing two-user browser configuration also requires `E2E_ALLOW_SHARED_TEST_WRITES=1`, `E2E_BASE_URL`, `E2E_SHARED_SUPABASE_URL`, both existing test-user credentials and `E2E_SHARED_CAMPAIGN_ID`. Never commit secret values, browser storageState, traces or account credentials. Shared-test traces/video are disabled to avoid persisting credential-bearing traffic.
+
+The subsequent [Data API grant audit](SUPABASE_DATA_API_GRANT_AUDIT.md) replayed all nine repository migrations in legacy, fresh and reset profiles. Its source-only fixes and 155 passing offline checks do not satisfy the pending hosted staging gate.

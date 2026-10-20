@@ -1,0 +1,94 @@
+Offline Data API grant audit, saved cloud environment, 2026-10-20. Official documentation checked; no hosted permission queries/changes, hosted migrations, credentials, deployment, merge or GitHub Actions.
+
+Before source corrections: expected profile failures
+legacy-auto-grants: legacy-auto-grants: unused service role has no inbox access under either default profile
+
+false !== true
+
+explicit-fresh: explicit-fresh: Ursus server read is explicit after a reset
+
+false !== true
+
+explicit-reset-replay: explicit-reset-replay: Ursus server read is explicit after a reset
+
+false !== true
+
+87 fresh/reset/default-grant checks passed; 3 profile failures.
+
+After source corrections: fresh/reset actual migration replay
+legacy-auto-grants: 9 actual migrations replayed; grants/RLS/server-read/guard checks passed.
+explicit-fresh: 9 actual migrations replayed; grants/RLS/server-read/guard checks passed.
+explicit-reset-replay: 9 actual migrations replayed; grants/RLS/server-read/guard checks passed.
+155 fresh/reset/default-grant checks passed; 0 profile failures.
+
+Existing database regressions
+32 isolated database authorization, shape, audit and stale-write checks passed (synthetic fixtures).
+
+Real PostgreSQL overlapping sessions
+Engine: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+Image: postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+13 real PostgreSQL multi-session lock, authorization, stale-write, retry and cross-user checks passed (synthetic local fixtures).
+Disposable container removed; no published ports, external network, host mounts, persistent credentials or database volumes created.
+
+npm run lint
+
+> merchandising-platform@0.1.0 lint
+> eslint .
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm run typecheck
+
+> merchandising-platform@0.1.0 typecheck
+> tsc -b
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm test
+
+> merchandising-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /workspace/black-betty-planogram
+
+
+ Test Files  53 passed (53)
+      Tests  286 passed (286)
+   Start at  06:29:58
+   Duration  8.42s (transform 1.14s, setup 156ms, import 1.47s, tests 6.38s, environment 204ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm run build
+
+> merchandising-platform@0.1.0 build
+> vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 1849 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.42 kB │ gzip:   0.28 kB
+dist/assets/index-DFuV3CoR.css     47.85 kB │ gzip:   9.89 kB
+dist/assets/index-y8dji641.js   4,139.08 kB │ gzip: 630.71 kB
+✓ built in 4.50s
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+

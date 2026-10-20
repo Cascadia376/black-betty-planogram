@@ -1,7 +1,7 @@
 -- Synthetic authorization and planning fixtures for isolated tests only.
 -- Never apply this file to an existing/shared Supabase project.
 
-    create role anon; create role authenticated;
+    create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema private;
     create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;

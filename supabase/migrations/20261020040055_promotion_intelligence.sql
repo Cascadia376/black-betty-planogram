@@ -15,7 +15,9 @@ create table public.black_betty_promotion_intelligence (
   )
 );
 alter table public.black_betty_promotion_intelligence enable row level security;
-revoke all on public.black_betty_promotion_intelligence from public, anon, authenticated;
+-- This caller-JWT feature does not use service_role; clear legacy automatic
+-- grants too, so old and explicit-opt-in databases have the same inbox ACL.
+revoke all on public.black_betty_promotion_intelligence from public, anon, authenticated, service_role;
 grant select on public.black_betty_promotion_intelligence to authenticated;
 grant update (workspace) on public.black_betty_promotion_intelligence to authenticated;
 create policy "Active Black Betty buyers can read promotion intelligence"

@@ -39,7 +39,7 @@ Active Black Betty buyers/admins share the inbox under existing application acce
 
 ## Constraints and rollout requirements
 
-The new dedicated promotion workspace and transactional handoff guard require two additive migrations reviewed/applied in isolated staging, and approved server model credentials/data handling. Existing planning/physical snapshots and RLS remain independent. A 3 MB promotion-document bound intentionally limits the first slice; sustained high-volume ingestion requires row storage and pagination. External Outlook/transcript ingestion is not connected. No mailbox is read, meeting recorded, email sent, price changed, supplier offer accepted, order submitted, display selected or campaign published automatically.
+The new dedicated promotion workspace and transactional handoff guard require three additive migrations (inbox, guard and explicit server-read privilege) reviewed/applied in isolated staging, and approved server model credentials/data handling. Existing planning/physical snapshots and RLS remain independent. A 3 MB promotion-document bound intentionally limits the first slice; sustained high-volume ingestion requires row storage and pagination. External Outlook/transcript ingestion is not connected. No mailbox is read, meeting recorded, email sent, price changed, supplier offer accepted, order submitted, display selected or campaign published automatically.
 
 Company privacy/retention and model-processing approval must cover supplier correspondence before live use. BC PIPA applicability is an operational/legal review item; implementation alone does not certify compliance. Minimize personal information in pasted sources, use least privilege, and do not log raw content or model/provider errors.
 

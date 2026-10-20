@@ -54,3 +54,7 @@ See [the exact resource/blocker record](PROMOTION_INTELLIGENCE_STAGING_PILOT.md)
 Independent follow-up passed lint/typecheck/build, **286 unit/integration tests in 53 files**, the original **32** PostgreSQL/WASM checks, **13** genuine PostgreSQL 17 overlapping-session checks, and relevant browser cases **3 passed / 1 secured-staging skip**. Additional HTTP-fixture authorization coverage and shared-test production-target/disposable-campaign safeguards are included. [Continued verification logs](evidence/promotion-staging-readiness-validation.txt) distinguish these results from cloud staging.
 
 The OND report now incorporates the parent's recovered distribution email, Nanoose/Courtenay draft PDF provenance, Nanoose version/hash metadata, PO-revision caveat and five matching master/PDF/persisted allocation samples. No source document or production campaign was edited.
+
+## Explicit Data API grant audit
+
+The official October 30 change was verified and all nine actual migrations replayed under legacy, fresh-no-default-grant and reset profiles. After two narrow migration-source corrections, **155 privilege/RLS/server-read/handoff checks** pass. The 32 database regressions and 13 real PostgreSQL concurrency checks also pass. See [the grant audit](SUPABASE_DATA_API_GRANT_AUDIT.md) and its evidence for details; no hosted query, permission change or migration was used.
