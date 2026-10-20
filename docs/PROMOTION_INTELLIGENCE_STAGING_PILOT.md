@@ -1,6 +1,27 @@
 # Shared/live pilot readiness — 20 October 2026
 
-Follow-up started from PR #13 commit `07a73bf`, after Jay's instruction to continue. This is an account of inspected resources and executed checks, not a claim that a cloud staging pilot ran.
+## Authorized staging preparation follow-up
+
+Jay subsequently approved an isolated live staging pilot. This supersedes the earlier deployment prohibition **for staging only**. Production migrations, merge and production deployment remain prohibited. Added charges, credential generation/transmission/configuration, expanded access and security-setting changes still require explicit action-time approval. No hosted resource has yet been created or changed.
+
+Read-only account discovery confirmed:
+
+- Supabase organization `Flight376` (`usegafwbavwmamcvgkhp`), Pro; its only visible project remains production Ursus. An explicit organization-choice question is pending before requesting the organization-specific create-project quote. This is required by the Supabase cost tool; the organization is not assumed from visibility.
+- Vercel team `ursus-majors-projects` (`team_gWaFZIn7wSnICibe3xkThST9`); only the existing Black Betty project matches. Its protection is enabled for all deployments except custom domains. The team response does not expose its plan, credits or spending cap. A read-only billing query returned usage charges, which does not establish the incremental cost of this pilot.
+- Proposed new targets: a dedicated Supabase project and a separate Vercel project, each named `black-betty-promotion-pilot`, subject to availability and the specific approvals. Region and organization must be confirmed in the creation request. No production branch cloning, environment copying or Git auto-deployment is proposed.
+
+Published Supabase Micro compute pricing is $0.01344/hour (about $10/month), billed for each started hour; paid organizations cannot launch free Nano instances. Existing organization compute credits are shared and their availability for this new project is unverified. This is **published reference pricing, not an account-specific quote or an approved charge**. [Supabase compute pricing](https://supabase.com/docs/guides/platform/manage-your-usage/compute). Vercel build/function usage and the selected model may also incur charges; plan allowance, model selection and a bounded budget require confirmation. [Vercel pricing](https://vercel.com/docs/pricing).
+
+Independent preparation is now concrete:
+
+1. `node scripts/prepare-promotion-pilot.mjs <approved-isolated-ref> <review.sql>` generates a review artifact only; it has no network, credential or SQL-execution capability. It rejects the production ref and refuses to overwrite its output file.
+2. The artifact reuses the six historical schema/policy migrations while **omitting both historical company access seeding and historical snapshot contents**. It starts empty planning/physical collections, creates a staging-only two-product `PILOT-*` contract with buyer/admin SELECT RLS, and includes all three PR migrations. The third is the reviewed explicit planning-reader grant. It provisions no identities or access rows.
+3. A transaction guard refuses existing Black Betty or Product Master tables. This is an additional empty-target check, **not proof of project identity**. Verify project ref/name through the management API immediately before any authorized execution. Never run the complete historical migration directory with `db push` against the pilot; its original seeds are unsuitable here. The artifact does not mark migration history or establish parity with the whole Ursus schema.
+4. `PGLITE_MODULE=<installed PGlite entry> node scripts/test-promotion-pilot-bootstrap.mjs` passed **15 offline checks** against PostgreSQL/WASM: production/invalid-ref refusal, omitted company grants, zero users/access/campaigns/releases/layout contents, installed handoff marker, synthetic product records/RLS, and refusal to replay over existing tables. No hosted Auth or model verification is implied.
+
+The next dependent actions remain pending, **not denied and not attempted**: choose the Supabase organization, obtain and confirm its quote, approve resource-created credentials and their staging-only configuration, approve two disposable test identities/access rows and any protected-preview automation credential, and approve the model configuration and bounded call cost. Credentials must be entered through approved secure configuration, never pasted into chat, committed or logged. Keep preview SSO protection enabled; any bypass-token generation requires its own approval. Once these are resolved, apply the reviewed artifact only to the verified new target and run the hosted sequence below.
+
+The earlier readiness follow-up started from PR #13 commit `07a73bf`, after Jay's instruction to continue. Its inspected resources and executed checks are retained below; the authorization update above governs current staging work. This is not a claim that a cloud staging pilot ran.
 
 ## Actual resource discovery (read-only)
 
@@ -22,8 +43,8 @@ Consequently **hosted function dispatch, actual two-user Supabase sessions and l
 | Action | Target | Reason/status |
 | --- | --- | --- |
 | Initialize shared promotion storage/guard for a pilot | An explicitly approved isolated Supabase staging project/branch, not currently available | **Pending provisioning/approval; not attempted.** Need reviewed schema baseline and all three additive PR migrations in that isolated target. Applying them to `wobndqnfqtumbyxxtojl` is prohibited by this assignment. |
-| Serve and verify the new authenticated function | A staging deployment of PR #13 in a separately approved target/environment | **Pending deployment approval; not attempted.** No existing deployment contains this feature. Deployment was explicitly forbidden during this continuation. |
-| Exercise two authorized users | Two existing authorized staging test identities plus a disposable staging campaign | **Pending supplied existing access; not attempted.** No account/session credentials are available; no accounts, persistent credentials or grants were created. |
+| Serve and verify the new authenticated function | A staging deployment of PR #13 in an isolated target/environment | **Staging deployment authorized in the subsequent follow-up; pending target/cost/credential approvals; not attempted.** No existing deployment contains this feature. |
+| Exercise two authorized users | Two authorized staging test identities plus a disposable staging campaign | **Pending supplied existing access or explicit test-identity creation approval; not attempted.** No account/session credentials are available; no accounts, persistent credentials or grants were created. |
 | Run one bounded synthetic natural-language extraction | The approved hosted endpoint with server-only same-staging Supabase settings, approved AI_GATEWAY_API_KEY and PROMOTION_EXTRACTION_MODEL | **Pending approved configuration/access; not attempted.** Current Vercel metadata contains none of this feature's server/model settings. No gateway secret was extracted from another app. |
 
 These are environment/authorization gaps, not automatic approval-review denials. No deployment, access expansion, production migration or persistent credential creation was attempted. The parent thread handles the separate Outlook/SharePoint OND evidence search.
