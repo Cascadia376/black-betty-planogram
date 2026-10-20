@@ -227,3 +227,37 @@ describe("Supabase merchandising repository", () => {
   });
 
 });
+
+describe("shared Promotion Intelligence handoff", () => {
+  it("rechecks persisted approval and current authoritative identity before a single planning write", async () => {
+    const { ingestSource, reconcileOpportunity } = await import("../../domain/promotion/intake");
+    const { emptyWorkspace } = await import("../../domain/promotion/schema");
+    const { demoExtract } = await import("../../services/promotion/demoExtractor");
+    const { SupabaseProductMasterLookup } = await import("./SupabaseProductMasterLookup");
+    const shared = new FakeSharedStore(), base = shared.client();
+    const source = { kind: "email" as const, text: "Product: Authoritative fixture\nSKU: LIVE-123", title: "Synthetic source", supplier: "", representative: "", date: "" };
+    const workspace = await ingestSource(emptyWorkspace(), source, demoExtract(source.text), "demo", "Buyer");
+    let active = true;
+    const client = { from: (table: string) => {
+      if (table === "black_betty_promotion_intelligence") return { select: () => ({ eq: () => ({ single: async () => ({ data: { workspace }, error: null }) }) }) };
+      if (table === "product") return { select: () => ({ or: async () => ({ data: [{ sku: "LIVE-123", product_name: "Authoritative fixture", category: "Beer", is_active: active }], error: null }) }) };
+      return base.from(table);
+    } } as unknown as SupabaseClient;
+    const lookup = new SupabaseProductMasterLookup(client), repository = createSupabaseMerchandisingRepository(client);
+    workspace.opportunities[0] = await reconcileOpportunity(workspace.opportunities[0], lookup);
+    const item = workspace.opportunities[0], product = (await lookup.findByExactSkus(["LIVE-123"])).products[0];
+    const input = { opportunity: { ...item, status: "APPROVED" as const }, product, newCampaign: { name: "Authoritative promotion fixture", type: "Monthly flyer" as const, description: "", startDate: "2027-11-01", endDate: "2027-11-30", owner: "Buyer", supplier: "", products: [] } };
+    await expect(repository.addPromotionToCampaign(input)).rejects.toThrow("Saved buyer approval");
+    expect(shared.planningUpdates).toBe(0);
+    item.status = "APPROVED";
+    active = false;
+    await expect(repository.addPromotionToCampaign(input)).rejects.toThrow("Refresh Product Master");
+    expect(shared.planningUpdates).toBe(0);
+    active = true;
+    const id = await repository.addPromotionToCampaign(input);
+    expect(shared.planningUpdates).toBe(1); expect(shared.physicalUpdates).toBe(0);
+    expect((await repository.getCommittedSnapshot!()).campaigns.find((c) => c.id === id)?.products[0].productId).toBe(product.id);
+    expect(await repository.addPromotionToCampaign(input)).toBe(id);
+    expect((await repository.getCommittedSnapshot!()).campaigns.filter((c) => c.name === input.newCampaign.name)).toHaveLength(1);
+  });
+});

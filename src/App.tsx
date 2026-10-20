@@ -1,3 +1,4 @@
+import { PromotionIntelligencePage } from "./features/promotion/PromotionIntelligencePage";
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from "react-router-dom";
 import { PlanningScopeBoundary, PlanningHome, StorePlanningHome } from "./components/PlanningScopeBoundary";
 import { AppShell } from "./components/AppShell";
@@ -49,7 +50,8 @@ const router = createBrowserRouter(createRoutesFromElements(<><Route path="campa
     <Route path="imports/flyer" element={<FlyerWorkbookImportPage />} />
     <Route path="imports/store-displays" element={<StoreDisplayWorkbookImportPage />} />
     <Route path="imports/supplier" element={<PlanningScopeBoundary><SupplierSubmissionImportPage /></PlanningScopeBoundary>} />
-    <Route path="opportunities" element={<PlanningScopeBoundary><PromotionOpportunitiesPage /></PlanningScopeBoundary>} />
+    <Route path="opportunities" element={<PromotionIntelligencePage />} />
+    <Route path="opportunities/workbooks" element={<PlanningScopeBoundary><PromotionOpportunitiesPage /></PlanningScopeBoundary>} />
     <Route path="stores" element={<StoreDirectoryPage />} />
     <Route path="stores/floorplan-recovery" element={<FloorplanRecoveryPage />} />
     <Route path="stores/:storeId" element={<StorePlanningHome><StoreOverviewPage /></StorePlanningHome>} />
