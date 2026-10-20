@@ -230,8 +230,8 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
           const before = await localRepository.load();
           if (property === "addPromotionToCampaign") {
             const input = args[0] as AddPromotionToCampaignInput;
-            const { data, error } = await client.from("black_betty_promotion_intelligence").select("workspace").eq("singleton", true).single();
-            if (error || !data) throw new Error("Promotion approval could not be verified.");
+            const { data, error } = await client.from("black_betty_promotion_intelligence").select("workspace,handoff_protocol").eq("singleton", true).single();
+            if (error || !data || data.handoff_protocol !== 1) throw new Error("Atomic promotion handoff is unavailable. An admin must review the handoff migration in staging; nothing was added.");
             const saved = validateWorkspace(data.workspace).opportunities.find((o) => o.id === input.opportunity.id);
             if (!saved || saved.status !== "APPROVED" || saved.intelligence.associatedWith) throw new Error("Saved buyer approval is required.");
             const match = await new SupabaseProductMasterLookup(client).findByExactSkus([saved.supplierSku ?? ""]);

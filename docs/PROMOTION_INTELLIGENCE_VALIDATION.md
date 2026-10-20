@@ -7,10 +7,10 @@ Executed in the saved Linux cloud environment, target checkout `/workspace/black
 | `npm run lint` | Pass; no errors/warnings |
 | `npm run typecheck` | Pass; includes the new server/function modules |
 | `npm test` | **274 passed, 52 files** |
-| `npm run build` | Pass; 1,849 modules; existing large source-backed app bundle remains ~4.14 MB uncompressed / 630.66 kB gzip |
+| `npm run build` | Pass; 1,849 modules; existing large source-backed app bundle remains ~4.14 MB uncompressed / 630.71 kB gzip |
 | Full Playwright suite | **65 passed, 1 skipped**, 66 discovered, system Chromium, direct loopback networking |
 | New Promotion Intelligence browser cases | **3 passed**: end-to-end buyer workflow/retry recovery at 1440×900 and 1280×720; duplicate capture, contradictory evidence, reviewed association and deletion |
-| Isolated PostgreSQL/PGlite checks | **13 passed**: grants/RLS denials and buyer/admin access, audit stamps/version, stale update, client column restrictions and document constraints |
+| Isolated PostgreSQL/PGlite checks | **32 passed**: grants/RLS denials and buyer/admin access, audit stamps/version, stale update, client column restrictions document constraints and atomic handoff/revocation regressions |
 | `git diff --check` | Pass |
 
 [Full command evidence](evidence/promotion-intelligence-validation.txt). Reviewed synthetic screenshots: [1280 px laptop](evidence/promotion-intelligence-1280.png), [1440 px desktop](evidence/promotion-intelligence-1440.png). The screenshot shows a completed handoff with original supplier claims, current catalog description, buyer decision and missing financial evidence. No production correspondence was captured in these images.
@@ -32,7 +32,7 @@ Executed in the saved Linux cloud environment, target checkout `/workspace/black
 
 All automated application/database fixtures are synthetic. PGlite tests create a disposable local authorization baseline and do not prove the exact inherited production helper/trigger or user session behaviour. The existing secured two-user staging test was intentionally skipped because no disposable authorized staging campaign and two test-user credentials were supplied. No shared buyer campaign writes were used as tests.
 
-No approved model key/configuration was available in this checkout: the authenticated endpoint was exercised with deterministic injected model fixtures, while browser tests used the visibly labelled literal demo adapter. Live natural-language quality, gateway configuration/provider data handling, Vercel-hosted function dispatch and real shared multi-session writes need an authorized staging pilot. The additive migration was generated and locally tested, **not applied to production**.
+No approved model key/configuration was available in this checkout: the authenticated endpoint was exercised with deterministic injected model fixtures, while browser tests used the visibly labelled literal demo adapter. Live natural-language quality, gateway configuration/provider data handling, Vercel-hosted function dispatch and real shared multi-session writes need an authorized staging pilot. Both additive migrations were generated and locally tested, **not applied to production**.
 
 Real read-only OND findings are in `OND_2026_RELEASE_VERIFICATION.md`. Those records include a legacy release without frozen executionData; neither synthetic test success nor Vercel READY establishes delivery, acknowledgement or physical execution.
 
@@ -41,3 +41,7 @@ The Playwright download CDN returned HTTP 403. Existing `/usr/bin/chromium` was 
 Review refinements caught and fixed an extra extraction-response key and a sparse Zod correction-map validation issue. Final results above are from the corrected source. Historical incomplete runs are not counted as passes.
 
 No merge/deployment was performed. Feature-branch Vercel Git deployment is disabled in `vercel.json`; commits use `[skip ci]` to avoid GitHub Actions. Deployment, production migration and live model use require separate approval and configuration.
+
+## Approval-race follow-up validation
+
+The final follow-up adds an unapplied planning-update trigger that locks and revalidates approval in the planning transaction; a read-only capability marker makes shared clients fail closed if this guard is absent. The isolated database suite now has **32 passing checks**, including a counterfactual reproduction of the former race in a rolled-back disposable transaction and rejection by the actual migration. No production schema/data was changed. Full lint/typecheck/unit/build checks and relevant browser cases were rerun; see `evidence/promotion-handoff-race-validation.txt`. The prior full browser run remains 65 pass/1 secured-staging skip; follow-up browser evidence is reported separately rather than implying a live shared race test.

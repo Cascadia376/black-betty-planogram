@@ -238,8 +238,9 @@ describe("shared Promotion Intelligence handoff", () => {
     const source = { kind: "email" as const, text: "Product: Authoritative fixture\nSKU: LIVE-123", title: "Synthetic source", supplier: "", representative: "", date: "" };
     const workspace = await ingestSource(emptyWorkspace(), source, demoExtract(source.text), "demo", "Buyer");
     let active = true;
+    let protocolAvailable = false;
     const client = { from: (table: string) => {
-      if (table === "black_betty_promotion_intelligence") return { select: () => ({ eq: () => ({ single: async () => ({ data: { workspace }, error: null }) }) }) };
+      if (table === "black_betty_promotion_intelligence") return { select: () => ({ eq: () => ({ single: async () => ({ data: { workspace, handoff_protocol: protocolAvailable ? 1 : undefined }, error: null }) }) }) };
       if (table === "product") return { select: () => ({ or: async () => ({ data: [{ sku: "LIVE-123", product_name: "Authoritative fixture", category: "Beer", is_active: active }], error: null }) }) };
       return base.from(table);
     } } as unknown as SupabaseClient;
@@ -247,6 +248,9 @@ describe("shared Promotion Intelligence handoff", () => {
     workspace.opportunities[0] = await reconcileOpportunity(workspace.opportunities[0], lookup);
     const item = workspace.opportunities[0], product = (await lookup.findByExactSkus(["LIVE-123"])).products[0];
     const input = { opportunity: { ...item, status: "APPROVED" as const }, product, newCampaign: { name: "Authoritative promotion fixture", type: "Monthly flyer" as const, description: "", startDate: "2027-11-01", endDate: "2027-11-30", owner: "Buyer", supplier: "", products: [] } };
+    await expect(repository.addPromotionToCampaign(input)).rejects.toThrow("Atomic promotion handoff is unavailable");
+    expect(shared.planningUpdates).toBe(0);
+    protocolAvailable = true;
     await expect(repository.addPromotionToCampaign(input)).rejects.toThrow("Saved buyer approval");
     expect(shared.planningUpdates).toBe(0);
     item.status = "APPROVED";

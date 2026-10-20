@@ -138,3 +138,5 @@ Campaign store scope is represented by `CampaignStore`; stores can participate b
 ## Promotion Intelligence review candidate (October 2026)
 
 The additive `black_betty_promotion_intelligence` workspace contains source communications, typed extensions of existing PromotionOpportunity records, buyer correction history and ranking priorities. It is independently versioned and buyer/admin controlled; neither physical nor planning snapshots store raw communications. CampaignProduct optionally retains `promotionOpportunityIds` for safe handoff traceability. The migration has not been applied to production. See [ADR 0003](ADR-0003-promotion-intelligence.md).
+
+An additional unapplied migration installs a SECURITY INVOKER planning-update trigger that locks the promotion workspace and checks current approval, product identity, draft status and unique opportunity linkage within the planning transaction. `handoff_protocol=1` is an application-read-only capability marker; no raw correspondence enters planning/physical documents.

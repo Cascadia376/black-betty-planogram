@@ -24,7 +24,7 @@ Modules:
 
 ### Persistence
 
-Create `public.black_betty_promotion_intelligence`: one bounded JSON workspace, separate optimistic version, server-maintained audit fields, buyer/admin SELECT/UPDATE RLS using `private.black_betty_role()`. Only the workspace column is writable by authenticated authorized users; no client insert/delete/version/audit privileges. Sources/opportunities/history/weights update together atomically. Existing planning and physical collections receive no correspondence and need no migration.
+Create `public.black_betty_promotion_intelligence`: one bounded JSON workspace, separate optimistic version, server-maintained audit fields, buyer/admin SELECT/UPDATE RLS using `private.black_betty_role()`. Only the workspace column is writable by authenticated authorized users; no client insert/delete/version/audit privileges. Sources/opportunities/history/weights update together atomically. Existing planning and physical collections receive no correspondence. A second additive migration installs a planning-update guard without changing stored planning/release/physical data.
 
 This deliberately uses the established snapshot approach for the smallest safe multi-session slice. It is dedicated access-controlled storage, not browser-only state. The 3 MB maximum, coarse conflicts, whole-workspace reads and unbounded-in-time history until manual retention are explicit scaling limitations. A later additive row-based source/opportunity/event store can migrate this versioned envelope. Demo storage uses a separate key and rejects stale/corrupt/failed writes; it is not shared-mode evidence.
 
@@ -44,7 +44,11 @@ The buyer saves approval and exact reconciliation first. `addPromotionToCampaign
 
 Shared mode re-reads saved approval from the access-controlled promotion document and freshly resolves the SKU through the existing authoritative Product Master adapter. It rejects revoked/unapproved/ambiguous/inactive/mismatched products. A stable opportunity ID on the campaign product makes add retries recover the original campaign, including after campaign success but promotion acknowledgement failure. Multiple approved opportunities for a product can retain multiple link IDs without duplicate assortment membership.
 
-Planning and promotion workspaces are separate commits, not a distributed transaction. A failure after planning acknowledgement leaves the opportunity approved until retry recovers and stores its campaign link. No publication/notification follows. Concurrent distinct buyers still use existing coarse planning CAS; stale writes fail. A simultaneous approval revocation between the saved approval read and planning commit remains a narrow cross-document race, requiring a transaction/RPC/outbox follow-up before high-contention automation.
+The additive `20261020041802_atomic_promotion_handoff.sql` migration closes the approval-read/planning-write race at the existing database boundary. Its SECURITY INVOKER trigger compares newly introduced campaign/product/opportunity link triples, locks the promotion singleton with SELECT FOR UPDATE, and revalidates current saved APPROVED/MATCHED status, identity, draft lifecycle, unique link membership and exact active authoritative SKU before the planning UPDATE commits. The row lock is held until commit, so approval revocation committed first causes rejection; a later revocation waits for the approved add. Existing planning CAS still rejects stale writes. Existing links and ordinary planner updates do not require renewed approval or lock promotion data. No RLS or table privileges are broadened.
+
+The read-only `handoff_protocol=1` column is installed with the guard. The shared adapter requires it before preparing an add, so installing only the inbox migration fails closed. Both migrations are unapplied to production.
+
+The final opportunity status/link acknowledgement remains a separate, retryable promotion-document write. It does not authorize the campaign add: the database guard does. A failure after planning acknowledgement leaves the opportunity approved until retry recovers the existing link. An approval revoked before a subsequent retry cannot authorize a new add. Atomic acknowledgement/outbox delivery can be added later for UX/automation efficiency, but there is no remaining unchecked approval window in the guarded planning write. No publication/notification follows.
 
 ### Commercial evidence
 
@@ -58,11 +62,11 @@ Manual source redaction removes inbox correspondence and derivative feedback acr
 
 ## Alternatives and consequences
 
-Putting transcripts into physical/planning snapshots was rejected because it mixes authorization, retention and independent version boundaries. An entire agent framework adds no necessary orchestration for this slice. A separate app or campaign model would create re-entry and lifecycle divergence. Normalized row tables and a transactional handoff are desirable at scale but are deferred explicitly; dedicated bounded CAS provides a testable additive starting point with the existing persistence vocabulary.
+Putting transcripts into physical/planning snapshots was rejected because it mixes authorization, retention and independent version boundaries. An entire agent framework adds no necessary orchestration for this slice. A separate app or campaign model would create re-entry and lifecycle divergence. Normalized row tables and an atomic acknowledgement/outbox are desirable at scale but are deferred explicitly; dedicated bounded CAS provides a testable additive starting point with the existing persistence vocabulary.
 
 ## Rollback
 
-Revert application commits to remove the feature; leave the promotion table inaccessible to the old UI while deciding retention/export. Do not drop stored correspondence as part of ordinary code rollback. If the reviewed migration is being rolled back in a disposable staging database, export any required records first, then drop `public.black_betty_promotion_intelligence` (its policy/trigger follow the table). No existing planning/physical table, role, private function, release or floorplan should be dropped/changed.
+Revert application commits to remove the feature; leave the promotion table inaccessible to the old UI while deciding retention/export. Do not drop stored correspondence as part of ordinary code rollback. If the reviewed migration is being rolled back in a disposable staging database, export any required records first, then drop `public.black_betty_promotion_intelligence` (its policy/trigger follow the table). When rolling back the second migration in disposable staging, remove `validate_black_betty_promotion_handoff` from `public.black_betty_planning_snapshot`, drop only the new `private.validate_black_betty_promotion_handoff()` function and remove `handoff_protocol`. New clients will fail closed without that column; do not leave the marker while disabling the guard. Do not drop the planning/physical tables, existing roles/private helpers, releases or floorplans. Ordinary code rollback should leave the guard protecting existing linked data.
 
 ## References checked
 
@@ -72,3 +76,7 @@ Revert application commits to remove the feature; leave the promotion table inac
 - [AI Gateway OpenAI-compatible API](https://vercel.com/docs/ai-gateway/sdks-and-apis/openai-chat-completions)
 
 The Supabase markdown changelog endpoint was unavailable in this environment (HTTP 403); current product documentation and the installed client types were checked instead. No production schema change was used to test this design.
+
+## Race regression evidence
+
+Exact tested interleaving: buyer A reads APPROVED; buyer B commits REJECTED; A submits its prepared planning JSON at the still-current planning version. In a disposable transaction with only the new guard disabled, the former boundary accepts the add. Rolling that transaction back and installing/enabling the guard rejects the same add and preserves planning/version. Further isolated tests cover unknown/mismatched/pending opportunity identity, inactive master SKU, duplicate/copy links, stale versions, retry recovery, non-draft and revived non-draft targets, restricted protocol writes and unaffected ordinary planner updates. This is deterministic interleaving in PostgreSQL/WASM, not a claim that a real two-session staging race has been executed.
