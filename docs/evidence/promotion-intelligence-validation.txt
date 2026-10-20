@@ -1,0 +1,162 @@
+Cloud execution 2026-10-20. All test data synthetic and isolated. No GitHub Actions, deployments or production writes.
+
+npm run lint
+
+> merchandising-platform@0.1.0 lint
+> eslint .
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm run typecheck
+
+> merchandising-platform@0.1.0 typecheck
+> tsc -b
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm test
+
+> merchandising-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /workspace/black-betty-planogram
+
+
+ Test Files  52 passed (52)
+      Tests  274 passed (274)
+   Start at  04:13:17
+   Duration  25.54s (transform 4.76s, setup 588ms, import 6.12s, tests 16.46s, environment 1.28s)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm run build
+
+> merchandising-platform@0.1.0 build
+> vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 1849 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.42 kB │ gzip:   0.29 kB
+dist/assets/index-DFuV3CoR.css     47.85 kB │ gzip:   9.89 kB
+dist/assets/index-26hQf20X.js   4,138.96 kB │ gzip: 630.66 kB
+✓ built in 14.54s
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+E2E_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium E2E_LOCAL_TRANSPORT=0 npm run test:e2e
+
+> merchandising-platform@0.1.0 test:e2e
+> playwright test
+
+[WebServer] (node:8900) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:8913) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 66 tests using 4 workers
+
+(node:8948) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:8947) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:8951) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:8949) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   3 [chromium] › tests/e2e/floorplan-editing.spec.ts:56:1 › keeps campaign floorplans read-only even when layout mode is requested (4.4s)
+  ✓   4 [chromium] › tests/e2e/floorplan-editing.spec.ts:66:1 › retains a failed save, retries safely, undoes and protects unsaved navigation (8.6s)
+  ✓   5 [chromium] › tests/e2e/floorplan-editing.spec.ts:110:1 › touch cancellation restores the position and a completed touch drag survives reopen (4.3s)
+  ✓   1 [chromium] › tests/e2e/floorplan-editing.spec.ts:6:1 › moves, resizes, cancels, saves and pans Crown Isle displays (11.6s)
+  ✓   6 [chromium] › tests/e2e/october-execution.spec.ts:7:1 › quick importer carries the workbook and entered campaign dates into full review (4.4s)
+  ✓   8 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1440px (7.2s)
+  ✓   9 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1280px (7.3s)
+  -  11 [chromium] › tests/e2e/shared-supabase.spec.ts:20:1 › Jeremy and Cherie share changes and receive a stale-save conflict
+  ✓   2 [chromium] › tests/e2e/buyer-release.spec.ts:4:1 › buyer creates, places, releases and reopens a durable manager pack without duplicating a release (21.3s)
+  ✓   7 [chromium] › tests/e2e/october-execution.spec.ts:29:1 › consolidated OND → explicit exception approval → Crown Isle and Port Alberni packs (13.0s)
+  ✓  13 [chromium] › tests/e2e/smoke.spec.ts:40:1 › shows a store-manager operational navigation (3.4s)
+  ✓  12 [chromium] › tests/e2e/smoke.spec.ts:14:1 › presents the merchandising dashboard priorities and actions (3.8s)
+  ✓  10 [chromium] › tests/e2e/promotion-intelligence.spec.ts:60:1 › duplicate capture, conflicting evidence and source deletion preserve history (6.4s)
+  ✓  14 [chromium] › tests/e2e/smoke.spec.ts:51:1 › explains OND performance learning from program to product (5.3s)
+  ✓  16 [chromium] › tests/e2e/smoke.spec.ts:104:1 › links to available spreadsheet upload workflows (4.2s)
+  ✓  15 [chromium] › tests/e2e/smoke.spec.ts:83:1 › keeps OND performance learning within desktop and tablet viewports (6.0s)
+  ✓  17 [chromium] › tests/e2e/smoke.spec.ts:116:1 › creates campaign metadata and continues to the Product Master workspace (8.3s)
+  ✓  20 [chromium] › tests/e2e/smoke.spec.ts:247:1 › summarizes campaign workflow status without legacy display requirements (2.9s)
+  ✓  19 [chromium] › tests/e2e/smoke.spec.ts:206:1 › reviews bulk SKUs and creates a pending campaign product (6.4s)
+  ✓  18 [chromium] › tests/e2e/smoke.spec.ts:157:1 › adds and manages Product Master campaign products (7.7s)
+  ✓  22 [chromium] › tests/e2e/smoke.spec.ts:286:1 › reviews and applies the known Cascadia OND workbook (4.7s)
+  ✓  21 [chromium] › tests/e2e/smoke.spec.ts:256:1 › validates and applies campaign product spreadsheets in the Products workflow (5.2s)
+  ✓  23 [chromium] › tests/e2e/smoke.spec.ts:311:1 › resolves an ambiguous reset date inside import review (3.7s)
+  ✓  24 [chromium] › tests/e2e/smoke.spec.ts:324:1 › completes and reviews an OND display assignment (4.2s)
+  ✓  25 [chromium] › tests/e2e/smoke.spec.ts:360:1 › shows the OND execution and ordering attention queue (4.0s)
+  ✓  27 [chromium] › tests/e2e/smoke.spec.ts:396:1 › shows order-today, bridge, and exit guidance for the store manager (3.9s)
+  ✓  28 [chromium] › tests/e2e/smoke.spec.ts:416:1 › accepts and edits an order recommendation (4.7s)
+  ✓  26 [chromium] › tests/e2e/smoke.spec.ts:387:1 › keeps the OND store workspace within desktop and tablet viewports (5.6s)
+  ✓  29 [chromium] › tests/e2e/smoke.spec.ts:430:1 › marks a recommendation ordered and moves it to arriving soon (4.0s)
+  ✓  30 [chromium] › tests/e2e/smoke.spec.ts:438:1 › creates a supplier order batch and records inbound stock (4.4s)
+  ✓  32 [chromium] › tests/e2e/smoke.spec.ts:456:1 › loads and filters the OND display allocation planner (3.4s)
+  ✓  31 [chromium] › tests/e2e/smoke.spec.ts:447:1 › keeps the store ordering assistant within desktop viewports (5.0s)
+  ✓  35 [chromium] › tests/e2e/smoke.spec.ts:501:1 › keeps the allocation planner within desktop viewports (4.1s)
+  ✓  33 [chromium] › tests/e2e/smoke.spec.ts:467:1 › edits store-specific quantities and validates allocation rules (5.7s)
+  ✓  34 [chromium] › tests/e2e/smoke.spec.ts:490:1 › copies an allocation to another synthetic store (4.8s)
+  ✓  36 [chromium] › tests/e2e/smoke.spec.ts:510:1 › loads the OND program workspace with store and reset actions (4.1s)
+  ✓  38 [chromium] › tests/e2e/smoke.spec.ts:540:1 › opens Crown Isle from the OND program workspace (4.6s)
+  ✓  40 [chromium] › tests/e2e/smoke.spec.ts:557:1 › shows the current and next OND assignment for a selected display (4.5s)
+  ✓  37 [chromium] › tests/e2e/smoke.spec.ts:529:1 › publishes OND into versioned execution and ordering work (6.1s)
+  ✓  41 [chromium] › tests/e2e/smoke.spec.ts:580:1 › retains the OND program during keyboard display selection (4.1s)
+  ✓  39 [chromium] › tests/e2e/smoke.spec.ts:546:1 › keeps the OND program workspace within responsive viewports (8.5s)
+  ✓  42 [chromium] › tests/e2e/smoke.spec.ts:590:1 › loads the Crown Isle floorplan and selects a persistent display area (5.1s)
+  ✓  43 [chromium] › tests/e2e/smoke.spec.ts:614:1 › toggles, selects, and edits a regular Crown Isle category space (5.5s)
+  ✓  46 [chromium] › tests/e2e/smoke.spec.ts:677:1 › selects an active verified area during campaign allocation (4.0s)
+  ✓  47 [chromium] › tests/e2e/smoke.spec.ts:690:1 › creates and edits a DisplayArea while protecting referenced areas (4.8s)
+  ✓  45 [chromium] › tests/e2e/smoke.spec.ts:652:1 › opens verified display metadata for Crown Isle, Eagle Creek, Royal Bay, and Quadra (9.0s)
+  ✓  44 [chromium] › tests/e2e/smoke.spec.ts:630:1 › renders representative imported store layouts with category overlays (9.6s)
+  ✓  48 [chromium] › tests/e2e/smoke.spec.ts:711:1 › supports direct floorplan selection and linked destinations (4.5s)
+  ✓  49 [chromium] › tests/e2e/smoke.spec.ts:724:1 › selects a floorplan display area with the keyboard (3.9s)
+  ✓  52 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /campaigns (3.2s)
+  ✓  50 [chromium] › tests/e2e/smoke.spec.ts:736:1 › keeps the floorplan within the viewport at desktop widths (5.1s)
+  ✓  53 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /campaigns/50000000-0000-4000-8000-000000000001 (3.2s)
+  ✓  51 [chromium] › tests/e2e/smoke.spec.ts:746:1 › navigates the Crown Isle merchandising workflow (5.5s)
+  ✓  54 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /campaigns/50000000-0000-4000-8000-000000000001/products (4.0s)
+  ✓  55 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /imports (4.1s)
+  ✓  57 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /programs/c0000000-0000-4000-8000-000000000001/allocations (3.7s)
+  ✓  56 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /programs/c0000000-0000-4000-8000-000000000001 (4.2s)
+  ✓  58 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /programs/c0000000-0000-4000-8000-000000000001/import (4.0s)
+  ✓  59 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /stores/10000000-0000-4000-8000-000000000001/floorplan (4.2s)
+  ✓  61 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /stores/10000000-0000-4000-8000-000000000001/orders (3.8s)
+  ✓  60 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /stores/10000000-0000-4000-8000-000000000001/workspace (4.3s)
+  ✓  62 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /executions/70000000-0000-4000-8000-000000000001 (3.9s)
+  ✓  63 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /compliance/70000000-0000-4000-8000-000000000001 (3.7s)
+  ✓  64 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /performance (3.9s)
+  ✓  65 [chromium] › tests/e2e/smoke.spec.ts:784:3 › loads and refreshes /display-areas/40000000-0000-4000-8000-000000000001 (3.4s)
+  ✓  66 [chromium] › tests/e2e/smoke.spec.ts:793:1 › keeps the application shell responsive without page overflow (2.4s)
+
+  1 skipped
+  65 passed (1.6m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+Isolated PostgreSQL authorization/shape/CAS checks
+13 isolated database authorization, shape, audit and stale-write checks passed (synthetic fixtures).
+
