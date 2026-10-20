@@ -1,3 +1,6 @@
+import type { AddPromotionToCampaignInput } from "../../domain/promotion/campaign";
+import { SupabaseProductMasterLookup } from "./SupabaseProductMasterLookup";
+import { validateWorkspace } from "../../domain/promotion/schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MerchandisingRepository, PublishCampaignInput } from "../../domain/repositories";
 import type { PlatformSnapshot, Product } from "../../domain/types";
@@ -77,7 +80,7 @@ export const PHYSICAL_LAYOUT_MUTATIONS = new Set<keyof MerchandisingRepository>(
 // Prototype ordering, supplier intake and measurement mutate collections not in
 // SHARED_KEYS; permitting them would report success and then lose the change.
 export const SHARED_PLANNING_MUTATIONS = new Set<keyof MerchandisingRepository>([
-  "createCampaign", "updateCampaign", "addCampaignProducts", "applyCampaignProductImport",
+  "createCampaign", "updateCampaign", "addCampaignProducts", "addPromotionToCampaign", "applyCampaignProductImport",
   "applyCampaignWorkbookImport", "applyStoreDisplayWorkbook", "reconcilePendingCampaignProduct",
   "updateCampaignProduct", "removeCampaignProduct", "createCampaignDisplay", "updateCampaignDisplay",
   "reorderCampaignDisplay", "removeCampaignDisplay", "assignCampaignProductsToDisplay",
@@ -225,6 +228,18 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
         return enqueue(async () => {
           await ensureInitialized();
           const before = await localRepository.load();
+          if (property === "addPromotionToCampaign") {
+            const input = args[0] as AddPromotionToCampaignInput;
+            const { data, error } = await client.from("black_betty_promotion_intelligence").select("workspace,handoff_protocol").eq("singleton", true).single();
+            if (error || !data || data.handoff_protocol !== 1) throw new Error("Atomic promotion handoff is unavailable. An admin must review the handoff migration in staging; nothing was added.");
+            const saved = validateWorkspace(data.workspace).opportunities.find((o) => o.id === input.opportunity.id);
+            if (!saved || saved.status !== "APPROVED" || saved.intelligence.associatedWith) throw new Error("Saved buyer approval is required.");
+            const match = await new SupabaseProductMasterLookup(client).findByExactSkus([saved.supplierSku ?? ""]);
+            const product = match.products.length === 1 ? match.products[0] : undefined;
+            if (!product || product.synthetic || product.id !== saved.productId || match.ambiguousSkus.length || match.inactiveSkus?.length) throw new Error("Refresh Product Master reconciliation before adding this opportunity.");
+            args[0] = { ...input, opportunity: saved, product };
+          }
+
           if (property === "publishCampaign") {
             const { campaignId } = args[0] as PublishCampaignInput;
             const productIds = new Set(before.campaigns.find((campaign) => campaign.id === campaignId)?.products.map((item) => item.productId));

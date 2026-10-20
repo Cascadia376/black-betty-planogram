@@ -5,7 +5,7 @@ export type CampaignStatus = "draft" | "scheduled" | "active" | "completed";
 export type MerchandisingProgramStatus = "draft" | "planned" | "active" | "completed" | "archived";
 export type DisplayAssignmentStatus = "draft" | "planned" | "ready" | "active" | "completed" | "cancelled";
 export type SupplierAvailability = "available" | "limited" | "unavailable" | "unknown";
-export type PromotionOpportunityStatus = "NEW" | "NEEDS_REVIEW" | "READY_FOR_REVIEW" | "APPROVED" | "PASSED" | "DEFERRED";
+export type PromotionOpportunityStatus = "NEW" | "NEEDS_REVIEW" | "READY_FOR_REVIEW" | "APPROVED" | "PASSED" | "DEFERRED" | "UNDER_CONSIDERATION" | "REJECTED" | "ADDED_TO_CAMPAIGN";
 export type InboundOrderStatus = "draft" | "submitted" | "confirmed" | "received" | "cancelled";
 export type OrderRecommendationType = "opening_fill" | "replenishment" | "normal_replenishment" | "peak_build" | "bridge_buy" | "exit_control";
 export type ProductInventoryStrategy = "EXIT" | "NORMAL_CARRY" | "BRIDGE_BUY";
@@ -214,6 +214,7 @@ export interface CampaignProduct {
   role: ProductRole;
   required: boolean;
   note?: string;
+  promotionOpportunityIds?: UUID[];
   merchandisingState?: CampaignProductMerchandisingState;
   /** Product Master resolution is independent from campaign merchandising placement. */
   productResolution?: "MATCHED_ACTIVE" | "MATCHED_INACTIVE" | "PENDING" | "INVALID";
@@ -534,7 +535,7 @@ export interface SupplierSubmissionSourceRow {
 }
 
 export interface PromotionOpportunityProvenance {
-  formatId: "supplier-submission-import-v1";
+  formatId: "supplier-submission-import-v1" | "promotion-intelligence-v1";
   workbookName: string;
   workbookSha256: string;
   sheet: string;

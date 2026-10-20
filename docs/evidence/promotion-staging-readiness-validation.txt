@@ -1,0 +1,106 @@
+Continued verification, saved cloud environment, 2026-10-20. No production writes/migrations, deployment, merge, persistent credentials, access expansion or GitHub Actions. Hosted/live shared pilot remains blocked by missing isolated resources/configuration.
+
+npm run lint
+
+> merchandising-platform@0.1.0 lint
+> eslint .
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm run typecheck
+
+> merchandising-platform@0.1.0 typecheck
+> tsc -b
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm test
+
+> merchandising-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /workspace/black-betty-planogram
+
+
+ Test Files  53 passed (53)
+      Tests  286 passed (286)
+   Start at  05:54:38
+   Duration  8.57s (transform 1.13s, setup 154ms, import 1.47s, tests 6.33s, environment 218ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+npm run build
+
+> merchandising-platform@0.1.0 build
+> vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 1849 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.42 kB │ gzip:   0.28 kB
+dist/assets/index-DFuV3CoR.css     47.85 kB │ gzip:   9.89 kB
+dist/assets/index-y8dji641.js   4,139.08 kB │ gzip: 630.71 kB
+✓ built in 4.84s
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+Relevant Promotion Intelligence and secured staging browser cases
+
+> merchandising-platform@0.1.0 test:e2e
+> playwright test tests/e2e/promotion-intelligence.spec.ts tests/e2e/shared-supabase.spec.ts
+
+[WebServer] (node:15790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:15803) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 4 tests using 4 workers
+
+(node:15826) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:15823) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:15824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:15825) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  -  1 [chromium] › tests/e2e/shared-supabase.spec.ts:24:1 › Jeremy and Cherie share changes and receive a stale-save conflict
+  ✓  4 [chromium] › tests/e2e/promotion-intelligence.spec.ts:60:1 › duplicate capture, conflicting evidence and source deletion preserve history (4.1s)
+  ✓  2 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1280px (5.0s)
+  ✓  3 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1440px (5.0s)
+
+  1 skipped
+  3 passed (8.0s)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+Real PostgreSQL concurrent sessions
+Engine: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+Image: postgres@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+13 real PostgreSQL multi-session lock, authorization, stale-write, retry and cross-user checks passed (synthetic local fixtures).
+Disposable container removed; no published ports, external network, host mounts, persistent credentials or database volumes created.
+
+PostgreSQL/WASM regression suite
+32 isolated database authorization, shape, audit and stale-write checks passed (synthetic fixtures).
+

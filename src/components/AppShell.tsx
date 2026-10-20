@@ -32,7 +32,7 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole, sha
     { to: "/", label: "Dashboard", icon: LayoutDashboard, matches: (path: string) => path === "/", roles: undefined },
     { to: "/campaigns", label: "Campaigns", icon: Megaphone, matches: (path: string) => path.startsWith("/campaigns"), roles: planningRoles },
     { to: "/imports/flyer", label: "Import OND workbook", icon: Plus, matches: (path: string) => path === "/imports/flyer", roles: planningRoles },
-    { to: "/opportunities", label: "Opportunities", icon: ListChecks, matches: (path: string) => path.startsWith("/opportunities"), roles: planningRoles },
+    { to: "/opportunities", label: "Promotion Intelligence", icon: ListChecks, matches: (path: string) => path.startsWith("/opportunities"), roles: planningRoles },
     ...(store ? [
       { to: `/stores/${store.id}/floorplan`, label: "Displays", icon: Layers3, matches: (path: string) => path.includes("/floorplan") || path.startsWith("/display-areas"), roles: undefined },
       { to: role === "store_manager" ? `/stores/${store.id}/workspace` : "/stores", label: role === "store_manager" ? "My workspace" : "Stores", icon: Building2, matches: (path: string) => (path.startsWith("/stores") && !path.includes("/floorplan") && !path.includes("/orders")) || path.startsWith("/executions"), roles: undefined },
@@ -42,7 +42,7 @@ function buildNavigation(data: PlatformSnapshot | undefined, role: UserRole, sha
     { to: "/performance", label: "Performance", icon: BarChart3, matches: (path: string, search: string) => path === "/performance" && !search.includes("view=recommendations"), roles: reviewRoles },
     { to: "/performance?view=recommendations", label: "Recommendations", icon: Lightbulb, matches: (path: string, search: string) => path === "/performance" && search.includes("view=recommendations"), roles: reviewRoles },
   ];
-  const liveLabels = new Set(["Campaigns", "Import OND workbook", "Displays", "Stores"]);
+  const liveLabels = new Set(["Promotion Intelligence", "Campaigns", "Import OND workbook", "Displays", "Stores"]);
   return items.filter((item) => (!shared || liveLabels.has(item.label)) && (!item.roles || item.roles.includes(role)));
 }
 

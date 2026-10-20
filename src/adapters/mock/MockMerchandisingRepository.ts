@@ -1,3 +1,4 @@
+import type { AddPromotionToCampaignInput } from "../../domain/promotion/campaign";
 import type {
   AddCampaignProductsInput, ApplyCampaignProductImportInput, ApplyCampaignWorkbookImportInput, ApplyCampaignWorkbookImportResult, ApplyOndImportInput, ApplyStoreDisplayWorkbookInput, AssignCampaignInput, AssignCampaignProductsToDisplayInput, CompleteExecutionInput, CreateCampaignDisplayInput, CreateDisplayAssignmentInput, CreatePendingProductInput, CreatePurchaseOrderInput, MerchandisingRepository, ReconcilePendingCampaignProductInput,
   ApplyCampaignDisplayQuantityInput, ApplySupplierSubmissionImportInput, ApplySupplierSubmissionImportResult, CreateDisplayAreaInput, CreateStoreLayoutInput, PublishCampaignInput, PublishCampaignResult, PublishProgramInput, PublishProgramResult, RefreshOrderRecommendationsInput, ReorderCampaignDisplayInput, ReorderCampaignDisplayProductInput, SetCampaignStoresInput, SetProgramStoreInput, SuggestCampaignDisplayInput, SubmitComplianceInput, UpdateCampaignDisplayAssignmentInput, UpdateCampaignDisplayAssignmentProductInput, UpdateCampaignDisplayInput, UpdateCampaignDisplayProductInput, UpdateCampaignInput, UpdateCampaignProductInput, UpdateCategorySpaceInput, UpdateDisplayAreaInput, UpdateOrderRecommendationInput, UpdatePromotionOpportunityInput,
@@ -388,6 +389,31 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
       throw new Error("Campaign storage failed.", { cause });
     }
     return structuredClone(campaign);
+  }
+
+  /** One acknowledged planning write. Reuses the campaign creation/product commands in an isolated transaction. */
+  async addPromotionToCampaign(input: AddPromotionToCampaignInput): Promise<UUID> {
+    const { opportunity, product } = input;
+    if (opportunity.status !== "APPROVED" || opportunity.intelligence.associatedWith) throw new Error("Approve this opportunity before adding it to a campaign.");
+    if (!product.active || product.masterStatus !== "verified" || product.id !== opportunity.productId || product.sku.trim().toUpperCase() !== opportunity.supplierSku?.trim().toUpperCase()) throw new Error("Resolve to an active verified Product Master record first.");
+    const priorLink = this.state.campaigns.find((c) => c.products.some((p) => p.promotionOpportunityIds?.includes(opportunity.id)));
+    if (priorLink) return priorLink.id;
+    if (Boolean(input.campaignId) === Boolean(input.newCampaign)) throw new Error("Choose an existing draft or enter a new campaign.");
+    if (input.campaignId && !this.state.campaigns.some((c) => c.id === input.campaignId && c.status === "draft")) throw new Error("Only an editable draft campaign can receive an opportunity.");
+    const staged = structuredClone(this.state);
+    const existing = staged.products.find((p) => p.id === product.id || p.sku.trim().toUpperCase() === product.sku.trim().toUpperCase());
+    if (existing && existing.id !== product.id) throw new Error("Product Master identity conflicts with existing planning data.");
+    if (existing) Object.assign(existing, structuredClone(product)); else staged.products.push(structuredClone(product));
+    const transaction = new MockMerchandisingRepository(this.clock, staged, false);
+    const campaignId = input.campaignId ?? await transaction.createCampaign({ ...input.newCampaign!, products: [] });
+    await transaction.addCampaignProducts({ campaignId, productIds: [product.id] });
+    const result = await transaction.load();
+    const member = result.campaigns.find((c) => c.id === campaignId)!.products.find((p) => p.productId === product.id)!;
+    member.promotionOpportunityIds = [...new Set([...(member.promotionOpportunityIds ?? []), opportunity.id])];
+    // Commercial claims stay in the opportunity, outside published manager instructions.
+    this.state = result;
+    this.persist();
+    return campaignId;
   }
 
   async addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]> {

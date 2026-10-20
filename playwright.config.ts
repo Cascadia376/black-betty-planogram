@@ -16,7 +16,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173",
     trace: "on-first-retry",
-    launchOptions: { args: ["--no-proxy-server"] },
+    launchOptions: { args: ["--no-proxy-server"], ...(process.env.E2E_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.E2E_CHROMIUM_EXECUTABLE_PATH } : {}) },
   },
   webServer: process.env.E2E_EXTERNAL_SERVER ? undefined : {
     command: "npx vite --host 127.0.0.1 --port 5173 --strictPort",

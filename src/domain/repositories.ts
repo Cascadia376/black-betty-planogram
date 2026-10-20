@@ -1,3 +1,4 @@
+import type { AddPromotionToCampaignInput } from "./promotion/campaign";
 import type {
   BridgeStrategy,
   Campaign,
@@ -327,6 +328,7 @@ export interface MerchandisingRepository extends PhysicalLayoutRepository {
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   updateCampaign(input: UpdateCampaignInput): Promise<Campaign>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
+  addPromotionToCampaign(input: AddPromotionToCampaignInput): Promise<UUID>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;
   applyStoreDisplayWorkbook(input: ApplyStoreDisplayWorkbookInput): Promise<void>;

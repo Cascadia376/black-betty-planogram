@@ -55,7 +55,7 @@ The provider currently selects authenticated shared mode when **both a Supabase 
 
 Authenticated buyers/admins can use campaigns, reviewed imports, store placements, canonical floorplan management and release-pack generation. Existing RLS remains the authorization boundary; hidden navigation is not security. Synthetic demo products cannot be published through shared mode.
 
-The campaign review can make a separately authenticated, read-only Ursus purchasing-readiness request when configured. It fails closed to Unknown and cannot create an order or write inventory. Ordering mutations, legacy OND program operations, supplier submission/opportunity management, execution/compliance entry and measurement are retained for isolated demo development, but their routes and unsupported mutations are blocked in shared mode. Their complete effects are not durably serialized or integrated. They must not be presented as live capabilities.
+The campaign review can make a separately authenticated, read-only Ursus purchasing-readiness request when configured. It fails closed to Unknown and cannot create an order or write inventory. Ordering mutations, legacy OND program operations, legacy workbook supplier submission/opportunity prototypes, execution/compliance entry and measurement are retained for isolated demo development, but their routes and unsupported mutations are blocked in shared mode. Their complete effects are not durably serialized or integrated. They must not be presented as live capabilities.
 
 ## Development and testing
 
@@ -88,3 +88,17 @@ CI runs lint, TypeScript, unit/integration tests, build and Chromium tests indep
 Vercel: Vite preset, repository root, Node 22, `npm ci`, `npm run build`, output `dist`. `vercel.json` keeps parameterized deep links on the SPA route. Validate a direct campaign URL and refresh after deployment.
 
 Keep preview/staging data isolated from production. Review the PR and quality evidence before promoting; this engineering run does not modify production records, migrate schemas, grant roles or promote its branch. Existing Supabase access policies and version triggers are prerequisites, not objects to recreate or reset. [Current release gate and remaining evidence](docs/PRODUCTION_GATE.md).
+
+## Promotion Intelligence (review candidate)
+
+Open **Promotion Intelligence** to paste supplier emails, transcripts, notes or offers; inspect source-linked claims, correct interpretations, reconcile Product Master and save Jeremy's decision. A saved approved, active reconciled opportunity can create/update an editable campaign draft and open the existing Products editor. Campaign products retain opportunity IDs for traceability and idempotent handoff recovery; no release/display/order/pricing action follows automatically.
+
+The shared inbox uses a dedicated access-controlled Supabase document and a server-authenticated Vercel extraction function. Review/apply the three additive inbox, atomic-handoff and explicit server-read migrations in isolated staging and configure approved server-only gateway credentials before live use. Without shared credentials the browser demo is explicitly labelled and uses a limited literal parser; shared extraction never silently falls back to it. Existing workbook opportunity prototypes remain demo-only at `/opportunities/workbooks`.
+
+See the [OND verification](docs/OND_2026_RELEASE_VERIFICATION.md), [PRD](docs/PROMOTION_INTELLIGENCE_PRD.md), [ADR 0003](docs/ADR-0003-promotion-intelligence.md), [Jeremy walkthrough and staging setup](docs/PROMOTION_INTELLIGENCE_DEMO.md), [validation](docs/PROMOTION_INTELLIGENCE_VALIDATION.md) and [prioritized backlog](docs/PROMOTION_INTELLIGENCE_BACKLOG.md). The new feature is an undeployed review candidate; existing supported campaign/release/floorplan workflows retain their established boundaries.
+
+The [Parts A–F acceptance checklist](docs/PROMOTION_INTELLIGENCE_ACCEPTANCE.md) distinguishes implemented features, synthetic tests, real read-only evidence and remaining live/staging gates. Approval is revalidated under a database row lock at the planning-write boundary; shared clients fail closed unless that guard migration is installed.
+
+[Staging pilot readiness](docs/PROMOTION_INTELLIGENCE_STAGING_PILOT.md) records available resources, exact missing approvals/configuration and genuine isolated PostgreSQL concurrency checks. Shared browser tests now refuse known production app/database targets and require a named disposable staging campaign before any write.
+
+The [October 30 Data API grant audit](docs/SUPABASE_DATA_API_GRANT_AUDIT.md) verifies explicit grants/RLS by replaying all repository migrations under both legacy and fresh/reset defaults; hosted permission changes remain approval-gated.

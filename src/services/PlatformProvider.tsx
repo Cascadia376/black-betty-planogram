@@ -1,3 +1,9 @@
+import type { AddPromotionToCampaignInput } from "../domain/promotion/campaign";
+import { DemoIntelligenceRepository, SupabaseIntelligenceRepository, type IntelligenceRepository } from "./promotion/repository";
+import { demoExtract } from "./promotion/demoExtractor";
+import { extractionSchema, type SourceInput, type Extraction } from "../domain/promotion/schema";
+import { loadCommercialEvidence } from "./promotion/commercial";
+import type { CommercialEvidence } from "../domain/promotion/ranking";
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient, type Session } from "@supabase/supabase-js";
@@ -33,6 +39,10 @@ export function canManagePhysicalReference(authEnabled: boolean, role?: BlackBet
 }
 
 interface PlatformContextValue {
+  intelligenceRepository: IntelligenceRepository;
+  extractPromotion(source: SourceInput): Promise<{ extraction: Extraction; mode: "model" | "demo" }>;
+  loadPromotionEvidence(sku: string, start: string, end: string): Promise<CommercialEvidence>;
+  addPromotionToCampaign(input: AddPromotionToCampaignInput): Promise<UUID>;
   data?: PlatformSnapshot;
   loading: boolean;
   error?: string;
@@ -190,8 +200,23 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     [data?.products, productMaster],
   );
 
+  const intelligenceRepository = useMemo(() => configuredSupabase ? new SupabaseIntelligenceRepository(configuredSupabase) : new DemoIntelligenceRepository(window.localStorage), []);
   const value = useMemo<PlatformContextValue>(() => ({
     data, loading, error, role, setRole, refresh, productMaster: effectiveProductMaster,
+    intelligenceRepository,
+    extractPromotion: async (source) => {
+      if (!configuredSupabase) return { extraction: demoExtract(source.text), mode: "demo" };
+      const { data: { session: current } } = await configuredSupabase.auth.getSession();
+      if (!current) throw new Error("Sign in required.");
+      const response = await fetch("/api/promotion-extract", { method: "POST", signal: AbortSignal.timeout(40000), headers: { Authorization: `Bearer ${current.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify(source) });
+      if (!response.ok) throw new Error("Authenticated extraction failed. Source remains here for retry; no opportunity saved.");
+      return { extraction: extractionSchema.parse(await response.json()), mode: "model" };
+    },
+    loadPromotionEvidence: (sku, start, end) => {
+      if (!configuredSupabase) return Promise.reject(new Error("No authoritative commercial data in demo mode."));
+      return loadCommercialEvidence(configuredSupabase, sku, start, end);
+    },
+    addPromotionToCampaign: async (input) => { let id = ""; await mutate(async () => { id = await adapter.addPromotionToCampaign(input); }); return id; },
     authEnabled: Boolean(configuredSupabase),
     userEmail: session?.user.email,
     blackBettyRole,
@@ -260,7 +285,7 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     updateRecommendation: (id, status, note) => mutate(() => adapter.updateRecommendation(id, status, note)).then(() => undefined),
     updateOrderRecommendation: (input) => mutate(() => adapter.updateOrderRecommendation(input)).then(() => undefined),
     resetDemo: () => mutate(() => adapter.reset()).then(() => undefined),
-  }), [adapter, blackBettyRole, data, effectiveProductMaster, error, loading, mutate, mutatePhysicalReference, refresh, role, session?.user.email]);
+  }), [adapter, blackBettyRole, data, intelligenceRepository, effectiveProductMaster, error, loading, mutate, mutatePhysicalReference, refresh, role, session?.user.email]);
 
   if (configuredSupabase && session === undefined) return <AuthStatus message="Checking Black Betty access…" />;
   if (configuredSupabase && !session) return <BlackBettySignIn error={authError} />;
