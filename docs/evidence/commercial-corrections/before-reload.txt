@@ -1,0 +1,47 @@
+
+> merchandising-platform@0.1.0 test:e2e
+> playwright test tests/e2e/commercial-corrections.spec.ts -g inbox reload --workers=1
+
+
+Running 1 test using 1 worker
+
+(node:64477) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"probe":"pending-inbox-reload","saveEnabled":true}
+  ✘  1 [chromium] › tests/e2e/commercial-corrections.spec.ts:50:1 › inbox reload blocks review writes until its captured revision has returned (6.0s)
+
+
+  1) [chromium] › tests/e2e/commercial-corrections.spec.ts:50:1 › inbox reload blocks review writes until its captured revision has returned
+
+    Error: expect(locator).toBeDisabled() failed
+
+    Locator:  getByRole('button', { name: 'Save review', exact: true })
+    Expected: disabled
+    Received: enabled
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeDisabled" with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Save review', exact: true })
+        14 × locator resolved to <button class="inline-flex min-h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary-hover">Save review</button>
+           - unexpected value "enabled"
+
+
+      73 |   console.log(JSON.stringify({ probe: 'pending-inbox-reload', saveEnabled: await page.getByRole('button', { name: 'Save review', exact: true }).isEnabled() }));
+      74 |   try {
+    > 75 |     await expect(page.getByRole('button', { name: 'Save review', exact: true })).toBeDisabled();
+         |                                                                                  ^
+      76 |     await expect(page.getByRole('button', { name: 'Reload inbox', exact: true })).toBeDisabled();
+      77 |   } finally {
+      78 |     await page.evaluate(() => (window as unknown as { finishInboxReload(): void }).finishInboxReload());
+        at /workspace/worktrees/betty/tests/e2e/commercial-corrections.spec.ts:75:82
+
+    Error Context: test-results/commercial-corrections-inb-0c939-tured-revision-has-returned-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/commercial-corrections.spec.ts:50:1 › inbox reload blocks review writes until its captured revision has returned
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

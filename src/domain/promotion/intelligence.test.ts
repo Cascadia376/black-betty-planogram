@@ -3,6 +3,7 @@ import { emptyWorkspace, validateExtraction, validateWorkspace, type SourceInput
 import { demoExtract, DEMO_SOURCE } from "../../services/promotion/demoExtractor";
 import { associateEvidence, deleteSource, ingestSource, reconcileOpportunity, reviewOpportunity, sourceFingerprint } from "./intake";
 import { rankEvidence, commercialSignals } from "./ranking";
+import { syntheticCommercialEvidence } from "../../services/promotion/commercialFixture";
 import { MockProductMasterLookup } from "../../adapters/mock/MockProductMasterLookup";
 import { MockMerchandisingRepository } from "../../adapters/mock/MockMerchandisingRepository";
 import { snapshotForRelease } from "../campaignReleaseSnapshot";
@@ -100,15 +101,12 @@ describe("Promotion Intelligence integrity", () => {
     expect(validateWorkspace(redacted)).toBe(redacted);
     expect(await ingestSource(redacted, input, demoExtract(input.text), "demo", "Buyer")).toBe(redacted);
   });
-  it("never scores absent evidence or assumes unavailable lift, with deterministic arithmetic", () => {
+  it("never scores absent evidence or assumes unavailable lift, with qualified deterministic arithmetic", async () => {
     expect(rankEvidence(undefined, { volume: 1, margin: 1, lift: 0 }).score).toBeUndefined();
-    const evidence = { source: "Synthetic dated fixture", start: "2026-01-01", end: "2026-01-03", observations: [
-      { date: "2026-01-01", storeId: "1", units: 10, revenue: 100, cost: 60, promotional: false },
-      { date: "2026-01-02", storeId: "1", units: 20, revenue: 150, cost: 100, promotional: true },
-    ] };
-    expect(commercialSignals(evidence).values).toEqual({ volume: 30, margin: 90, lift: 100 });
-    expect(rankEvidence(evidence, { volume: 0, margin: 1, lift: 0 }).score).toBe(90);
-    expect(rankEvidence({ ...evidence, observations: evidence.observations.map((r) => ({ ...r, promotional: undefined })) }, { volume: 0, margin: 0, lift: 1 }).score).toBeUndefined();
+    const evidence = await syntheticCommercialEvidence({ sku: "0001", start: "2026-01-01", end: "2026-01-03", storeIds: [1] });
+    expect(commercialSignals(evidence).values).toEqual({ volume: 5, margin: 20 });
+    expect(rankEvidence(evidence, { volume: 0, margin: 1, lift: 0 }).score).toBe(20);
+    expect(rankEvidence(evidence, { volume: 0, margin: 0, lift: 1 }).score).toBeUndefined();
     expect(() => commercialSignals({ ...evidence, observations: [...evidence.observations, evidence.observations[0]] })).toThrow(/duplicate/);
   });
   it("adds once through existing campaign commands, recovers repeated actions and preserves release/physical records", async () => {

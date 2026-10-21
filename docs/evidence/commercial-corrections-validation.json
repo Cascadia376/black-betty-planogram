@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "betty-commercial-corrections-validation-v1",
+  "recordedAt": "2026-10-21T04:43:40.758909+00:00",
+  "environment": "Saved Ursus Major cloud environment; isolated Betty worktree; synthetic browser data and isolated unit fixtures only",
+  "baseCommit": "2ffe3b5dc7070c9188818792085de50df517b4f3",
+  "implementationCommits": [
+    "ef8d632fa2248381787b176e4db5547a156fa367",
+    "09f5eee352730c8676796d88bd9e6740f86d76e2"
+  ],
+  "pullRequest": {
+    "url": "https://github.com/Cascadia376/black-betty-planogram/pull/14",
+    "draft": true,
+    "baseRefName": "codex/promotion-intelligence",
+    "observedRemoteHead": "2ffe3b5dc7070c9188818792085de50df517b4f3",
+    "observation": "Coordinator refreshed before this pass"
+  },
+  "before": [
+    {
+      "command": "npx vitest run src/domain/promotion/decision.test.ts -t 'normalizes supplier|current product reconciliation'",
+      "failed": 2,
+      "skipped": 10,
+      "artifact": "commercial-corrections/before-unit.txt",
+      "observed": "Normalized reconciled supplier SKU rejected; unmatched stale identity accepted."
+    },
+    {
+      "command": "E2E_BASE_URL=http://127.0.0.1:5224 E2E_EXTERNAL_SERVER=1 E2E_LOCAL_TRANSPORT=0 E2E_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e -- tests/e2e/commercial-corrections.spec.ts --workers=1",
+      "failed": 1,
+      "artifact": "commercial-corrections/before-browser.txt",
+      "observed": "Correction rejected; saved SKU MOCK-1001, MATCHED, original receipt count1."
+    },
+    {
+      "command": "E2E_BASE_URL=http://127.0.0.1:5224 E2E_EXTERNAL_SERVER=1 E2E_LOCAL_TRANSPORT=0 E2E_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e -- tests/e2e/commercial-corrections.spec.ts -g 'inbox reload' --workers=1",
+      "failed": 1,
+      "artifact": "commercial-corrections/before-reload.txt",
+      "observed": "Actual repository read held; Save review remained enabled. Does not establish durable data loss."
+    }
+  ],
+  "checks": [
+    {
+      "command": "npx vitest run src/domain/promotion/decision.test.ts src/services/promotion/commercial.test.ts src/services/promotion/recovery.pass2.test.ts",
+      "status": "passed",
+      "passed": 57,
+      "files": 3,
+      "artifact": "commercial-corrections/unit-tests.txt"
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed",
+      "artifact": "commercial-corrections/typecheck.txt"
+    },
+    {
+      "command": "npm run lint",
+      "status": "passed",
+      "artifact": "commercial-corrections/lint.txt"
+    },
+    {
+      "command": "E2E_BASE_URL=http://127.0.0.1:5224 E2E_EXTERNAL_SERVER=1 E2E_LOCAL_TRANSPORT=0 E2E_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e -- tests/e2e/commercial-corrections.spec.ts tests/e2e/commercial-recovery-pass2.spec.ts tests/e2e/promotion-intelligence.spec.ts --workers=1",
+      "status": "nine passed; new reload test locator failed after passing read gate checks",
+      "passed": 9,
+      "failed": 1,
+      "artifact": "commercial-corrections/browser-focused-with-locator-failure.txt"
+    },
+    {
+      "command": "E2E_BASE_URL=http://127.0.0.1:5224 E2E_EXTERNAL_SERVER=1 E2E_LOCAL_TRANSPORT=0 E2E_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e -- tests/e2e/commercial-corrections.spec.ts --workers=1",
+      "status": "passed after correcting only test Buyer decision label locator",
+      "passed": 2,
+      "artifact": "commercial-corrections/browser-corrections-passed.txt"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    }
+  ],
+  "desktopDistinctCasesPassed": 10,
+  "desktopSingleRunTenPassed": false,
+  "independentReview": {
+    "reviewer": "root coordinator",
+    "scope": "Current identity helper, exact canonical receipt SKU, normalization preserving leading zeros, reconciliation assertions and pending-evidence invalidation",
+    "result": "No material finding reported"
+  },
+  "boundaries": [
+    "No live source or model calls",
+    "No OND/floorplan/live campaign changes",
+    "Source hashes and exact receipt identity unchanged",
+    "No new migrations, dependencies, permissions or credentials",
+    "Shared qualification and synthetic receipt gates unchanged",
+    "Reload fix serializes this page UI through existing busy state; does not add server idempotency",
+    "First and second pass evidence preserved"
+  ],
+  "remainingGates": [
+    "Accepted immutable source revision with complete store/day coverage, financial definitions and independent POS controls",
+    "Reviewed authenticated source qualification transport",
+    "Approved shared staging target, sessions and existing PR13 migration rehearsal",
+    "Qualified promotion classification and matched baseline before lift"
+  ],
+  "liveDataValidated": false,
+  "deployed": false,
+  "pushedByLane": false,
+  "denialsRetried": false,
+  "evidenceFormatting": "ANSI escapes and trailing whitespace removed from retained logs; results unchanged.",
+  "testedSourceSha256": {
+    "src/domain/promotion/decision.ts": "5f2f05a185d01565a7b0ce681ac087ba49d82bbe233a71396d008b58dd0cfd49",
+    "src/domain/promotion/decision.test.ts": "7f0e269c4ec501c06834b26f088113a8991f04ba17107b9775abf888aa4220a2",
+    "src/features/promotion/CommercialEvidencePanel.tsx": "7624b6340c17a31f433c242d2bb408bb2a2b70c31e363006571e24e0a7d425a8",
+    "src/features/promotion/OpportunityReview.tsx": "99ee5a88b0238049b68ba61168d2730520b2d86108aefa8979615a855b3990c8",
+    "src/features/promotion/PromotionIntelligencePage.tsx": "969e84ecb6839810767e40076246af393fe778f171183529562d9642e3ad0813",
+    "tests/e2e/commercial-corrections.spec.ts": "834f8c09f2ec0bdda7452af7816a5a3e240171eae8c3f967a034efa973449ea4"
+  },
+  "artifactSha256": {
+    "commercial-corrections/after-sku-correction.png": "b339cdaa6013bb6b015d50e5bdfd1f26606a92463a6dd430afeab5f650c370a4",
+    "commercial-corrections/before-browser.txt": "d7b29ed41aac28b47c7a40f7a44e32dab9685a999e126e3137f2bee428ef9d71",
+    "commercial-corrections/before-reload.txt": "e70c8ddb0bbb8fae2c311856d9a528e33ddaaa472211072867988956aa760827",
+    "commercial-corrections/before-sku-correction.png": "5dcd3a1a10f5aa31998acc47ba34f5338164f0c75e3a4451d21a5c6fd6c38f3c",
+    "commercial-corrections/before-unit.txt": "70c250f2110570a4af0e2a17a52f458404ca864d0fcffcb6f756160ef66b6372",
+    "commercial-corrections/browser-corrections-passed.txt": "63fdebc8526087e6297b7bdea75621bc20afd9ed6703d6d5dc7d179910d3dfdf",
+    "commercial-corrections/browser-focused-with-locator-failure.txt": "ce4f38a4de4a498309bd31297025682f35f395340d31126bed0053a60346dfb4",
+    "commercial-corrections/lint.txt": "ac8f1627fb7fa08b800e140f951936c1d71d1adbeffd91843947cb2d7ba72958",
+    "commercial-corrections/typecheck.txt": "3a09730edb3bb8adc80ba05eb8dc49bf01bebdb00988e9860d71594cac324edd",
+    "commercial-corrections/unit-tests.txt": "d51d5cea25b0515089f9fc458b684ab72603e8e4a4c5f4b4d083a157070bea3c"
+  }
+}

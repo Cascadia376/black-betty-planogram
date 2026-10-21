@@ -1,0 +1,53 @@
+
+> merchandising-platform@0.1.0 test:e2e
+> playwright test tests/e2e/commercial-corrections.spec.ts tests/e2e/commercial-recovery-pass2.spec.ts tests/e2e/promotion-intelligence.spec.ts --workers=1
+
+
+Running 10 tests using 1 worker
+
+(node:65345) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"probe":"loaded-evidence-sku-correction","savedSku":"MOCK-1002","resolution":"UNMATCHED","receiptCount":1,"error":[]}
+  ✓   1 [chromium] › tests/e2e/commercial-corrections.spec.ts:6:1 › buyer can correct a SKU after loading evidence and retain receipts for both reviewed identities (5.2s)
+{"probe":"pending-inbox-reload","saveEnabled":false}
+  ✘   2 [chromium] › tests/e2e/commercial-corrections.spec.ts:50:1 › inbox reload blocks review writes until its captured revision has returned (2.0m)
+(node:67602) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   3 [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:7:1 › two tabs serialize demo writes and reject the stale writer with native Web Locks (1.4s)
+  ✓   4 [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:33:1 › unsupported browser retains evidence inspection and refuses a demo mutation (917ms)
+  ✓   5 [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:45:1 › deleting a source removes current comparison eligibility and preserves historical receipts (3.0s)
+  ✓   6 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1440px (2.7s)
+  ✓   7 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1280px (2.7s)
+  ✓   8 [chromium] › tests/e2e/promotion-intelligence.spec.ts:60:1 › duplicate capture, conflicting evidence and source deletion preserve history (2.1s)
+  ✓   9 [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1440px (4.2s)
+  ✓  10 [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1280px (4.0s)
+
+
+  1) [chromium] › tests/e2e/commercial-corrections.spec.ts:50:1 › inbox reload blocks review writes until its captured revision has returned
+
+    Test timeout of 120000ms exceeded.
+
+    Error: locator.selectOption: Test timeout of 120000ms exceeded.
+    Call log:
+      - waiting for getByLabel('Buyer decision', { exact: true })
+
+
+      79 |   }
+      80 |   await expect(page.getByRole('button', { name: 'Save review', exact: true })).toBeEnabled();
+    > 81 |   await page.getByLabel('Buyer decision', { exact: true }).selectOption('UNDER_CONSIDERATION');
+         |                                                            ^
+      82 |   await page.getByRole('button', { name: 'Save review', exact: true }).click();
+      83 |   await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).workspace.opportunities[0].status, inboxKey)).toBe('UNDER_CONSIDERATION');
+      84 |   await expect(page.getByLabel('Buyer decision', { exact: true })).toHaveValue('UNDER_CONSIDERATION');
+        at /workspace/worktrees/betty/tests/e2e/commercial-corrections.spec.ts:81:60
+
+    Error Context: test-results/commercial-corrections-inb-0c939-tured-revision-has-returned-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/commercial-corrections.spec.ts:50:1 › inbox reload blocks review writes until its captured revision has returned
+  9 passed (2.5m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

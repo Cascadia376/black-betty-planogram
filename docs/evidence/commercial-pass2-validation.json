@@ -1,0 +1,185 @@
+{
+  "schemaVersion": "betty-commercial-pass2-validation-v1",
+  "recordedAt": "2026-10-21T00:50:42.760155+00:00",
+  "environment": "saved Ursus Major cloud environment; isolated Betty worktree; synthetic and fake-client validation only",
+  "baseCommit": "9939e8c3f197027f5dc0939b39bfceec05da64a1",
+  "implementationCommits": [
+    "54e9ba60b1fed604c7151e19aef70c6b9ff438ae",
+    "4060b97d83a7d0d154c7607b009502cbbde2800c"
+  ],
+  "pullRequest": {
+    "number": 14,
+    "url": "https://github.com/Cascadia376/black-betty-planogram/pull/14",
+    "state": "OPEN",
+    "draft": true,
+    "baseRefName": "codex/promotion-intelligence",
+    "headRefName": "codex/betty-commercial-evidence-20261020",
+    "observedRemoteHead": "9939e8c3f197027f5dc0939b39bfceec05da64a1"
+  },
+  "parentPullRequest": {
+    "number": 13,
+    "url": "https://github.com/Cascadia376/black-betty-planogram/pull/13",
+    "state": "OPEN",
+    "draft": true,
+    "baseRefName": "main",
+    "head": "473895b27ce314d17574f3e8f4e35cb926fbbbfc",
+    "isAncestor": true
+  },
+  "tools": {
+    "node": "v24.19.0",
+    "browser": "Chromium 151.0.7922.173 built on Debian GNU/Linux 13 (trixie)"
+  },
+  "baseline": {
+    "command": "npm test",
+    "passed": 330,
+    "files": 55,
+    "artifact": "commercial-pass2/baseline-tests.txt"
+  },
+  "findings": [
+    {
+      "id": "demo-concurrency",
+      "before": "Two writes at version0 both fulfilled and returned version1; last writer replaced first.",
+      "after": "Exclusive Web Lock guards demo load/CAS/write; one success and one stale rejection. Unsupported browsers retain reads and fail writes before storage.",
+      "evidence": "commercial-pass2/before-unit-counterexamples.txt"
+    },
+    {
+      "id": "shared-acknowledgement",
+      "before": "A response with unchanged version or different valid workspace was accepted.",
+      "after": "Require expectedVersion+1 and canonical matching JSON content; mismatch remains unacknowledged with reload guidance.",
+      "evidence": "commercial-pass2/before-unit-counterexamples.txt"
+    },
+    {
+      "id": "deleted-source-comparison",
+      "before": "Deletion left MATCHED and authoritative SKU, keeping qualified comparison active. Older stored deleted records also reproduced this after new-deletion-only fix.",
+      "after": "Clear active identity on deletion and require current matched supplier/master SKU pair when selecting comparison receipt. Historical receipts/campaign links preserved.",
+      "evidence": [
+        "commercial-pass2/before-unit-counterexamples.txt",
+        "commercial-pass2/before-legacy-deletion-browser.txt"
+      ]
+    }
+  ],
+  "nextUnblockedImprovement": "Show each compared receipt SKU, dates, stores, qualification/mode and source revision, or an explicit missing current identity reason.",
+  "checks": [
+    {
+      "command": "npm test",
+      "status": "passed",
+      "passed": 340,
+      "files": 56,
+      "newCases": 10,
+      "artifact": "commercial-pass2/unit-tests.txt"
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed",
+      "artifact": "commercial-pass2/typecheck.txt"
+    },
+    {
+      "command": "npm run lint",
+      "status": "passed",
+      "artifact": "commercial-pass2/lint.txt"
+    },
+    {
+      "command": "npm run build",
+      "status": "passed",
+      "artifact": "commercial-pass2/build.txt"
+    },
+    {
+      "command": "E2E_BASE_URL=http://127.0.0.1:5210 E2E_EXTERNAL_SERVER=1 E2E_LOCAL_TRANSPORT=0 E2E_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e -- tests/e2e/commercial-recovery-pass2.spec.ts tests/e2e/promotion-intelligence.spec.ts --workers=1",
+      "status": "passed",
+      "passed": 8,
+      "newCases": 3,
+      "durationSeconds": 34.3,
+      "artifact": "commercial-pass2/browser-tests.txt"
+    },
+    {
+      "command": "node scripts/commercial-evidence-demo.mjs",
+      "status": "passed",
+      "checks": 7,
+      "storeDayRows": 1170,
+      "liveIO": false,
+      "artifact": "commercial-pass2/rehearsal.json"
+    },
+    {
+      "command": "node scripts/commercial-integrity-probe.mjs /workspace/worktrees/betty --assert-safe",
+      "status": "passed",
+      "artifact": "commercial-pass2/prior-integrity-probe.json"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    }
+  ],
+  "independentReview": {
+    "reviewer": "root coordinator",
+    "codeReview": "No remaining material findings; repository CAS/acknowledgement and deletion/current identity contracts inspected.",
+    "focusedExistingTests": 13,
+    "focusedNewTests": 10,
+    "artifacts": [
+      "commercial-pass2/independent-existing-tests.txt",
+      "commercial-pass2/independent-new-tests.txt"
+    ]
+  },
+  "intermediateFailure": {
+    "status": "resolved",
+    "reason": "New comparison metadata made an old global qualification text locator ambiguous; scoped it to retained receipt panel. Full relevant browser rerun passed.",
+    "artifact": "commercial-pass2/intermediate-browser-selector-failure.txt"
+  },
+  "unchangedBoundaries": [
+    "PR13 ancestry and branch deployment guards retained",
+    "No schema/migration/auth/permission/dependency changes",
+    "Shared data stays unverified without approved server-owned authority",
+    "No live source or campaign/model/retail operation",
+    "No automatic shared retry or cross-device browser storage claim",
+    "First-pass evidence artifacts retained unchanged"
+  ],
+  "remainingGates": [
+    "Accepted immutable commercial source, financial semantics, complete store/day coverage and independent POS controls",
+    "Reviewed authenticated source transport before shared qualified comparison",
+    "Approved shared staging target, sessions and PR13 migration rehearsal",
+    "Qualified promotion classifications and matched baseline before lift",
+    "Cooperating updated demo tabs with Web Locks on HTTPS or localhost"
+  ],
+  "notPerformed": [
+    "push by lane",
+    "merge",
+    "deployment",
+    "GitHub Actions",
+    "production migration",
+    "live model calls",
+    "live campaign writes",
+    "OND/floorplan changes",
+    "external communications"
+  ],
+  "denialsRetried": false,
+  "evidenceFormatting": "ANSI escapes and trailing whitespace removed from retained command logs; test results unchanged.",
+  "testedSourceSha256": {
+    "src/domain/promotion/decision.test.ts": "3b0c946f19ed06087c5a7b4068d2055d0e51e8b6326fa4a29dc9463dcfc7c13f",
+    "src/domain/promotion/decision.ts": "29dfc341efaef7becc41799d9c6dacaed8d3cc9d5d26a1fd6a4a3045f4d5d817",
+    "src/domain/promotion/intake.ts": "80df52ab9f1c77835961302521504461db88b0cd4b944fd87ce121140080e66b",
+    "src/features/promotion/PromotionIntelligencePage.tsx": "14f7e95651662d0a57a507fad0c20e531c78a90eff3b4f73d0090a7df5659549",
+    "src/services/promotion/recovery.pass2.test.ts": "fd4df9f568da7562d3c3e7d13ed98b072cf17e949f5a47a03b994fd7332fa2ca",
+    "src/services/promotion/repository.test.ts": "50627a9322cfb636cc87de1474fc21fae156187fc37a037c3adf54992d24b1d3",
+    "src/services/promotion/repository.ts": "8f37431e198eb80c361fce399c411ece816f719b50f23576d5829d612f36b06e",
+    "src/test/workspaceLocks.ts": "7b406e5f3f4dfa7267b7988e739c797bfeeaf06d3a911fae2bd228ac8f6f85e2",
+    "tests/e2e/commercial-recovery-pass2.spec.ts": "eb30daf4dd90261e5b324eda49e4100b5172e5dbec325fcd1bd33e26ace1ae52",
+    "tests/e2e/promotion-intelligence.spec.ts": "9b288c96c42c0087f0f805c24bcc42265db089289c569c137e5ae73342c265f4",
+    "scripts/commercial-evidence-demo.mjs": "f19c2d1cf1ba0b2fa59e7db974e23c5a0f11cfb97856870bbd5202847289d5f2",
+    "scripts/commercial-integrity-probe.mjs": "6313a30ed2bbeefec5c456e8327f9597ea63f78f0dd718c089909f9feef85102"
+  },
+  "artifactSha256": {
+    "commercial-pass2/baseline-tests.txt": "aabfd75f20dbde3dbf20a1c356f4c9910d7264b5c8204d70c059664dd888811c",
+    "commercial-pass2/before-legacy-deletion-browser.txt": "7ccecdd593cd513f9555429d20874c91cf042f677aaeb553758c85a5cc8c9913",
+    "commercial-pass2/before-unit-counterexamples.txt": "eac5b10b69a5ad4465cf75d4954fa65623c65d2f29a1602179dec967d1ffa8ec",
+    "commercial-pass2/browser-tests.txt": "745b5745d304fc692f95bf7e865fd236668ab1ebd2da8309a6089aa78ae7ce0c",
+    "commercial-pass2/build.txt": "41ea0f029c5fe86af242539cc61e077c62133816af0e13747402e56df19e8114",
+    "commercial-pass2/independent-existing-tests.txt": "b7737305bbe5665c1362d2b2d8ffe4aaa464e729b06f47410ffa017510eaae60",
+    "commercial-pass2/independent-new-tests.txt": "053a31ffafa8997484cec46a1bb8de1f40eee97a61717b89450ab3afca672f11",
+    "commercial-pass2/intermediate-browser-selector-failure.txt": "23a7b19ae7a19ad29c5d756b854e720def5f99c7531107dbb3f030d80ac79f10",
+    "commercial-pass2/lint.txt": "ac8f1627fb7fa08b800e140f951936c1d71d1adbeffd91843947cb2d7ba72958",
+    "commercial-pass2/prior-integrity-probe.json": "199adcc7a47eb8d33b84ce85c7524e196fc17eb404435e25d6fb59532ff98de6",
+    "commercial-pass2/rehearsal.json": "5e82b725a21e2f00b303dcb57fcfb52d47ef5b5ef6ccf6c2721d2e91001c67b7",
+    "commercial-pass2/source-deleted-comparison.png": "924a7dfbb37b545dc4befa44b504aecb19115beb59da67cf1b8ddaa670bb94c1",
+    "commercial-pass2/typecheck.txt": "3a09730edb3bb8adc80ba05eb8dc49bf01bebdb00988e9860d71594cac324edd",
+    "commercial-pass2/unit-tests.txt": "ca2bd78ec0920a1824c589f72cfbd7aacd410de293be8139d41ed32a125437d3"
+  }
+}

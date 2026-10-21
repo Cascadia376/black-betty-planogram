@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PromotionOpportunity } from "../types";
+import { commercialDecisionSchema, type CommercialDecision } from "./commercial";
 
 export const sourceInputSchema = z.object({
   kind: z.enum(["email", "transcript", "notes", "observation", "offer"]),
@@ -28,6 +29,7 @@ export interface ReviewEvent { at: string; actor: string; action: string; before
 export interface IntelligenceOpportunity extends PromotionOpportunity {
   intelligence: {
     productEvidence?: { description: string; checkedAt: string };
+    commercialDecisions?: CommercialDecision[];
     claims: Claim[]; missing: string[]; owner: string; corrections?: Partial<Record<Claim["field"], string>>; history: ReviewEvent[];
     linkedCampaignId?: string; associatedWith?: string;
     resolution: "UNMATCHED" | "AMBIGUOUS" | "INACTIVE" | "PENDING" | "MATCHED";
@@ -61,6 +63,11 @@ export function validateWorkspace(value: unknown): IntelligenceWorkspace {
     if (s.deletedAt && s.text !== "") throw new Error("Invalid deleted source.");
   }
   for (const item of envelope.opportunities) {
+    const decisions = (item as IntelligenceOpportunity)?.intelligence?.commercialDecisions;
+    if (decisions !== undefined) {
+      z.array(commercialDecisionSchema).max(20).parse(decisions);
+      if (new Set(decisions.map((decision) => decision.id)).size !== decisions.length) throw new Error("Duplicate commercial decision receipts.");
+    }
     z.object({ id: z.string().uuid(), productName: z.string(), supplier: z.string(), status: z.string(), intelligence: z.object({ claims: z.array(claimSchema.extend({ sourceId: z.string().uuid() })), missing: z.array(z.string()), owner: z.string(), history: z.array(z.object({ at: z.string(), actor: z.string(), action: z.string(), before: z.string().optional(), after: z.string().optional() })), productEvidence: z.object({ description: z.string(), checkedAt: z.string() }).optional(), corrections: z.partialRecord(z.enum(claimFields), z.string().max(1500)).optional(), resolution: z.enum(["UNMATCHED", "AMBIGUOUS", "INACTIVE", "PENDING", "MATCHED"]), linkedCampaignId: z.string().optional(), associatedWith: z.string().optional() }) }).parse(item);
   }
   return value as IntelligenceWorkspace;

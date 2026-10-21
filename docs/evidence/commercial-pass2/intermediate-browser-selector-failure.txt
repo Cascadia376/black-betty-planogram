@@ -1,0 +1,82 @@
+
+> merchandising-platform@0.1.0 test:e2e
+> playwright test tests/e2e/commercial-recovery-pass2.spec.ts tests/e2e/promotion-intelligence.spec.ts --workers=1
+
+
+Running 8 tests using 1 worker
+
+(node:37565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:7:1 › two tabs serialize demo writes and reject the stale writer with native Web Locks (8.6s)
+  ✓  2 [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:33:1 › unsupported browser retains evidence inspection and refuses a demo mutation (1.8s)
+  ✓  3 [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:45:1 › deleting a source removes current comparison eligibility and preserves historical receipts (8.2s)
+  ✓  4 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1440px (10.2s)
+  ✓  5 [chromium] › tests/e2e/promotion-intelligence.spec.ts:14:3 › buyer capture, correct, approve and recover campaign handoff at 1280px (6.0s)
+  ✓  6 [chromium] › tests/e2e/promotion-intelligence.spec.ts:60:1 › duplicate capture, conflicting evidence and source deletion preserve history (2.6s)
+  ✘  7 [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1440px (3.4s)
+(node:39393) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  8 [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1280px (4.8s)
+
+
+  1) [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1440px
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)
+    Expected: visible
+    Error: strict mode violation: getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/) resolved to 2 elements:
+        1) <p class="text-xs text-text-secondary">SKU MOCK-1001 · 2026-01-01 to 2026-03-31 · Stores…</p> aka locator('ol').getByText('SKU MOCK-1001 · 2026-01-01 to')
+        2) <li class="break-words rounded-md bg-subtle p-3">…</li> aka getByText('UNDER_CONSIDERATION · Jeremy')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)
+
+
+      119 |     await page.getByRole("button", { name: /Coastal Lager/ }).first().click();
+      120 |     await expect(page.getByText("Retained decision receipts (1)", { exact: true })).toBeVisible();
+    > 121 |     await expect(page.getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)).toBeVisible();
+          |                                                                                           ^
+      122 |     const receiptDownloadPromise = page.waitForEvent("download");
+      123 |     await page.getByRole("button", { name: "Export retained receipts JSON", exact: true }).click();
+      124 |     await (await receiptDownloadPromise).saveAs(testInfo.outputPath("synthetic-retained-receipts.json"));
+        at /workspace/worktrees/betty/tests/e2e/promotion-intelligence.spec.ts:121:91
+
+    Error Context: test-results/promotion-intelligence-com-f3324--scope-comparison-at-1440px-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1280px
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)
+    Expected: visible
+    Error: strict mode violation: getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/) resolved to 2 elements:
+        1) <p class="text-xs text-text-secondary">SKU MOCK-1001 · 2026-01-01 to 2026-03-31 · Stores…</p> aka locator('ol').getByText('SKU MOCK-1001 · 2026-01-01 to')
+        2) <li class="break-words rounded-md bg-subtle p-3">…</li> aka getByText('UNDER_CONSIDERATION · Jeremy')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)
+
+
+      119 |     await page.getByRole("button", { name: /Coastal Lager/ }).first().click();
+      120 |     await expect(page.getByText("Retained decision receipts (1)", { exact: true })).toBeVisible();
+    > 121 |     await expect(page.getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)).toBeVisible();
+          |                                                                                           ^
+      122 |     const receiptDownloadPromise = page.waitForEvent("download");
+      123 |     await page.getByRole("button", { name: "Export retained receipts JSON", exact: true }).click();
+      124 |     await (await receiptDownloadPromise).saveAs(testInfo.outputPath("synthetic-retained-receipts.json"));
+        at /workspace/worktrees/betty/tests/e2e/promotion-intelligence.spec.ts:121:91
+
+    Error Context: test-results/promotion-intelligence-com-9b028--scope-comparison-at-1280px-chromium/error-context.md
+
+  2 failed
+    [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1440px
+    [chromium] › tests/e2e/promotion-intelligence.spec.ts:81:3 › commercial receipt, uncertain save recovery and scope comparison at 1280px
+  6 passed (51.9s)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

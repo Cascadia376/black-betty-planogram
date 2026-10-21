@@ -1,0 +1,44 @@
+
+> merchandising-platform@0.1.0 test:e2e
+> playwright test tests/e2e/commercial-recovery-pass2.spec.ts --grep deleting a source --workers=1
+
+
+Running 1 test using 1 worker
+
+(node:43640) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:45:1 › deleting a source removes current comparison eligibility and preserves historical receipts (10.6s)
+
+
+  1) [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:45:1 › deleting a source removes current comparison eligibility and preserves historical receipts
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText(/Insufficient Evidence · Every opportunity needs qualified evidence/)
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText(/Insufficient Evidence · Every opportunity needs qualified evidence/)
+
+
+      85 |   await page.reload();
+      86 |   await page.getByText("Compare retained commercial evidence", { exact: true }).click();
+    > 87 |   await expect(page.getByText(/Insufficient Evidence · Every opportunity needs qualified evidence/)).toBeVisible();
+         |                                                                                                      ^
+      88 |   await expect(page.getByText("No retained receipt matches the current product identity.", { exact: true })).toBeVisible();
+      89 |   await page.screenshot({ path: testInfo.outputPath("source-deleted-comparison.png"), fullPage: true });
+      90 | });
+        at /workspace/worktrees/betty/tests/e2e/commercial-recovery-pass2.spec.ts:87:102
+
+    Error Context: test-results/commercial-recovery-pass2--9eba0-eserves-historical-receipts-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/commercial-recovery-pass2.spec.ts:45:1 › deleting a source removes current comparison eligibility and preserves historical receipts
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

@@ -3,7 +3,7 @@ import { DemoIntelligenceRepository, SupabaseIntelligenceRepository, type Intell
 import { demoExtract } from "./promotion/demoExtractor";
 import { extractionSchema, type SourceInput, type Extraction } from "../domain/promotion/schema";
 import { loadCommercialEvidence } from "./promotion/commercial";
-import type { CommercialEvidence } from "../domain/promotion/ranking";
+import type { CommercialEvidence, CommercialRequest } from "../domain/promotion/commercial";
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient, type Session } from "@supabase/supabase-js";
@@ -41,7 +41,7 @@ export function canManagePhysicalReference(authEnabled: boolean, role?: BlackBet
 interface PlatformContextValue {
   intelligenceRepository: IntelligenceRepository;
   extractPromotion(source: SourceInput): Promise<{ extraction: Extraction; mode: "model" | "demo" }>;
-  loadPromotionEvidence(sku: string, start: string, end: string): Promise<CommercialEvidence>;
+  loadPromotionEvidence(request: CommercialRequest): Promise<CommercialEvidence>;
   addPromotionToCampaign(input: AddPromotionToCampaignInput): Promise<UUID>;
   data?: PlatformSnapshot;
   loading: boolean;
@@ -212,9 +212,9 @@ export function PlatformProvider({ children, adapter = repository, productMaster
       if (!response.ok) throw new Error("Authenticated extraction failed. Source remains here for retry; no opportunity saved.");
       return { extraction: extractionSchema.parse(await response.json()), mode: "model" };
     },
-    loadPromotionEvidence: (sku, start, end) => {
+    loadPromotionEvidence: (request) => {
       if (!configuredSupabase) return Promise.reject(new Error("No authoritative commercial data in demo mode."));
-      return loadCommercialEvidence(configuredSupabase, sku, start, end);
+      return loadCommercialEvidence(configuredSupabase, request);
     },
     addPromotionToCampaign: async (input) => { let id = ""; await mutate(async () => { id = await adapter.addPromotionToCampaign(input); }); return id; },
     authEnabled: Boolean(configuredSupabase),
