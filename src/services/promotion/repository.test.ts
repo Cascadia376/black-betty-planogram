@@ -19,7 +19,7 @@ describe("promotion persistence", () => {
   });
   it("sends expected version and fails stale/denied shared updates without fallbacks", async () => {
     const eq = vi.fn().mockReturnThis();
-    const chain = { update: vi.fn().mockReturnThis(), eq, select: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+    const chain = { update: vi.fn().mockReturnThis(), eq, select: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: { version: 8, workspace: emptyWorkspace() }, error: null }), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
     const repository = new SupabaseIntelligenceRepository({ from: () => chain } as unknown as SupabaseClient);
     await expect(repository.save(emptyWorkspace(), 8)).rejects.toThrow(/changed or access/);
     expect(eq).toHaveBeenCalledWith("version", 8);
