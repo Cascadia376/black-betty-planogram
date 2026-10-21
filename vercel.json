@@ -11,7 +11,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "codex/promotion-intelligence": false
+      "codex/promotion-intelligence": false,
+      "codex/betty-commercial-evidence-20261020": false
     }
   }
 }
