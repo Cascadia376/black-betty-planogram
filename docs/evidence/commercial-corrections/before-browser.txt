@@ -1,0 +1,45 @@
+
+> merchandising-platform@0.1.0 test:e2e
+> playwright test tests/e2e/commercial-corrections.spec.ts --workers=1
+
+
+Running 1 test using 1 worker
+
+(node:61499) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"probe":"loaded-evidence-sku-correction","savedSku":"MOCK-1001","resolution":"MATCHED","receiptCount":1,"error":["Product identity changed. Reload commercial evidence before saving this decision."]}
+  ✘  1 [chromium] › tests/e2e/commercial-corrections.spec.ts:6:1 › buyer can correct a SKU after loading evidence and retain receipts for both reviewed identities (9.2s)
+
+
+  1) [chromium] › tests/e2e/commercial-corrections.spec.ts:6:1 › buyer can correct a SKU after loading evidence and retain receipts for both reviewed identities
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('UNMATCHED', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('UNMATCHED', { exact: true })
+
+
+      26 |   await page.getByRole('button', { name: 'Save review', exact: true }).click();
+      27 |   try {
+    > 28 |     await expect(page.getByText('UNMATCHED', { exact: true })).toBeVisible();
+         |                                                                ^
+      29 |   } finally {
+      30 |     const state = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).workspace.opportunities[0], inboxKey);
+      31 |     console.log(JSON.stringify({ probe: 'loaded-evidence-sku-correction', savedSku: state.supplierSku, resolution: state.intelligence.resolution, receiptCount: state.intelligence.commercialDecisions.length, error: await page.getByRole('alert').allTextContents() }));
+        at /workspace/worktrees/betty/tests/e2e/commercial-corrections.spec.ts:28:64
+
+    Error Context: test-results/commercial-corrections-buy-8acff-or-both-reviewed-identities-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/commercial-corrections.spec.ts:6:1 › buyer can correct a SKU after loading evidence and retain receipts for both reviewed identities
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

@@ -1,0 +1,14 @@
+
+ RUN  v4.1.11 /workspace/worktrees/betty
+
+
+ Test Files  3 passed (3)
+      Tests  57 passed (57)
+   Start at  04:35:03
+   Duration  1.82s (transform 286ms, setup 200ms, import 319ms, tests 799ms, environment 342ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
