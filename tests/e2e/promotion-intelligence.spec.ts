@@ -118,7 +118,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720
     await page.reload();
     await page.getByRole("button", { name: /Coastal Lager/ }).first().click();
     await expect(page.getByText("Retained decision receipts (1)", { exact: true })).toBeVisible();
-    await expect(page.getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)).toBeVisible();
+    await expect(page.locator("details").filter({ has: page.getByText("Retained decision receipts (1)", { exact: true }) }).getByText(/SYNTHETIC \/ qualified · source revision SYNTHETIC-v1/)).toBeVisible();
     const receiptDownloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export retained receipts JSON", exact: true }).click();
     await (await receiptDownloadPromise).saveAs(testInfo.outputPath("synthetic-retained-receipts.json"));
