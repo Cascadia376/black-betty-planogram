@@ -18,11 +18,11 @@ export class DemoIntelligenceRepository implements IntelligenceRepository {
     validateWorkspace(parsed.workspace); return parsed;
   }
   async save(workspace: IntelligenceWorkspace, expectedVersion: number): Promise<WorkspaceRevision> {
+    const snapshot = structuredClone(validateWorkspace(workspace));
     const current = await this.load();
     if (current.version !== expectedVersion) throw new Error("Promotion inbox changed. Reload before retrying; your draft remains visible.");
-    validateWorkspace(workspace);
-    assertCommercialHistoryPreserved(current.workspace, workspace);
-    const next = { version: expectedVersion + 1, workspace };
+    assertCommercialHistoryPreserved(current.workspace, snapshot);
+    const next = { version: expectedVersion + 1, workspace: snapshot };
     this.storage.setItem(KEY, JSON.stringify(next)); return structuredClone(next);
   }
 }
@@ -40,12 +40,12 @@ export class SupabaseIntelligenceRepository implements IntelligenceRepository {
     return this.decode(data);
   }
   async save(workspace: IntelligenceWorkspace, expectedVersion: number): Promise<WorkspaceRevision> {
-    validateWorkspace(workspace);
-    validateSharedReceipts(workspace);
+    const snapshot = structuredClone(validateWorkspace(workspace));
+    validateSharedReceipts(snapshot);
     const current = await this.load();
     if (current.version !== expectedVersion) throw new Error("Promotion inbox changed or access was revoked. Reload before retrying; your draft remains visible.");
-    assertCommercialHistoryPreserved(current.workspace, workspace);
-    const { data, error } = await this.client.from("black_betty_promotion_intelligence").update({ workspace }).eq("singleton", true).eq("version", expectedVersion).select("workspace,version").maybeSingle();
+    assertCommercialHistoryPreserved(current.workspace, snapshot);
+    const { data, error } = await this.client.from("black_betty_promotion_intelligence").update({ workspace: snapshot }).eq("singleton", true).eq("version", expectedVersion).select("workspace,version").maybeSingle();
     if (error) throw new Error("Promotion save failed. No acknowledged changes were overwritten; reload to check before retrying.");
     if (!data) throw new Error("Promotion inbox changed or access was revoked. Reload before retrying; your draft remains visible.");
     return this.decode(data);

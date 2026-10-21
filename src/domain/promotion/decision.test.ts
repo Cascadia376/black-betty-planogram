@@ -77,6 +77,39 @@ describe("commercial decision receipts", () => {
     await expect(shared(workspace, { error: true }).repository.save(workspace, 1)).rejects.toThrow(/No acknowledged/);
     await expect(shared(workspace, { stale: true }).repository.save(workspace, 1)).rejects.toThrow(/changed or access/);
   });
+  it("captures shared save payload before an awaited read so caller mutation cannot bypass authority gates", async () => {
+    const { workspace, item, evidence } = await fixture();
+    const observed = await buildCommercialEvidence({ sku: item.authoritativeSku!, ...evidence.receipt.scope }, evidence.observations);
+    workspace.opportunities[0] = await retainCommercialDecision(item, observed, priorities, "Buyer");
+    const before = structuredClone(workspace), fake = shared(before);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    fake.chain.single.mockImplementation(async () => { await gate; return { data: { workspace: before, version: 1 }, error: null }; });
+    fake.chain.maybeSingle.mockImplementation(async () => ({ data: { workspace: fake.chain.update.mock.calls[0][0].workspace, version: 2 }, error: null }));
+    const pending = fake.repository.save(workspace, 1);
+    workspace.opportunities[0].intelligence.commercialDecisions![0].receipt = evidence.receipt;
+    workspace.opportunities[0].intelligence.commercialDecisions![0].receipt.mode = "observed";
+    release();
+    const saved = await pending;
+    expect(fake.chain.update.mock.calls[0][0].workspace).toEqual(before);
+    expect(saved.workspace.opportunities[0].intelligence.commercialDecisions![0].receipt.qualification).toBe("unverified");
+  });
+  it("captures buyer status and weights while receipt hashing is pending", async () => {
+    const { item, evidence } = await fixture(), weights = { ...priorities };
+    const status = item.status;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    const digest = vi.spyOn(crypto.subtle, "digest").mockImplementation(async (...args) => { await gate; return original(...args); });
+    try {
+      const pending = retainCommercialDecision(item, evidence, weights, "Buyer");
+      item.status = "APPROVED"; weights.volume = 99;
+      release();
+      const saved = await pending;
+      expect(saved.status).toBe(status);
+      expect(saved.intelligence.commercialDecisions!.at(-1)!.priorities.volume).toBe(1);
+    } finally { release(); digest.mockRestore(); }
+  });
   it("rejects malformed or relabelled qualified receipts and bounds durable history", async () => {
     const { workspace, evidence, item } = await fixture();
     const receipt = { ...evidence.receipt, sourceContract: undefined };

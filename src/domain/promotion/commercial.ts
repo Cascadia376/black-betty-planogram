@@ -112,14 +112,15 @@ export async function verifyCommercialEvidence(evidence: CommercialEvidence): Pr
 }
 /** A source-owner supplied contract must bind a complete immutable revision to these exact rows.
  * Matching repeated reads detect ordinary drift; they never confer source authority. */
-export async function buildCommercialEvidence(input: CommercialRequest, values: SalesObservation[], options: {
+export async function buildCommercialEvidence(input: CommercialRequest, values: SalesObservation[], suppliedOptions: {
   qualification?: SourceQualification; mode?: "observed" | "synthetic"; capturedAt?: string;
 } = {}): Promise<CommercialEvidence> {
   const request = canonicalRequest(input), rows = validateObservations(request, values);
+  const options = structuredClone(suppliedOptions);
+  const sourceContract = options.qualification ? sourceQualificationSchema.parse(options.qualification) : undefined;
   const observedSha256 = await observationDigest(request, rows);
   const expectedStoreDays = ((Date.parse(request.end) - Date.parse(request.start)) / 86400000 + 1) * request.storeIds.length;
   const missingStoreDays = expectedStoreDays - rows.length;
-  const sourceContract = options.qualification ? sourceQualificationSchema.parse(options.qualification) : undefined;
   const totals = observationTotals(rows, sourceContract?.moneyScale);
   const gaps: string[] = [];
   if (missingStoreDays) gaps.push(`${missingStoreDays} requested store-days lack observations. Missing rows are not zero sales.`);

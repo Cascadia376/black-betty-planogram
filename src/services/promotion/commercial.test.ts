@@ -61,6 +61,13 @@ describe("commercial source paging and qualification", () => {
     expect(commercialSignals(loaded).values.lift).toBeUndefined();
     await verifyCommercialEvidence(loaded);
   });
+  it("captures the supplied revision contract before paged reads can yield", async () => {
+    const { rows, evidence } = await sourceRows();
+    const qualification = structuredClone(evidence.receipt.sourceContract!);
+    const fake = fakeClient(rows, { transform: (page, call) => { if (call === 1) qualification.sourceRevision = "mutated-after-read-start"; return page; } });
+    const loaded = await loadCommercialEvidence(fake.client, request, qualification);
+    expect(loaded.receipt.sourceContract!.sourceRevision).toBe("SYNTHETIC-v1");
+  });
   it.each(["missing-store", "missing-date"])("retains %s gaps rather than manufacturing zero days", async (kind) => {
     const { rows } = await sourceRows();
     const source = rows.filter((row) => kind === "missing-store" ? row.store_id !== 13 : row.sales_date !== request.end);
@@ -113,6 +120,23 @@ describe("commercial source paging and qualification", () => {
     await expect(buildCommercialEvidence(one, fixture.observations, { qualification: { ...contract, cost: "unit-cost" } as never })).rejects.toThrow();
     const values = [{ ...fixture.observations[0], revenue: 10.001 }];
     await expect(buildCommercialEvidence(one, values, { qualification: { ...contract, observedSha256: await observationDigest(one, values) } })).rejects.toThrow(/precision/);
+  });
+  it("captures qualification and fixture mode before asynchronous source digest work", async () => {
+    const fixture = await syntheticCommercialEvidence(request);
+    const options = { qualification: structuredClone(fixture.receipt.sourceContract!), mode: "synthetic" as const };
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    const digest = vi.spyOn(crypto.subtle, "digest").mockImplementation(async (...args) => { await gate; return original(...args); });
+    try {
+      const pending = buildCommercialEvidence(request, fixture.observations, options);
+      options.qualification.sourceRevision = "changed-after-call";
+      Object.assign(options, { mode: "observed" });
+      release();
+      const built = await pending;
+      expect(built.receipt.mode).toBe("synthetic");
+      expect(built.receipt.sourceContract!.sourceRevision).toBe("SYNTHETIC-v1");
+    } finally { release(); digest.mockRestore(); }
   });
   it("requires receipt hash validation when same-total observations are revised", async () => {
     const fixture = await syntheticCommercialEvidence(request);

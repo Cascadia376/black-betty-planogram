@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildCommercialEvidence, canonicalRequest, observationDigest, type CommercialEvidence, type CommercialRequest, type SalesObservation, type SourceQualification } from "../../domain/promotion/commercial";
+import { buildCommercialEvidence, canonicalRequest, observationDigest, sourceQualificationSchema, type CommercialEvidence, type CommercialRequest, type SalesObservation, type SourceQualification } from "../../domain/promotion/commercial";
 const rowSchema = z.object({ sales_date: z.iso.date(), store_id: z.number().int().positive(), units_sold: z.number().finite(), net_revenue: z.number().finite(), total_cost: z.number().finite() });
 const PAGE_SIZE = 500;
 async function readPages(client: SupabaseClient, request: CommercialRequest, signal: AbortSignal): Promise<SalesObservation[]> {
@@ -32,8 +32,9 @@ async function readPages(client: SupabaseClient, request: CommercialRequest, sig
 export async function loadCommercialEvidence(client: SupabaseClient, input: CommercialRequest, qualification?: SourceQualification): Promise<CommercialEvidence> {
   // Caller uses the user's existing SELECT RLS. An explicit filter never grants store access.
   const request = canonicalRequest(input), signal = AbortSignal.timeout(30000);
+  const sourceContract = qualification ? sourceQualificationSchema.parse(qualification) : undefined;
   const first = await readPages(client, request, signal), second = await readPages(client, request, signal);
   if (await observationDigest(request, first) !== await observationDigest(request, second)) throw new Error("Commercial source changed while loading. Discarded incomplete evidence; reload before reviewing.");
   // Even identical reads are unverified without an independently approved immutable source revision.
-  return buildCommercialEvidence(request, first, { qualification });
+  return buildCommercialEvidence(request, first, { qualification: sourceContract });
 }
