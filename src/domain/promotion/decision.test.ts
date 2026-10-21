@@ -2,8 +2,8 @@ import { workspaceTestLocks } from "../../test/workspaceLocks";
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emptyWorkspace, validateWorkspace } from "./schema";
-import { ingestSource, reviewOpportunity } from "./intake";
-import { retainCommercialDecision } from "./decision";
+import { ingestSource, reconcileOpportunity, reviewOpportunity } from "./intake";
+import { currentCommercialReceipt, retainCommercialDecision } from "./decision";
 import { buildCommercialEvidence, evidenceReceiptSchema } from "./commercial";
 import { DemoIntelligenceRepository, SupabaseIntelligenceRepository } from "../../services/promotion/repository";
 import { DEMO_SOURCE, demoExtract } from "../../services/promotion/demoExtractor";
@@ -22,6 +22,35 @@ function shared(workspace: ReturnType<typeof emptyWorkspace>, options: { error?:
   return { repository: new SupabaseIntelligenceRepository({ from: () => chain } as unknown as SupabaseClient), chain };
 }
 describe("commercial decision receipts", () => {
+  it("retains canonical receipts after the existing exact Product Master lookup normalizes supplier SKU case", async () => {
+    const { item, evidence } = await fixture();
+    const matched = await reconcileOpportunity({ ...item, supplierSku: item.supplierSku!.toLowerCase() }, {
+      findByExactSkus: async (skus) => {
+        expect(skus).toEqual([item.authoritativeSku]);
+        return { products: [{ id: crypto.randomUUID(), sku: item.authoritativeSku!, name: "Synthetic product", category: "Beer", brand: "Synthetic", packageSize: "6 pack", casePack: 4, masterStatus: "verified", active: true, synthetic: true }], ambiguousSkus: [] };
+      },
+    });
+    expect(matched.intelligence.resolution).toBe("MATCHED");
+    const saved = await retainCommercialDecision(matched, evidence, priorities, "Buyer");
+    expect(saved.supplierSku).toBe(item.supplierSku!.toLowerCase());
+    expect(currentCommercialReceipt(saved)?.sku).toBe(item.authoritativeSku);
+  });
+
+  it("rejects a stale authoritative SKU when current product reconciliation is not matched", async () => {
+    const { item, evidence } = await fixture();
+    item.intelligence.resolution = "UNMATCHED";
+    await expect(retainCommercialDecision(item, evidence, priorities, "Buyer")).rejects.toThrow(/identity changed/);
+  });
+
+  it("does not equate leading-zero or numeric supplier identities through Product Master normalization", async () => {
+    const { item } = await fixture();
+    const evidence = await syntheticCommercialEvidence({ sku: "00123", start: "2026-01-01", end: "2026-01-03", storeIds: [1] });
+    for (const supplierSku of ["123", 123]) {
+      const changed = { ...item, authoritativeSku: "00123", supplierSku } as typeof item;
+      await expect(retainCommercialDecision(changed, evidence, priorities, "Buyer")).rejects.toThrow(/identity changed/);
+      expect(currentCommercialReceipt(changed)).toBeUndefined();
+    }
+  });
   it("persists version, exact period/store scope, actor, weights and qualification across reloads", async () => {
     const { workspace } = await fixture(), disk = memory();
     const writer = new DemoIntelligenceRepository(disk, workspaceTestLocks()), reader = new DemoIntelligenceRepository(disk, workspaceTestLocks());

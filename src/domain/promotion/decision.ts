@@ -1,10 +1,19 @@
 import { assertVerifiedCommercialEvidence, commercialDecisionSchema, verifyCommercialEvidence, type CommercialEvidence } from "./commercial";
 import type { IntelligenceOpportunity, IntelligenceWorkspace, RankingPriorities } from "./schema";
+import { normalizeProductSku } from "../../services/products/ProductMasterLookup";
+
+/** Follow the existing Product Master matching contract without rewriting the
+ * supplier's literal SKU or the canonical source/receipt identity. */
+export function hasCurrentCommercialIdentity(item: IntelligenceOpportunity): boolean {
+  const canonical = typeof item.authoritativeSku === "string" ? normalizeProductSku(item.authoritativeSku) : "";
+  return item.intelligence.resolution === "MATCHED" && !!canonical && typeof item.supplierSku === "string"
+    && normalizeProductSku(item.supplierSku) === canonical;
+}
 export async function retainCommercialDecision(item: IntelligenceOpportunity, evidence: CommercialEvidence, priorities: RankingPriorities, actor: string): Promise<IntelligenceOpportunity> {
   const next = structuredClone(item), chosenPriorities = { ...priorities };
   await verifyCommercialEvidence(evidence);
   assertVerifiedCommercialEvidence(evidence);
-  if (next.authoritativeSku !== evidence.receipt.sku || next.supplierSku !== evidence.receipt.sku) throw new Error("Product identity changed. Reload commercial evidence before saving this decision.");
+  if (!hasCurrentCommercialIdentity(next) || next.authoritativeSku !== evidence.receipt.sku) throw new Error("Product identity changed. Reload commercial evidence before saving this decision.");
   if ((next.intelligence.commercialDecisions?.length ?? 0) >= 20) throw new Error("Commercial receipt history is full. Export and review retention before adding more; prior receipts are preserved.");
   const decision = commercialDecisionSchema.parse({ id: crypto.randomUUID(), at: new Date().toISOString(), actor, decision: next.status, receipt: evidence.receipt, priorities: chosenPriorities });
   next.intelligence.commercialDecisions = [...(next.intelligence.commercialDecisions ?? []), decision];
@@ -14,7 +23,7 @@ export async function retainCommercialDecision(item: IntelligenceOpportunity, ev
 /** Historical receipts stay exportable; active comparisons require the current matched identity.
  * This also excludes older deleted-source records that retained a stale master SKU. */
 export function currentCommercialReceipt(item: IntelligenceOpportunity) {
-  if (item.intelligence.resolution !== "MATCHED" || !item.authoritativeSku || item.supplierSku !== item.authoritativeSku) return undefined;
+  if (!hasCurrentCommercialIdentity(item)) return undefined;
   return item.intelligence.commercialDecisions?.filter((decision) => decision.receipt.sku === item.authoritativeSku).at(-1)?.receipt;
 }
 /** Application-level history preservation complements existing buyer RLS and workspace CAS.
