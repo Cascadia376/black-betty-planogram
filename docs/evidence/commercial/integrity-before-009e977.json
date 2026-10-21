@@ -1,0 +1,25 @@
+{
+  "root": "/tmp/betty-before-save-review",
+  "canonicalScope": "Comparable Evidence",
+  "decimalMargin": 0.1,
+  "digestFindings": [
+    {
+      "target": "observations",
+      "accepted": false,
+      "error": "Commercial evidence changed during receipt verification. Reload evidence.",
+      "rankError": "Commercial evidence changed or was imported without receipt verification. Reload evidence."
+    },
+    {
+      "target": "receipt",
+      "accepted": false,
+      "error": "Commercial evidence changed during receipt verification. Reload evidence.",
+      "rankError": "Commercial evidence changed or was imported without receipt verification. Reload evidence."
+    }
+  ],
+  "sharedSave": {
+    "accepted": false,
+    "error": "Shared commercial qualification requires an approved server-owned source boundary. Synthetic or buyer-supplied qualified receipts are not accepted.",
+    "dispatchedQualification": "qualified",
+    "dispatchedContract": true
+  }
+}

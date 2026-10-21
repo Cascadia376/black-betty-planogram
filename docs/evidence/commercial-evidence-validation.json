@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "betty-commercial-validation-v1",
+  "recordedAt": "2026-10-21T00:24:43.952689+00:00",
+  "branch": "codex/betty-commercial-evidence-20261020",
+  "basedOnPullRequest": 13,
+  "baseCommit": "473895b27ce314d17574f3e8f4e35cb926fbbbfc",
+  "implementationCommit": "ac0799dd2647a1d9ae6a59226d67d981af41d2a0",
+  "environment": "saved Ursus Major cloud environment; isolated Betty worktree",
+  "mode": "LOCAL_SYNTHETIC_AND_FAKE_CLIENTS",
+  "liveSourceValidated": false,
+  "deployed": false,
+  "pushedByLane": false,
+  "baseline": {
+    "command": "npm test",
+    "passed": 286,
+    "files": 53,
+    "failed": 0,
+    "artifact": "commercial/baseline-tests.txt"
+  },
+  "checks": [
+    {
+      "command": "npm test",
+      "status": "passed",
+      "passed": 330,
+      "files": 55,
+      "failed": 0,
+      "artifact": "commercial/unit-tests.txt"
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "passed",
+      "artifact": "commercial/typecheck.txt"
+    },
+    {
+      "command": "npm run lint",
+      "status": "passed",
+      "artifact": "commercial/lint.txt"
+    },
+    {
+      "command": "npm run build",
+      "status": "passed",
+      "artifact": "commercial/build.txt"
+    },
+    {
+      "command": "E2E_BASE_URL=http://127.0.0.1:5200 E2E_EXTERNAL_SERVER=1 E2E_LOCAL_TRANSPORT=0 E2E_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e -- --workers=2",
+      "status": "passed",
+      "passed": 67,
+      "failed": 0,
+      "skipped": 1,
+      "skipReason": "Existing secured-staging opt-in test requires explicitly supplied authorized staging sessions.",
+      "includesPromotionScenarios": 5,
+      "commercialViewports": [
+        [
+          1440,
+          900
+        ],
+        [
+          1280,
+          720
+        ]
+      ],
+      "artifact": "commercial/full-browser.txt"
+    },
+    {
+      "command": "node scripts/commercial-evidence-demo.mjs",
+      "status": "passed",
+      "checks": 7,
+      "storeDayRows": 1170,
+      "liveIO": false,
+      "artifact": "commercial/rehearsal.json"
+    },
+    {
+      "command": "node scripts/commercial-integrity-probe.mjs /workspace/worktrees/betty --assert-safe",
+      "status": "passed",
+      "artifact": "commercial/packaged-integrity-probe.json"
+    }
+  ],
+  "independentReview": {
+    "reviewer": "parallel Parksville implementation agent",
+    "reviewedCommit": "ac0799dd2647a1d9ae6a59226d67d981af41d2a0",
+    "verdict": "No remaining blocking findings",
+    "focusedTestsPassed": 64,
+    "focusedFiles": 4,
+    "probe": "commercial/integrity-after-ac0799d.json",
+    "findingsClosed": [
+      "Imported scope key ordering",
+      "Exact decimal margin arithmetic",
+      "Observation/receipt mutation during digest verification",
+      "Shared-save payload mutation across awaited current-state read"
+    ],
+    "beforeSharedSaveProbe": {
+      "commit": "009e977040adebc68a781b1fe55ed9dcafe4bf8c",
+      "artifact": "commercial/integrity-before-009e977.json",
+      "observed": "Fake update received qualified contract before later decode rejected it"
+    },
+    "afterSharedSaveProbe": {
+      "commit": "ac0799dd2647a1d9ae6a59226d67d981af41d2a0",
+      "observed": "Fake update received only captured unverified receipt without contract"
+    }
+  },
+  "sourceContractLimits": [
+    "No approved real immutable source/coverage/accounting contract was provided.",
+    "Repeated matching page scans do not prove coherent snapshot or exclude ABA changes.",
+    "Source import boundary is not authentication or a signing scheme.",
+    "Shared repository rejects synthetic, qualified or contract-bearing receipts on reads and writes.",
+    "Application receipt history preservation is not database append-only enforcement.",
+    "Promotional lift remains unavailable."
+  ],
+  "livePrerequisites": [
+    "Source owner accepts accounting/returns/deposits/tax/cost-unit definitions, complete store-day coverage and mapping with independent POS controls.",
+    "Approved server-owned authenticated immutable revision transport.",
+    "Authorized shared staging target and two active buyer sessions; existing PR13 migration approval remains separate.",
+    "Qualified promotion classifications and matched baseline before lift."
+  ],
+  "sourceHashes": {
+    "scripts/commercial-evidence-demo.mjs": "f19c2d1cf1ba0b2fa59e7db974e23c5a0f11cfb97856870bbd5202847289d5f2",
+    "scripts/commercial-integrity-probe.mjs": "6313a30ed2bbeefec5c456e8327f9597ea63f78f0dd718c089909f9feef85102",
+    "src/domain/promotion/commercial.ts": "da799fdacd7724626d6d36d24da56a4f0b3a7996be0211d55913153b17c82708",
+    "src/domain/promotion/decision.test.ts": "54b28cc7449ae1e01ae4ed2f9637042b1ddac74ae53b63aca454f366f8a8813b",
+    "src/domain/promotion/decision.ts": "14616215e7da68ca61de253f5444f10ca41e440f5f1f6a0c1b1edb2686628985",
+    "src/domain/promotion/intelligence.test.ts": "bbb4a01c22002d86a8c88e9d231c3e14ea0bf5df8652c47cb1fc7365e0573cbe",
+    "src/domain/promotion/ranking.ts": "b55b38bed03690dfe4e72abf1eec41de6a6c3cda501edb23f79e6a1b0903accd",
+    "src/domain/promotion/schema.ts": "4d1d6e34abb72dfa9ac3f18767a53555d81de224843643f8f639af2b5a44230a",
+    "src/features/promotion/CommercialEvidencePanel.tsx": "a37ce33dd88f76ac97e574939978d0c965cdc367d35e3c54637be5d5dfbae99b",
+    "src/features/promotion/OpportunityReview.tsx": "2f5f39b311ad96a1cfa24c7695e1bfc54b3791ec8e0c99d68e936456062284b7",
+    "src/features/promotion/PromotionIntelligencePage.tsx": "dcbe3081d012e5c672c997ad6933c4a818ae79569d24c9346d6f7e4f12cd12b3",
+    "src/services/PlatformProvider.tsx": "dcbdf4ae449c3105a56a28174b89cd948c23a6854d59d25b3a58c521941b73fd",
+    "src/services/promotion/commercial.test.ts": "6ccf2debb1b2c716aa222fabc0dac15d4aa657277eca81dc64efdd1768c13098",
+    "src/services/promotion/commercial.ts": "22a173d55f7fdf895b713c8b0f3edb82f001f3488593a7aa0b342ce7f0ca5a41",
+    "src/services/promotion/commercialFixture.ts": "de559fa5c1ccb39c73fa9b35b2d7786c2bff929a555f8592d34cd79c6e90a57c",
+    "src/services/promotion/repository.test.ts": "82ceb2ce8e1bff7972f2c9a8eeee00c613855fc133fe4dd57fac0f3ca16cd48f",
+    "src/services/promotion/repository.ts": "c5df8cf41719f61242673996e20f3a219095511a30f805ea5d52e0d73127ae6f",
+    "tests/e2e/promotion-intelligence.spec.ts": "1c42757fd764c625462076ee28c27adc554e272255aa05650390a2a07ff0d208"
+  },
+  "artifactHashes": {
+    "commercial/baseline-tests.txt": "90c26930d6fd5d828ed1d894d5e5d146e73e52ca7f230ea81afa32c202316fe7",
+    "commercial/build.txt": "bebe1d6906521bb5c62f023b801886ff370e4a3b07bc2c0f355a342f639ae9f0",
+    "commercial/commercial-evidence-1280.png": "7c88c6899b191c71c6e9b3a5382b65aa40b31f91e3cbd718971522599b09a61e",
+    "commercial/commercial-evidence-1440.png": "5ed387bb450784562030b2b5bee8317f1ab18aed48180b72152fa1fd67628484",
+    "commercial/full-browser.txt": "ceb5db2308d34430676de8a238dd8f9334b8e0c68a92639121b30e0a22109504",
+    "commercial/integrity-after-ac0799d.json": "199adcc7a47eb8d33b84ce85c7524e196fc17eb404435e25d6fb59532ff98de6",
+    "commercial/integrity-before-009e977.json": "e69a6e2b2eb7aabe8401071e08c279906327e392a9476d71382ea37d7941846a",
+    "commercial/lint.txt": "ac8f1627fb7fa08b800e140f951936c1d71d1adbeffd91843947cb2d7ba72958",
+    "commercial/packaged-integrity-probe.json": "199adcc7a47eb8d33b84ce85c7524e196fc17eb404435e25d6fb59532ff98de6",
+    "commercial/rehearsal.json": "6c0add2a11eebf95f4f5bc178d6939a4d13e3babcc459593a2d2ea623f27e11c",
+    "commercial/typecheck.txt": "3a09730edb3bb8adc80ba05eb8dc49bf01bebdb00988e9860d71594cac324edd",
+    "commercial/unit-tests.txt": "7a1fe2a2d232a81bae324eca9704680b72fc99d1cbab9ef93fae8841c15bea9e"
+  }
+}
