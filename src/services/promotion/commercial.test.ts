@@ -127,6 +127,21 @@ describe("commercial source paging and qualification", () => {
     await verifyCommercialEvidence(imported);
     expect(rankEvidence(imported, { volume: 1, margin: 0, lift: 0 }).score).toBeDefined();
   });
+  it.each(["observations", "receipt"])("rejects %s mutations while the asynchronous digest is pending", async (target) => {
+    const imported = structuredClone(await syntheticCommercialEvidence(request));
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const original = crypto.subtle.digest.bind(crypto.subtle);
+    const digest = vi.spyOn(crypto.subtle, "digest").mockImplementation(async (...args) => { await gate; return original(...args); });
+    try {
+      const pending = verifyCommercialEvidence(imported);
+      if (target === "observations") [imported.observations[0].revenue, imported.observations[30].revenue] = [imported.observations[30].revenue, imported.observations[0].revenue];
+      else imported.receipt.mode = "observed";
+      release();
+      await expect(pending).rejects.toThrow(/changed during receipt verification/);
+      expect(() => rankEvidence(imported, { volume: 1, margin: 0, lift: 0 })).toThrow(/changed or was imported/);
+    } finally { release(); digest.mockRestore(); }
+  });
 });
 describe("comparable commercial batches", () => {
   const priorities = { volume: 1, margin: 0, lift: 0 };

@@ -103,10 +103,12 @@ export function commercialMargin(totals: CommercialEvidenceReceipt["totals"], mo
   return exactTotal([totals.revenue, -totals.cost], moneyScale);
 }
 export async function verifyCommercialEvidence(evidence: CommercialEvidence): Promise<void> {
+  const checkedPayload = evidencePayload(evidence);
   const receipt = evidenceReceiptSchema.parse(evidence.receipt);
   const request = { sku: receipt.sku, ...receipt.scope };
   if (evidence.start !== receipt.scope.start || evidence.end !== receipt.scope.end || evidence.observations.length !== receipt.rowCount || JSON.stringify(observationTotals(evidence.observations, receipt.sourceContract?.moneyScale)) !== JSON.stringify(receipt.totals) || await observationDigest(request, evidence.observations) !== receipt.observedSha256) throw new Error("Commercial observations no longer match their receipt. Reload evidence.");
-  verifiedPayloads.set(evidence, evidencePayload(evidence));
+  if (evidencePayload(evidence) !== checkedPayload) throw new Error("Commercial evidence changed during receipt verification. Reload evidence.");
+  verifiedPayloads.set(evidence, checkedPayload);
 }
 /** A source-owner supplied contract must bind a complete immutable revision to these exact rows.
  * Matching repeated reads detect ordinary drift; they never confer source authority. */

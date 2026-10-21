@@ -1,7 +1,8 @@
-import { commercialDecisionSchema, verifyCommercialEvidence, type CommercialEvidence } from "./commercial";
+import { assertVerifiedCommercialEvidence, commercialDecisionSchema, verifyCommercialEvidence, type CommercialEvidence } from "./commercial";
 import type { IntelligenceOpportunity, IntelligenceWorkspace, RankingPriorities } from "./schema";
 export async function retainCommercialDecision(item: IntelligenceOpportunity, evidence: CommercialEvidence, priorities: RankingPriorities, actor: string): Promise<IntelligenceOpportunity> {
   await verifyCommercialEvidence(evidence);
+  assertVerifiedCommercialEvidence(evidence);
   if (item.authoritativeSku !== evidence.receipt.sku || item.supplierSku !== evidence.receipt.sku) throw new Error("Product identity changed. Reload commercial evidence before saving this decision.");
   if ((item.intelligence.commercialDecisions?.length ?? 0) >= 20) throw new Error("Commercial receipt history is full. Export and review retention before adding more; prior receipts are preserved.");
   const next = structuredClone(item);
