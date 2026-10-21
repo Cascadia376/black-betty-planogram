@@ -1,0 +1,24 @@
+{
+  "root": "/workspace/worktrees/betty",
+  "canonicalScope": "Comparable Evidence",
+  "decimalMargin": 0.1,
+  "digestFindings": [
+    {
+      "target": "observations",
+      "accepted": false,
+      "error": "Commercial evidence changed during receipt verification. Reload evidence.",
+      "rankError": "Commercial evidence changed or was imported without receipt verification. Reload evidence."
+    },
+    {
+      "target": "receipt",
+      "accepted": false,
+      "error": "Commercial evidence changed during receipt verification. Reload evidence.",
+      "rankError": "Commercial evidence changed or was imported without receipt verification. Reload evidence."
+    }
+  ],
+  "sharedSave": {
+    "accepted": true,
+    "dispatchedQualification": "unverified",
+    "dispatchedContract": false
+  }
+}

@@ -1,0 +1,124 @@
+
+> merchandising-platform@0.1.0 test
+> vitest run src/services/promotion/recovery.pass2.test.ts
+
+
+ RUN  v4.1.11 /workspace/worktrees/betty
+
+stdout | src/services/promotion/recovery.pass2.test.ts > second-pass commercial recovery counterexamples > acknowledges only one concurrent browser writer at the same version
+{"probe":"concurrent-demo-save","results":["fulfilled","fulfilled"],"persisted":{"version":1,"workspace":{"sources":[],"opportunities":[],"priorities":{"volume":0,"margin":1,"lift":0}}}}
+
+stdout | src/services/promotion/recovery.pass2.test.ts > second-pass commercial recovery counterexamples > withdraws deleted-source product identity from active comparison while preserving decision receipts
+{"probe":"source-deletion","resolution":"MATCHED","sku":"MOCK-1001","comparison":"Comparable Evidence"}
+
+ ❯ src/services/promotion/recovery.pass2.test.ts (4 tests | 4 failed) 46ms
+     × acknowledges only one concurrent browser writer at the same version 11ms
+     × does not acknowledge a unchanged-version shared save receipt 6ms
+     × does not acknowledge a different-workspace shared save receipt 3ms
+     × withdraws deleted-source product identity from active comparison while preserving decision receipts 24ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/services/promotion/recovery.pass2.test.ts > second-pass commercial recovery counterexamples > acknowledges only one concurrent browser writer at the same version
+AssertionError: expected [ { status: 'fulfilled', …(1) }, …(1) ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ src/services/promotion/recovery.pass2.test.ts:23:69
+     21|     const results = await Promise.allSettled([a.save(first, 0), b.save…
+     22|     console.log(JSON.stringify({ probe: "concurrent-demo-save", result…
+     23|     expect(results.filter(result => result.status === "fulfilled")).to…
+       |                                                                     ^
+     24|     expect(results.filter(result => result.status === "rejected")).toH…
+     25|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/services/promotion/recovery.pass2.test.ts > second-pass commercial recovery counterexamples > does not acknowledge a unchanged-version shared save receipt
+AssertionError: promise resolved "{ version: +0, workspace: { …(3) } }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "version": 0,
++   "workspace": {
++     "opportunities": [],
++     "priorities": {
++       "lift": 0,
++       "margin": 0,
++       "volume": 1,
++     },
++     "sources": [],
++   },
+  }
+
+ ❯ src/services/promotion/recovery.pass2.test.ts:34:42
+     32|       maybeSingle: vi.fn().mockResolvedValue({ data: { workspace: retu…
+     33|     const repository = new SupabaseIntelligenceRepository({ from: () =…
+     34|     await expect(repository.save(next, 0)).rejects.toThrow(/acknowledg…
+       |                                          ^
+     35|   });
+     36|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/services/promotion/recovery.pass2.test.ts > second-pass commercial recovery counterexamples > does not acknowledge a different-workspace shared save receipt
+AssertionError: promise resolved "{ version: 1, workspace: { …(3) } }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "version": 1,
++   "workspace": {
++     "opportunities": [],
++     "priorities": {
++       "lift": 0,
++       "margin": 0,
++       "volume": 0,
++     },
++     "sources": [],
++   },
+  }
+
+ ❯ src/services/promotion/recovery.pass2.test.ts:34:42
+     32|       maybeSingle: vi.fn().mockResolvedValue({ data: { workspace: retu…
+     33|     const repository = new SupabaseIntelligenceRepository({ from: () =…
+     34|     await expect(repository.save(next, 0)).rejects.toThrow(/acknowledg…
+       |                                          ^
+     35|   });
+     36|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/services/promotion/recovery.pass2.test.ts > second-pass commercial recovery counterexamples > withdraws deleted-source product identity from active comparison while preserving decision receipts
+AssertionError: expected 'Comparable Evidence' to be 'Insufficient Evidence' // Object.is equality
+
+Expected: "Insufficient Evidence"
+Received: "Comparable Evidence"
+
+ ❯ src/services/promotion/recovery.pass2.test.ts:49:30
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  00:40:06
+   Duration  748ms (transform 102ms, setup 124ms, import 142ms, tests 46ms, environment 253ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

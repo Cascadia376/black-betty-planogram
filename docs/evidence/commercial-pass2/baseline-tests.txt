@@ -1,0 +1,18 @@
+
+> merchandising-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /workspace/worktrees/betty
+
+
+ Test Files  55 passed (55)
+      Tests  330 passed (330)
+   Start at  00:37:51
+   Duration  12.38s (transform 2.18s, setup 222ms, import 2.68s, tests 8.88s, environment 278ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

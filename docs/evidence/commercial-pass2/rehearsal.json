@@ -1,0 +1,123 @@
+{
+  "contractVersion": "betty-commercial-rehearsal-v1",
+  "mode": "SYNTHETIC",
+  "liveIO": false,
+  "checksPassed": 7,
+  "complete": {
+    "contractVersion": "commercial-evidence-receipt-v1",
+    "id": "64ed049a-2525-47b5-8656-784c7f31a8f7",
+    "sku": "0000123",
+    "sourceId": "public.productdailysales",
+    "observedSha256": "16cdd2155ffa936f731743ebddea7cc60379018f5a304471dcdc6dc0967d0a60",
+    "capturedAt": "2026-10-21T00:45:05.300Z",
+    "mode": "synthetic",
+    "scope": {
+      "start": "2026-01-01",
+      "end": "2026-03-31",
+      "storeIds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "qualification": "qualified",
+    "sourceContract": {
+      "contractVersion": "ursus-commercial-source-v1",
+      "contractId": "SYNTHETIC-commercial-fixture",
+      "version": "1",
+      "sourceId": "public.productdailysales",
+      "sourceRevision": "SYNTHETIC-v1",
+      "approvedBy": "SYNTHETIC source-owner fixture",
+      "approvedAt": "2026-10-21T00:45:05.300Z",
+      "sourceAsOf": "2026-10-21T00:45:05.300Z",
+      "request": {
+        "sku": "0000123",
+        "start": "2026-01-01",
+        "end": "2026-03-31",
+        "storeIds": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ]
+      },
+      "observedSha256": "16cdd2155ffa936f731743ebddea7cc60379018f5a304471dcdc6dc0967d0a60",
+      "currency": "CAD",
+      "moneyScale": 2,
+      "units": "sellable-units",
+      "revenue": "net-merchandise-excluding-tax",
+      "cost": "signed-total-COGS",
+      "returns": "signed-net-including-returns",
+      "coverage": "all-store-days-including-explicit-zero",
+      "storeMappingVersion": "SYNTHETIC-canonical-store-map-v1",
+      "reconciliation": {
+        "reference": "SYNTHETIC independent control",
+        "version": "1",
+        "totals": {
+          "units": 3198,
+          "revenue": 31980,
+          "cost": 19188
+        }
+      }
+    },
+    "rowCount": 1170,
+    "expectedStoreDays": 1170,
+    "missingStoreDays": 0,
+    "totals": {
+      "units": 3198,
+      "revenue": 31980,
+      "cost": 19188
+    },
+    "gaps": [
+      "No qualified promotion classification and matched baseline; promotional lift unavailable."
+    ]
+  },
+  "unverified": "unverified",
+  "missingStoreDays": 90,
+  "comparable": {
+    "state": "Comparable Evidence",
+    "reason": "Identical source revision, period, stores and accounting contract; descriptive buyer utility only.",
+    "items": [
+      {
+        "id": "A",
+        "score": 7995
+      },
+      {
+        "id": "B",
+        "score": 7995
+      }
+    ]
+  },
+  "incomparable": {
+    "state": "Insufficient Evidence",
+    "reason": "Every opportunity needs qualified evidence for the identical period, stores, source revision and accounting contract.",
+    "items": [
+      {
+        "id": "A"
+      },
+      {
+        "id": "B"
+      }
+    ]
+  },
+  "promotionalLift": "unavailable"
+}

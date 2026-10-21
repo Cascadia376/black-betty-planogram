@@ -67,3 +67,7 @@ node scripts/commercial-integrity-probe.mjs "$PWD" --assert-safe
 4. Define reviewed promotion identities/classifications, matched equal-duration baselines and stockout/return treatment before enabling promotional lift. The old unmatched arithmetic is removed.
 
 All changes remain local/review-only until parent publication controls are complete. No merge, deployment, GitHub Actions, model request or live business write was performed.
+
+## Second-pass follow-up
+
+The bounded independent follow-up is recorded separately in [COMMERCIAL_EVIDENCE_PASS2.md](COMMERCIAL_EVIDENCE_PASS2.md). Original first-pass results and artifacts above remain unchanged.
