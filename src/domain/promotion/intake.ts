@@ -85,6 +85,8 @@ export function deleteSource(workspace: IntelligenceWorkspace, sourceId: string,
   for (const o of next.opportunities.filter((o) => o.intelligence.claims.some((c) => c.sourceId === sourceId))) {
     o.intelligence.claims = o.intelligence.claims.filter((c) => c.sourceId !== sourceId);
     o.intelligence.corrections = undefined; o.intelligence.productEvidence = undefined;
+    // Historical commercial decisions remain, but deleted source identity cannot qualify a current comparison.
+    o.productId = undefined; o.authoritativeSku = undefined; o.authoritativeCategory = undefined; o.intelligence.resolution = "UNMATCHED";
     o.productName = "Source deleted"; o.supplier = ""; o.supplierSku = undefined; o.jeremyComment = undefined;
     o.intelligence.history = [{ at: source.deletedAt, actor, action: "Source and derived correspondence redacted; campaign references retained" }];
     o.intelligence.missing = ["Source deleted; evidence unavailable"];

@@ -11,6 +11,12 @@ export async function retainCommercialDecision(item: IntelligenceOpportunity, ev
   next.intelligence.history.push({ at: decision.at, actor, action: `Commercial receipt ${decision.receipt.id} retained for ${decision.decision}; ${decision.receipt.mode}/${decision.receipt.qualification}` });
   return next;
 }
+/** Historical receipts stay exportable; active comparisons require the current matched identity.
+ * This also excludes older deleted-source records that retained a stale master SKU. */
+export function currentCommercialReceipt(item: IntelligenceOpportunity) {
+  if (item.intelligence.resolution !== "MATCHED" || !item.authoritativeSku || item.supplierSku !== item.authoritativeSku) return undefined;
+  return item.intelligence.commercialDecisions?.filter((decision) => decision.receipt.sku === item.authoritativeSku).at(-1)?.receipt;
+}
 /** Application-level history preservation complements existing buyer RLS and workspace CAS.
  * It is not a database append-only/tamper-proof guarantee. */
 export function assertCommercialHistoryPreserved(current: IntelligenceWorkspace, next: IntelligenceWorkspace) {

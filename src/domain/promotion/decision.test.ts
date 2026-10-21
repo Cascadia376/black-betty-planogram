@@ -1,3 +1,4 @@
+import { workspaceTestLocks } from "../../test/workspaceLocks";
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emptyWorkspace, validateWorkspace } from "./schema";
@@ -23,7 +24,7 @@ function shared(workspace: ReturnType<typeof emptyWorkspace>, options: { error?:
 describe("commercial decision receipts", () => {
   it("persists version, exact period/store scope, actor, weights and qualification across reloads", async () => {
     const { workspace } = await fixture(), disk = memory();
-    const writer = new DemoIntelligenceRepository(disk), reader = new DemoIntelligenceRepository(disk);
+    const writer = new DemoIntelligenceRepository(disk, workspaceTestLocks()), reader = new DemoIntelligenceRepository(disk, workspaceTestLocks());
     await writer.save(workspace, 0);
     const restored = await reader.load();
     expect(restored.workspace.opportunities[0].intelligence.commercialDecisions).toEqual(workspace.opportunities[0].intelligence.commercialDecisions);
@@ -33,7 +34,7 @@ describe("commercial decision receipts", () => {
     expect(decision.actor).toBe("Buyer"); expect(decision.priorities).toEqual(priorities);
   });
   it("retains source revision changes as separate historical decisions without rewriting old receipts", async () => {
-    const { workspace, evidence } = await fixture(), disk = memory(), repository = new DemoIntelligenceRepository(disk);
+    const { workspace, evidence } = await fixture(), disk = memory(), repository = new DemoIntelligenceRepository(disk, workspaceTestLocks());
     await repository.save(workspace, 0);
     const nextEvidence = structuredClone(evidence); nextEvidence.receipt.id = crypto.randomUUID(); nextEvidence.receipt.sourceContract!.sourceRevision = "SYNTHETIC-v2";
     const next = structuredClone(workspace); next.opportunities[0] = await retainCommercialDecision(next.opportunities[0], nextEvidence, priorities, "Buyer 2");
@@ -45,7 +46,7 @@ describe("commercial decision receipts", () => {
     await expect(repository.save(emptyWorkspace(), 2)).rejects.toThrow(/cannot be rewritten/);
   });
   it("keeps a failed save unacknowledged and rejects stale recovery", async () => {
-    const { workspace } = await fixture(), disk = memory(), repository = new DemoIntelligenceRepository(disk);
+    const { workspace } = await fixture(), disk = memory(), repository = new DemoIntelligenceRepository(disk, workspaceTestLocks());
     vi.spyOn(disk, "setItem").mockImplementationOnce(() => { throw new Error("quota"); });
     await expect(repository.save(workspace, 0)).rejects.toThrow("quota");
     expect((await repository.load()).version).toBe(0);
