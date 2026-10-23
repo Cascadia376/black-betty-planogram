@@ -1,0 +1,13 @@
+# Reversible draft campaign archive
+
+The existing Black Betty application could not represent an archived campaign. This prevented the approved removal of an unreleased test campaign from current Ursus purchasing sources without deleting its imports or bypassing source review.
+
+The campaign overview now offers Archive draft for buyer/admin users with an unreleased draft, and Restore to draft for archived campaigns. Confirmation identifies the exact UUID, so identically named campaigns remain distinguishable. Archived campaigns remain available through Show archived campaigns and their existing direct links. Publication stays blocked until restoration. Published/released campaigns cannot use this draft-only operation.
+
+The operation uses the existing authenticated Supabase client, RLS, singleton/version comparison, mutation queue and committed-checkpoint recovery. It saves only the chosen status in a clone of the original stored planning document, preserving imports, allocations, products (including unreferenced historical products), extension fields, other campaigns and history. No migration, grants, credentials or physical-layout write is required. An uncertain response requires a fresh read before another attempt.
+
+Validation: TypeScript and ESLint; 262 Vitest tests; existing Playwright suite 62 passed with one secured staging test skipped; a new isolated archive/restore browser scenario covering confirmation, reload, list visibility and exact persisted-data restoration. Shared-adapter regressions cover two-reader version conflicts, failed saves, committed writes whose response was lost and preservation of historical/extension fields. Browser tests use local synthetic data with no production credentials.
+
+Companion Ursus change removes archived campaigns from current purchasing selectors and rejects new direct reviews while preserving stored order/batch history and the original single-import safeguard. Its purchasing suite passed 1,313 tests (7 skipped; database integration files excluded); focused guard/history tests passed 96.
+
+Authorized production data action is separate from deployment: archive only OND TEST 689c0bca-536b-4aeb-b945-ee11d354740d, not the other identically named campaign. Before action, recheck planning version 26, target draft status, original two imports and absence of linked purchasing orders/batches. Expected mutation: only that campaign's status changes to archived, with normal version/audit metadata advancement. Preserve all other planning data. Use the existing authenticated browser at /campaigns/689c0bca-536b-4aeb-b945-ee11d354740d and confirm the displayed UUID once. Read back authoritative state before any retry after an uncertain result.

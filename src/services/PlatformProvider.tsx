@@ -56,6 +56,7 @@ interface PlatformContextValue {
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   updateCampaign(input: UpdateCampaignInput): Promise<Campaign>;
+  setCampaignArchived(campaignId: UUID, archived: boolean): Promise<Campaign>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;
@@ -222,6 +223,15 @@ export function PlatformProvider({ children, adapter = repository, productMaster
     },
     createCampaign: async (input) => { let id = ""; await mutate(async () => { id = await adapter.createCampaign(input); }); return id; },
     updateCampaign: async (input) => { let campaign: Campaign | undefined; await mutate(async () => { campaign = await adapter.updateCampaign(input); }); if (!campaign) throw new Error("Campaign update did not return a campaign."); return campaign; },
+    setCampaignArchived: async (campaignId, archived) => {
+      if (configuredSupabase ? !blackBettyRole : !["admin", "merchandising"].includes(role)) {
+        throw new Error("Only an authorized Black Betty buyer or admin can archive or restore campaigns.");
+      }
+      let campaign: Campaign | undefined;
+      await mutate(async () => { campaign = await adapter.setCampaignArchived(campaignId, archived); });
+      if (!campaign) throw new Error("Campaign archive did not return a campaign.");
+      return campaign;
+    },
     addCampaignProducts: async (input) => { let products: CampaignProduct[] | undefined; await mutate(async () => { products = await adapter.addCampaignProducts(input); }); return products ?? []; },
     applyCampaignProductImport: async (input) => { let products: CampaignProduct[] | undefined; await mutate(async () => { products = await adapter.applyCampaignProductImport(input); }); return products ?? []; },
     applyCampaignWorkbookImport: async (input) => { let result: ApplyCampaignWorkbookImportResult | undefined; await mutate(async () => { result = await adapter.applyCampaignWorkbookImport(input); }); if (!result) throw new Error("Campaign workbook import did not return a result."); return result; },

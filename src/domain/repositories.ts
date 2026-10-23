@@ -326,6 +326,7 @@ export interface MerchandisingRepository extends PhysicalLayoutRepository {
   createPendingProduct(input: CreatePendingProductInput): Promise<Product>;
   createCampaign(input: NewCampaignInput): Promise<UUID>;
   updateCampaign(input: UpdateCampaignInput): Promise<Campaign>;
+  setCampaignArchived(campaignId: UUID, archived: boolean): Promise<Campaign>;
   addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]>;
   applyCampaignProductImport(input: ApplyCampaignProductImportInput): Promise<CampaignProduct[]>;
   applyCampaignWorkbookImport(input: ApplyCampaignWorkbookImportInput): Promise<ApplyCampaignWorkbookImportResult>;

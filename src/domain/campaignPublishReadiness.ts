@@ -20,6 +20,7 @@ export function evaluateCampaignPublishReadiness(campaign: Campaign | undefined,
   const issues: PublishReadinessIssue[] = [];
   const add = (severity: PublishReadinessIssue["severity"], section: PublishReadinessSection, code: string, message: string, extra: Partial<PublishReadinessIssue> = {}) => issues.push({ severity, section, code, message, ...extra });
   if (!campaign || !data) return { state: "BLOCKED", issues: [{ severity: "BLOCKING", section: "CAMPAIGN", code: "CAMPAIGN_MISSING", message: "Campaign data is unavailable." }] };
+  if (campaign.status === "archived") return { state: "BLOCKED", issues: [{ severity: "BLOCKING", section: "CAMPAIGN", code: "CAMPAIGN_ARCHIVED", message: "Restore this archived campaign before publishing." }] };
   for (const message of validateCampaignDetails(campaign)) add("BLOCKING", "CAMPAIGN", "CAMPAIGN_METADATA", message);
   if (!campaign.supplier.trim()) add("WARNING", "CAMPAIGN", "SUPPLIER_MISSING", "Supplier / partner is not specified.");
   const scopes = data.campaignStores.filter((item) => item.campaignId === campaign.id && item.included);

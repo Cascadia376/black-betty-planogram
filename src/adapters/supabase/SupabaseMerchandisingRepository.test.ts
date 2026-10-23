@@ -34,6 +34,12 @@ class FakeSharedStore {
     updated_by: undefined as string | undefined,
   };
 
+  constructor(extraPlanning: Partial<SharedPlanningSnapshot> & Record<string, unknown> = {}) {
+    this.planningRow.planning = { ...this.planningRow.planning, ...structuredClone(extraPlanning) };
+  }
+
+  planningSnapshot(): SharedPlanningSnapshot { return structuredClone(this.planningRow.planning); }
+
   physicalSnapshot(): PhysicalReferenceSnapshot {
     return structuredClone(this.physicalRow.physical);
   }
@@ -226,4 +232,55 @@ describe("Supabase merchandising repository", () => {
     expect(await repository.getCommittedSnapshot!()).toEqual(before);
   });
 
+});
+
+describe("shared draft campaign archive", () => {
+  it("persists only status, restores losslessly and rejects stale archive/restore writes", async () => {
+    const shared = new FakeSharedStore();
+    const a = createSupabaseMerchandisingRepository(shared.client());
+    const b = createSupabaseMerchandisingRepository(shared.client());
+    const id = await a.createCampaign({ name: "Synthetic archive draft", type: "OND", description: "Isolated fixture", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Fixture", supplier: "", products: [] });
+    const before = await a.load(); await b.load();
+    await a.setCampaignArchived(id, true);
+    const expected = structuredClone(before); expected.campaigns.find(c => c.id === id)!.status = "archived";
+    expect(await a.getCommittedSnapshot!()).toEqual(expected);
+    await expect(b.setCampaignArchived(id,true)).rejects.toBeInstanceOf(SharedPlanningConflictError);
+    expect(await b.getCommittedSnapshot!()).toEqual(before);
+    expect(await b.load()).toEqual(expected);
+    await a.setCampaignArchived(id,false);
+    await expect(b.setCampaignArchived(id,false)).rejects.toBeInstanceOf(SharedPlanningConflictError);
+    expect(await b.load()).toEqual(before);
+    expect(shared.physicalUpdates).toBe(0);
+    expect(shared.planningUpdates).toBe(3);
+  });
+
+  it("keeps the local checkpoint after a failed request and discovers a committed archive on reload", async () => {
+    const shared = new FakeSharedStore();
+    const a = createSupabaseMerchandisingRepository(shared.client());
+    const id = await a.createCampaign({ name: "Synthetic lost response", type: "OND", description: "Fixture", startDate: "2026-10-01", endDate: "2026-12-31", owner: "Fixture", supplier: "", products: [] });
+    const before = await a.load();
+    shared.beforeWrite = async () => { shared.failReads = true; };
+    await expect(a.setCampaignArchived(id,true)).rejects.toThrow("Network unavailable");
+    expect(await a.getCommittedSnapshot!()).toEqual(before);
+    shared.failReads = false; shared.beforeWrite = undefined;
+    expect((await a.load()).campaigns.find(c => c.id === id)?.status).toBe("archived");
+    expect(shared.planningUpdates).toBe(2);
+  });
+});
+
+
+it("archives only status in the stored document, preserving orphan products and extension/history fields", async () => {
+  const initial = sharedPlanningFromSnapshot(seedSnapshot);
+  initial.campaigns.find(c=>c.id===IDS.octoberCampaign)!.status="draft";
+  initial.campaignReleases=initial.campaignReleases.filter(r=>r.campaignId!==IDS.octoberCampaign);
+  initial.campaignProducts.push({...seedSnapshot.products[0],id:"synthetic-historical-orphan"});
+  const shared = new FakeSharedStore({...initial,legacyArchiveEvidence:{preserve:"historical fixture"}});
+  const before = shared.planningSnapshot();
+  const repository = createSupabaseMerchandisingRepository(shared.client());
+  await repository.load();
+  await repository.setCampaignArchived(IDS.octoberCampaign,true);
+  const expected = structuredClone(before); expected.campaigns.find(c=>c.id===IDS.octoberCampaign)!.status="archived";
+  expect(shared.planningSnapshot()).toEqual(expected);
+  await repository.setCampaignArchived(IDS.octoberCampaign,false);
+  expect(shared.planningSnapshot()).toEqual(before);
 });

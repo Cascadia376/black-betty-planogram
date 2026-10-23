@@ -77,7 +77,7 @@ export const PHYSICAL_LAYOUT_MUTATIONS = new Set<keyof MerchandisingRepository>(
 // Prototype ordering, supplier intake and measurement mutate collections not in
 // SHARED_KEYS; permitting them would report success and then lose the change.
 export const SHARED_PLANNING_MUTATIONS = new Set<keyof MerchandisingRepository>([
-  "createCampaign", "updateCampaign", "addCampaignProducts", "applyCampaignProductImport",
+  "createCampaign", "updateCampaign", "setCampaignArchived", "addCampaignProducts", "applyCampaignProductImport",
   "applyCampaignWorkbookImport", "applyStoreDisplayWorkbook", "reconcilePendingCampaignProduct",
   "updateCampaignProduct", "removeCampaignProduct", "createCampaignDisplay", "updateCampaignDisplay",
   "reorderCampaignDisplay", "removeCampaignDisplay", "assignCampaignProductsToDisplay",
@@ -142,6 +142,7 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
   const localRepository = new MockMerchandisingRepository(new SystemBusinessClock(), structuredClone(seedSnapshot), false);
   let initialized = false;
   let loadedPlanningVersion = 0;
+  let loadedPlanning: SharedPlanningSnapshot | undefined;
   let loadedPhysicalVersion = 0;
   let mutationQueue = Promise.resolve();
   const enqueue = <T,>(operation: () => Promise<T>): Promise<T> => {
@@ -165,6 +166,7 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
     const snapshot = mergeSharedState(planningRow.planning, physicalRow.physical);
     localRepository.replaceSnapshot(snapshot);
     loadedPlanningVersion = planningRow.version;
+    loadedPlanning = structuredClone(planningRow.planning);
     loadedPhysicalVersion = physicalRow.version;
     initialized = true;
     return structuredClone(snapshot);
@@ -174,11 +176,21 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
     if (!initialized) await loadRemote();
   };
 
-  const persistPlanning = async (): Promise<void> => {
+  const persistPlanning = async (archiveCampaignId?: string): Promise<void> => {
     const snapshot = await localRepository.load();
+    // Archive is a status-only operation. Retain the exact stored document,
+    // including historical/unreferenced products and future extension fields.
+    const planning = archiveCampaignId && loadedPlanning
+      ? structuredClone(loadedPlanning) : sharedPlanningFromSnapshot(snapshot);
+    if (archiveCampaignId) {
+      const matches = planning.campaigns.filter(campaign => campaign.id === archiveCampaignId);
+      const changed = snapshot.campaigns.find(campaign => campaign.id === archiveCampaignId);
+      if (!loadedPlanning || matches.length !== 1 || !changed) throw new Error("The campaign archive target is ambiguous. Reload before continuing.");
+      matches[0].status = changed.status;
+    }
     const { data, error } = await client
       .from("black_betty_planning_snapshot")
-      .update({ planning: sharedPlanningFromSnapshot(snapshot) })
+      .update({ planning })
       .eq("singleton", true)
       .eq("version", loadedPlanningVersion)
       .select("planning, version, updated_at, updated_by")
@@ -186,6 +198,7 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
     if (error) throw new Error(`Unable to save shared Black Betty planning data: ${error.message}`);
     if (!data) throw new SharedPlanningConflictError();
     loadedPlanningVersion = (data as SharedPlanningRow).version;
+    loadedPlanning = structuredClone((data as SharedPlanningRow).planning);
   };
 
   const persistPhysicalReference = async (): Promise<void> => {
@@ -235,7 +248,7 @@ export function createSupabaseMerchandisingRepository(client: SupabaseClient): M
           try {
             const result = await member.apply(target, args);
             if (PHYSICAL_LAYOUT_MUTATIONS.has(property as keyof MerchandisingRepository)) await persistPhysicalReference();
-            else await persistPlanning();
+            else await persistPlanning(property === "setCampaignArchived" ? args[0] as string : undefined);
             return result;
           } catch (cause) {
             localRepository.replaceSnapshot(before);

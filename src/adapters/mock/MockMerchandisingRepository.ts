@@ -390,6 +390,28 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     return structuredClone(campaign);
   }
 
+  /** Archive only unreleased drafts; preserve every related record for restoration. */
+  async setCampaignArchived(campaignId: UUID, archived: boolean) {
+    if (typeof archived !== "boolean") throw new Error("Choose archive or restore explicitly.");
+    const campaign = this.state.campaigns.find((item) => item.id === campaignId);
+    if (!campaign) throw new Error("Campaign was not found.");
+    const expected = archived ? "draft" : "archived";
+    if (campaign.status !== expected) {
+      throw new Error(archived ? "Only draft campaigns can be archived. Reload the campaign before continuing." : "Only archived campaigns can be restored. Reload the campaign before continuing.");
+    }
+    if (this.state.campaignReleases.some((release) => release.campaignId === campaignId)) {
+      throw new Error("A campaign with a release history cannot be archived or restored as a draft.");
+    }
+    campaign.status = archived ? "archived" : "draft";
+    try {
+      this.persist();
+    } catch (cause) {
+      campaign.status = expected;
+      throw new Error("Campaign storage failed. Reload before retrying.", { cause });
+    }
+    return structuredClone(campaign);
+  }
+
   async addCampaignProducts(input: AddCampaignProductsInput): Promise<CampaignProduct[]> {
     const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
     if (!campaign) throw new Error("Campaign was not found.");
@@ -1101,6 +1123,7 @@ export class MockMerchandisingRepository implements MerchandisingRepository {
     try {
       const campaign = this.state.campaigns.find((item) => item.id === input.campaignId);
       if (!campaign) throw new Error("Campaign was not found.");
+      if (campaign.status === "archived") throw new Error("Restore this archived campaign before publishing.");
       if (!input.publishedBy.trim()) throw new Error("The publishing user is required.");
 
       const readiness = evaluateCampaignPublishReadiness(campaign, this.state);

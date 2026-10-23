@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { Badge, Card, DataState, EmptyState, PageHeader, formatDate } from "../../components/ui";
 import type { Campaign, PlatformSnapshot } from "../../domain/types";
 import { productMasterStatusLabel, resolveCampaignProduct } from "../../domain/productMaster";
+import { CampaignArchiveActions } from "./CampaignArchiveActions";
 import { usePlatform } from "../../services/PlatformProvider";
 import { CampaignWorkflowStepper, campaignDisplayReadiness, campaignProductReadiness, campaignStoreReadiness } from "./campaignWorkflow";
 
@@ -27,6 +28,7 @@ export function CampaignOverviewPage() {
       </div>}
     />
     {updatedName && <div role="status" aria-live="polite" className="rounded-md border border-success/30 bg-success-subtle p-4 text-sm font-semibold text-success">{updatedName} changes saved.</div>}
+    <CampaignArchiveActions campaign={campaign} canEdit={canEdit} hasReleases={data.campaignReleases.some(release => release.campaignId === campaign.id)} />
     <CampaignWorkflowStepper campaign={campaign} data={data} current="campaign" />
     <CampaignSummary campaign={campaign} data={data} />
     <CampaignAssortment campaign={campaign} data={data} />

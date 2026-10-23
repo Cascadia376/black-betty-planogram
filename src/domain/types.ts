@@ -1,7 +1,7 @@
 export type UUID = string;
 
 export type UserRole = "admin" | "merchandising" | "operations" | "store_manager" | "read_only";
-export type CampaignStatus = "draft" | "scheduled" | "active" | "completed";
+export type CampaignStatus = "draft" | "scheduled" | "active" | "completed" | "archived";
 export type MerchandisingProgramStatus = "draft" | "planned" | "active" | "completed" | "archived";
 export type DisplayAssignmentStatus = "draft" | "planned" | "ready" | "active" | "completed" | "cancelled";
 export type SupplierAvailability = "available" | "limited" | "unavailable" | "unknown";
